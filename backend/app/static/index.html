@@ -1,0 +1,4648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>金智汇连ETL</title>
+  <link rel="icon" href="static/logo.png" type="image/png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --sidebar: #1a1d27;
+      --card: #22263a;
+      --card-hover: #2a2f47;
+      --border: #2d3348;
+      --text: #e2e8f0;
+      --text-dim: #8892a4;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f7fa;
+      --sidebar: #ffffff;
+      --card: #ffffff;
+      --card-hover: #f0f2f5;
+      --border: #e2e6ee;
+      --text: #1e293b;
+      --text-dim: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --info: #0ea5e9;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 220px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .sidebar-logo span {
+      font-size: 11px;
+      color: var(--text-dim);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 8px;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 14px;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover { background: var(--card); color: var(--text); }
+    .nav-item.active { background: var(--accent); color: #fff; }
+    .nav-item .icon { font-size: 18px; width: 20px; text-align: center; }
+
+    .nav-section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 16px 12px 6px;
+      opacity: 0.6;
+    }
+
+    /* Main content */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #topbar {
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+
+    #topbar-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    #topbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--card-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: 0.85; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { opacity: 0.85; }
+    .btn-warning { background: var(--warning); color: #000; }
+    .btn-warning:hover { opacity: 0.85; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #theme-toggle-btn:hover { background: var(--card-hover); border-color: var(--accent); }
+
+    /* Cards & Panels */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .stat-card .stat-value.accent { color: var(--accent); }
+    .stat-card .stat-value.success { color: var(--success); }
+    .stat-card .stat-value.warning { color: var(--warning); }
+    .stat-card .stat-value.danger { color: var(--danger); }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .data-table tr:hover td { background: var(--card-hover); }
+
+    .data-table .actions { display: flex; gap: 4px; }
+
+    /* API Reference grid */
+    .api-ref-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 500px; overflow-y: auto; }
+    .api-ref-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.15s; background: var(--card); }
+    .api-ref-card:hover { border-color: var(--accent); background: rgba(99,102,241,0.06); }
+    .api-ref-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .api-ref-name { font-weight: 700; color: var(--accent); font-size: 14px; }
+    .api-ref-desc { font-size: 12px; color: var(--text-dim); }
+    .api-ref-params { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; word-break: break-all; }
+    .api-ref-fields { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; word-break: break-all; }
+
+    /* Status badges */
+    .badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-pending { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .badge-running { background: rgba(56,189,248,0.15); color: var(--info); }
+    .badge-completed { background: rgba(34,197,94,0.15); color: var(--success); }
+    .badge-failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .badge-paused { background: rgba(245,158,11,0.15); color: var(--warning); }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color 0.15s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .form-control::placeholder { color: var(--text-dim); opacity: 0.6; }
+
+    select.form-control { cursor: pointer; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    [data-theme="light"] .modal-overlay {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 520px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h2 { font-size: 15px; font-weight: 600; }
+    .modal-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 2px 6px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Progress bar */
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 13px; margin-bottom: 16px; }
+
+    /* Quick start guide */
+    .quickstart-guide {
+      background: linear-gradient(135deg, var(--sidebar) 0%, var(--card) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .quickstart-guide.hidden { display: none; }
+    .quickstart-guide .qs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .quickstart-guide .qs-header h3 { font-size: 15px; font-weight: 600; }
+    .quickstart-guide .qs-header .qs-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .quickstart-guide .qs-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .qs-step {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .qs-step:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .qs-step.done { border-color: var(--success); }
+    .qs-step.done .qs-step-num { background: var(--success); }
+    .qs-step.current { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+    .qs-step.current .qs-step-num { background: var(--accent); }
+    .qs-step-num {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--border);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .qs-step-icon { font-size: 28px; margin-bottom: 6px; }
+    .qs-step-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .qs-step-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+    .qs-step .qs-done-check {
+      position: absolute;
+      top: 10px; right: 10px;
+      color: var(--success);
+      font-size: 16px;
+    }
+
+    .qs-modal-step { text-align: left; }
+    .qs-modal-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .qs-modal-step p { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.6; }
+    .qs-modal-step ol { font-size: 13px; padding-left: 20px; margin-bottom: 16px; }
+    .qs-modal-step ol li { margin-bottom: 6px; }
+    .qs-modal-step .qs-tip {
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--accent-hover);
+      margin-bottom: 16px;
+    }
+
+    /* Log viewer */
+    .log-viewer {
+      background: #0d0f16;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .log-viewer .log-line { color: var(--text-dim); }
+    .log-viewer .log-info { color: var(--info); }
+    .log-viewer .log-error { color: var(--danger); }
+    .log-viewer .log-success { color: var(--success); }
+    .log-viewer .log-warning { color: var(--warning); }
+
+    /* Field mapper */
+    .field-map-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    /* Connection type cards */
+    .conn-type-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .conn-type-card {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 12px;
+      transition: all 0.15s;
+      background: var(--bg);
+    }
+
+    .conn-type-card:hover { border-color: var(--accent); }
+    .conn-type-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+    .conn-type-card .type-icon { font-size: 24px; margin-bottom: 6px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* Utility */
+    .hidden { display: none !important; }
+    .text-dim { color: var(--text-dim); font-size: 12px; }
+    .text-right { text-align: right; }
+    .mt-8 { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mb-16 { margin-bottom: 16px; }
+    .flex { display: flex; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    .gap-8 { gap: 8px; }
+
+    /* Loading overlay */
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Data preview table */
+    .preview-table-wrap { overflow: auto; max-height: 300px; }
+    .preview-table-wrap table { white-space: nowrap; }
+    .preview-type-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; background: rgba(99,102,241,0.15); color: var(--accent); }
+
+    /* Source config wizard */
+    .wizard-steps { display: flex; gap: 4px; margin-bottom: 16px; }
+    .wizard-step { flex: 1; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); }
+    .wizard-step.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .wizard-step.done { background: rgba(34,197,94,0.15); color: var(--success); border-color: var(--success); }
+
+    /* K-line source type cards */
+    .kline-type-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .kline-type-card {
+      padding: 16px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      background: var(--bg);
+    }
+    .kline-type-card:hover { border-color: var(--accent); }
+    .kline-type-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+    .kline-type-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .kline-type-card .label { font-size: 13px; font-weight: 600; }
+    .kline-type-card .desc { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    /* Credential type cards */
+    .cred-type-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px;
+    }
+    .cred-type-card {
+      padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; gap: 10px; background: var(--bg); transition: all 0.15s;
+    }
+    .cred-type-card:hover { border-color: var(--accent); }
+    .cred-type-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+    .cred-type-card .cred-icon { font-size: 22px; }
+    .cred-type-card .cred-label { font-size: 13px; font-weight: 600; }
+
+    /* API reference */
+    .api-ref-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .api-ref-tabs { display: flex; gap: 4px; }
+    .api-ref-tab {
+      padding: 6px 14px; font-size: 13px; border-radius: 6px; cursor: pointer;
+      background: rgba(255,255,255,0.05); transition: all 0.15s; color: var(--text-dim);
+    }
+    .api-ref-tab:hover { background: rgba(99,102,241,0.15); color: var(--text-primary); }
+    .api-ref-tab.active { background: var(--accent); color: #fff; }
+    .api-ref-search { min-width: 180px; }
+    .api-ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; }
+    .api-ref-card {
+      padding: 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+      background: var(--bg); transition: all 0.15s;
+    }
+    .api-ref-card:hover { border-color: var(--accent); box-shadow: 0 0 12px rgba(99,102,241,0.1); }
+    .api-ref-header { margin-bottom: 8px; }
+    .api-ref-name { font-size: 14px; font-weight: 600; }
+    .api-ref-desc { font-size: 12px; color: var(--text-dim); margin-left: 8px; }
+    .api-ref-params, .api-ref-fields { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+
+    /* Workflow editor */
+    .wf-editor {
+      display: flex;
+      height: 600px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .wf-palette {
+      width: 200px;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+    .wf-palette-section {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 10px 0 4px;
+    }
+    .wf-palette-node {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: grab;
+      font-size: 12px;
+      margin-bottom: 4px;
+      transition: all 0.1s;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wf-palette-node:hover { border-color: var(--accent); }
+    .wf-canvas {
+      flex: 1;
+      position: relative;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    .wf-canvas svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .wf-node {
+      position: absolute;
+      width: 180px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0;
+      cursor: move;
+      user-select: none;
+      z-index: 2;
+    }
+    .wf-node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
+    .wf-node-header {
+      padding: 8px 10px;
+      border-radius: 8px 8px 0 0;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wf-node-body {
+      padding: 6px 10px 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .wf-node-port {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--card);
+    }
+    .wf-node-port.output { right: -5px; top: 50%; transform: translateY(-50%); }
+    .wf-node-port.input { left: -5px; top: 50%; transform: translateY(-50%); }
+    .wf-props {
+      width: 280px;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      flex-shrink: 0;
+    }
+    .wf-props h3 { font-size: 13px; margin-bottom: 12px; }
+    .wf-props .form-group { margin-bottom: 10px; }
+    .wf-props .form-group label { font-size: 11px; }
+    .wf-props .form-control { font-size: 12px; padding: 6px 8px; }
+    .wf-props textarea.form-control { min-height: 80px; font-family: monospace; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #sidebar { width: 60px; }
+      .sidebar-logo h1 { display: none; }
+      .nav-item span { display: none; }
+      .nav-section-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sidebar-logo">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="static/logo.png" alt="logo" style="width:40px;height:40px;border-radius:8px;object-fit:contain;flex-shrink:0">
+      <div><h1 style="margin:0;font-size:16px;line-height:1.3">金智汇连ETL</h1>
+      <span style="font-size:11px">通用可视化ETL数据同步工具</span></div>
+    </div>
+    <span id="ws-status" style="font-size:10px;color:#6366f1;margin-top:4px">● 连接中</span>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-view="overview" onclick="navigate('overview')">
+      <span class="icon">📊</span><span>总览</span>
+    </div>
+    <div class="nav-section-label">数据流</div>
+    <div class="nav-item" data-view="kline-sources" onclick="navigate('kline-sources')">
+      <span class="icon">📡</span><span>数据源</span>
+    </div>
+    <div class="nav-item" data-view="pipelines" onclick="navigate('pipelines')">
+      <span class="icon">🔄</span><span>数据流 (Pipeline)</span>
+    </div>
+    <div class="nav-item" data-view="workflows" onclick="navigate('workflows')">
+      <span class="icon">🔀</span><span>ETL工作流</span>
+    </div>
+    <div class="nav-section-label">数据管理</div>
+    <div class="nav-item" data-view="credentials" onclick="navigate('credentials')">
+      <span class="icon">🔑</span><span>凭证管理</span>
+    </div>
+    <div class="nav-item" data-view="connections" onclick="navigate('connections')">
+      <span class="icon">🔗</span><span>连接管理</span>
+    </div>
+    <div class="nav-item" data-view="schemas" onclick="navigate('schemas')">
+      <span class="icon">🗄️</span><span>表结构</span>
+    </div>
+    <div class="nav-section-label">文件导入</div>
+    <div class="nav-item" data-view="bulk-import" onclick="navigate('bulk-import')">
+      <span class="icon">📥</span><span>文件导入</span>
+    </div>
+    <div class="nav-item" data-view="tasks" onclick="navigate('tasks')">
+      <span class="icon">⚡</span><span>导入任务</span>
+    </div>
+    <div class="nav-section-label">运维</div>
+    <div class="nav-item" data-view="monitor" onclick="navigate('monitor')">
+      <span class="icon">📈</span><span>监控面板</span>
+    </div>
+    <div class="nav-item" data-view="reports" onclick="navigate('reports')">
+      <span class="icon">📄</span><span>报告导出</span>
+    </div>
+    <div class="nav-item" data-view="logs" onclick="navigate('logs')">
+      <span class="icon">📋</span><span>日志</span>
+    </div>
+    <div class="nav-section-label">系统</div>
+    <div class="nav-item" data-view="ai-script" onclick="navigate('ai-script')">
+      <span class="icon">✨</span><span>AI脚本生成</span>
+    </div>
+    <div class="nav-item" data-view="llm-settings" onclick="navigateToLLMSettings()">
+      <span class="icon">🤖</span><span>AI 设置</span>
+    </div>
+    <div class="nav-item" data-view="about" onclick="navigate('about')">
+      <span class="icon">ℹ️</span><span>关于</span>
+    </div>
+  </div>
+  <!-- Theme toggle at bottom of sidebar -->
+  <div style="padding:12px 8px;border-top:1px solid var(--border)">
+    <button onclick="toggleTheme()" id="theme-toggle-btn" style="width:100%;padding:10px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s">
+      <span id="theme-icon" style="font-size:18px">🌙</span>
+      <span id="theme-label">切换深色</span>
+    </button>
+  </div>
+</div>
+<div id="main">
+  <div id="topbar">
+    <div id="topbar-title">总览</div>
+    <div id="topbar-actions"></div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<!-- Loading overlay (global) -->
+<div id="loading-overlay" class="modal-overlay hidden">
+  <div style="text-align:center">
+    <div class="loading-spinner"></div>
+    <div id="loading-msg" style="color:var(--text);margin-top:12px;font-size:13px">处理中...</div>
+  </div>
+</div>
+
+<!-- Modal (shared) -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Modal</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+    <div id="modal-footer" class="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const VIEWS = {};
+
+// ---------- Navigation ----------
+const VIEW_DATA_LOADER = {
+  overview: loadOverviewData,
+  'kline-sources': refreshKlineSources,
+  credentials: refreshCredentials,
+  pipelines: refreshPipelines,
+  workflows: refreshWorkflows,
+  connections: refreshConnections,
+  schemas: refreshSchemas,
+  'bulk-import': refreshBulkImports,
+  tasks: refreshTasks,
+  monitor: refreshMonitor,
+  logs: loadLogs,
+  reports: loadReportsView,
+  about: loadAboutData,
+  'ai-script': refreshAiScript,
+  'llm-settings': refreshLLMSettings,
+};
+
+async function navigate(view) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-view="${view}"]`).classList.add('active');
+  document.getElementById('topbar-title').textContent = {
+    overview: '总览', 'kline-sources': '数据源', pipelines: '数据流 (Pipeline)', workflows: 'ETL工作流',
+    connections: '连接管理', schemas: '表结构',
+    'bulk-import': '文件导入', tasks: '导入任务', monitor: '监控面板', reports: '报告导出', logs: '日志', about: '关于', 'ai-script': 'AI脚本生成', 'llm-settings': 'AI 设置'
+  }[view] || view;
+
+  // Render cached HTML if available
+  if (VIEWS[view]) {
+    document.getElementById('content').innerHTML = VIEWS[view]();
+  } else {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="icon">🔧</div><p>视图加载中...</p></div>';
+    await loadView(view);
+  }
+
+  // Always load data when navigating to a view
+  if (VIEW_DATA_LOADER[view]) {
+    VIEW_DATA_LOADER[view]();
+  }
+}
+
+// ---------- Loading state ----------
+let _loadingCount = 0;
+function showLoading(msg = '处理中...') {
+  _loadingCount++;
+  const el = document.getElementById('loading-overlay');
+  const msgEl = document.getElementById('loading-msg');
+  if (msgEl) msgEl.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideLoading() {
+  _loadingCount = Math.max(0, _loadingCount - 1);
+  if (_loadingCount === 0) {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }
+}
+
+// ---------- API helpers ----------
+async function api(url, opts = {}) {
+  const silent = opts.silent;
+  if (!silent) showLoading(opts.loadingMsg || '加载中...');
+  try {
+    const res = await fetch(API + url, {
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      ...opts,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } finally {
+    if (!silent) hideLoading();
+  }
+}
+
+// ---------- WebSocket ----------
+let ws = null;
+let wsReconnectTimer = null;
+
+function connectWS() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws`;
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      addLog('WebSocket 已连接', 'success');
+      if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+      const el = document.getElementById('ws-status');
+      if (el) { el.textContent = '● 已连接'; el.style.color = '#22c55e'; }
+    };
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWSMessage(msg);
+      } catch(e) {}
+    };
+    ws.onclose = () => {
+      addLog('WebSocket 连接关闭，3秒后重连', 'warning');
+      const el = document.getElementById('ws-status');
+      if (el) { el.textContent = '● 重连中'; el.style.color = '#f59e0b'; }
+      wsReconnectTimer = setTimeout(connectWS, 3000);
+    };
+    ws.onerror = () => {
+      addLog('WebSocket 连接错误', 'error');
+      const el = document.getElementById('ws-status');
+      if (el) { el.textContent = '● 断开'; el.style.color = '#ef4444'; }
+    };
+  } catch(e) {
+    setTimeout(connectWS, 3000);
+  }
+}
+
+function handleWSMessage(msg) {
+  if (msg.type === 'status_update') {
+    // Update overview stats if on overview
+    const view = document.querySelector('.nav-item.active')?.dataset.view;
+    if (view === 'overview') loadOverviewData();
+  } else if (msg.type === 'import_update') {
+    const view = document.querySelector('.nav-item.active')?.dataset.view;
+    if (view === 'bulk-import') refreshBulkImports();
+    if (view === 'monitor') refreshMonitor();
+    // Update progress directly in the table
+    updateImportRow(msg);
+  } else if (msg.type === 'task_update') {
+    const view = document.querySelector('.nav-item.active')?.dataset.view;
+    if (view === 'tasks') refreshTasks();
+    if (view === 'monitor') refreshMonitor();
+  } else if (msg.type === 'log') {
+    addLog(msg.message, msg.level);
+  }
+}
+
+function updateImportRow(msg) {
+  // Live-update progress in the bulk-import table without full refresh
+  const rows = document.querySelectorAll('#bulk-imports-list tr');
+  for (const row of rows) {
+    const idCell = row.cells[0];
+    if (!idCell) continue;
+  }
+}
+
+function sendWS(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+// ---------- Modal helpers ----------
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+// ---------- Load views ----------
+async function loadView(view, force = false) {
+  if (!force && VIEWS[view]) return;
+  try {
+    const { render } = await VIEW_DEFS[view]();
+    VIEWS[view] = render;
+    document.getElementById('content').innerHTML = render();
+    await onViewReady(view);
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>加载失败: ${e.message}</p></div>`;
+  }
+}
+
+async function onViewReady(view) {
+  if (view === 'overview') await loadOverviewData();
+  if (view === 'bulk-import') await refreshBulkImports();
+  if (view === 'tasks') await refreshTasks();
+  if (view === 'monitor') await refreshMonitor();
+  if (view === 'reports') await loadReportsView();
+  if (view === 'logs') await loadLogs();
+}
+
+// ---------- Overview ----------
+const VIEW_DEFS = {
+overview: async () => ({
+    render: () => `
+      <div id="quickstart-guide" class="quickstart-guide">
+        <div class="qs-header">
+          <h3>🚀 快速开始</h3>
+          <span class="qs-badge">新手引导</span>
+        </div>
+        <div class="qs-steps">
+          <div class="qs-step current" data-step="1" onclick="qsOpenStep(1)">
+            <div class="qs-step-num">1</div>
+            <div class="qs-step-icon">🔗</div>
+            <div class="qs-step-title">创建数据连接</div>
+            <div class="qs-step-desc">连接数据库、文件或HTTP接口，作为数据来源</div>
+          </div>
+          <div class="qs-step" data-step="2" onclick="qsOpenStep(2)">
+            <div class="qs-step-num">2</div>
+            <div class="qs-step-icon">📡</div>
+            <div class="qs-step-title">添加数据源</div>
+            <div class="qs-step-desc">配置 K线数据源或自定义 HTTP 数据接口</div>
+          </div>
+          <div class="qs-step" data-step="3" onclick="qsOpenStep(3)">
+            <div class="qs-step-num">3</div>
+            <div class="qs-step-icon">🔄</div>
+            <div class="qs-step-title">创建数据流</div>
+            <div class="qs-step-desc">定义数据从哪来、经过什么处理、到哪里去</div>
+          </div>
+          <div class="qs-step" data-step="4" onclick="qsOpenStep(4)">
+            <div class="qs-step-num">4</div>
+            <div class="qs-step-icon">⚡</div>
+            <div class="qs-step-title">运行同步任务</div>
+            <div class="qs-step-desc">手动执行或定时调度，自动同步数据</div>
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid" id="overview-stats"></div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">最近批量导入</span>
+          <button class="btn btn-secondary btn-sm" onclick="navigate('bulk-import')">查看全部</button>
+        </div>
+        <div id="overview-imports"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">最近任务</span>
+          <button class="btn btn-secondary btn-sm" onclick="navigate('tasks')">查看全部</button>
+        </div>
+        <div id="overview-tasks"></div>
+      </div>
+    `
+  }),
+
+  connections: async () => ({
+    render: () => `
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text-dim)">
+        <strong style="color:#10b981">💡 连接管理</strong>：管理数据库连接（MySQL / PostgreSQL / DuckDB / ClickHouse 等）。用于 ETL 任务的数据读写、批量导入和表结构管理。
+        <span style="margin-left:16px"><strong>注意</strong>：连接 ≠ 数据源。HTTP API 数据源（Tushare/AK/通达信）请在「数据源」菜单中管理。
+      </div>
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openNewConnectionModal()">+ 新建连接</button>
+        <button class="btn btn-secondary" onclick="refreshConnections()">🔄 刷新</button>
+      </div>
+      <div class="panel">
+        <div id="connections-list"></div>
+      </div>
+    `
+  }),
+
+  schemas: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openNewSchemaModal()">+ 新建表结构</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="importSchemaJSON()">📥 导入JSON</button>
+          <button class="btn btn-secondary" onclick="refreshSchemas()">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div id="schemas-list"></div>
+      </div>
+    `
+  }),
+
+  'bulk-import': async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openBulkImportModal()">+ 新建批量导入</button>
+        <button class="btn btn-secondary" onclick="refreshBulkImports()">🔄 刷新</button>
+      </div>
+      <div class="stats-grid" id="bulk-stats"></div>
+      <div class="panel">
+        <div id="bulk-imports-list"></div>
+      </div>
+    `
+  }),
+
+  tasks: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openNewTaskModal()">+ 新建同步任务</button>
+        <button class="btn btn-secondary" onclick="refreshTasks()">🔄 刷新</button>
+      </div>
+      <div class="stats-grid" id="task-stats"></div>
+      <div class="panel">
+        <div id="tasks-list"></div>
+      </div>
+    `
+  }),
+
+  monitor: async () => ({
+    render: () => `
+      <div class="stats-grid" id="monitor-stats"></div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">批量导入详情</span></div>
+        <div id="monitor-imports"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">任务详情</span></div>
+        <div id="monitor-tasks"></div>
+      </div>
+    `
+  }),
+
+  logs: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-secondary" onclick="loadLogs()">🔄 刷新日志</button>
+        <button class="btn btn-secondary" onclick="clearLogs()">清空</button>
+      </div>
+      <div class="panel">
+        <div id="log-viewer" class="log-viewer"></div>
+      </div>
+    `
+  }),
+
+  reports: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openExportSummaryModal()">📊 导出总报告</button>
+        <button class="btn btn-secondary" onclick="loadReportsView()">🔄 刷新</button>
+      </div>
+      <div class="stats-grid" id="report-stats"></div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">最近任务报告</span></div>
+        <div id="report-tasks"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">最近导入报告</span></div>
+        <div id="report-imports"></div>
+      </div>
+    `
+  }),
+
+  'credentials': async () => {
+    return {
+      render: () => `
+        <div class="flex-between mb-16">
+          <button class="btn btn-primary" onclick="openCredentialModal()">+ 新建凭证</button>
+          <button class="btn btn-secondary" onclick="refreshCredentials()">🔄 刷新</button>
+        </div>
+        <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text-dim)">
+          <strong style="color:var(--accent)">💡 说明</strong>：凭证独立存储认证信息（Token、API Key 等），数据源通过引用凭证使用认证，一处修改处处生效。
+        </div>
+        <div class="panel">
+          <div id="credentials-list"></div>
+        </div>
+      `
+    }
+  },
+
+  'kline-sources': async () => ({
+    render: () => `
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text-dim)">
+        <strong style="color:var(--accent)">💡 数据源管理</strong>：管理外部 HTTP API 数据源（Tushare / AkShare / 通达信等）。通过 HTTP REST 接口获取行情、财务等 K 线数据。
+        <span style="margin-left:16px"><strong>注意</strong>：数据源 ≠ 连接。数据库连接（MySQL/PostgreSQL 等）请在「连接管理」菜单中管理。
+      </div>
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openKlineSourceModal()">+ 新建数据源</button>
+        <div>
+          <button class="btn btn-secondary" onclick="openApiRefModal()" style="margin-right:8px">📖 API 参考</button>
+          <button class="btn btn-secondary" onclick="refreshKlineSources()">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div id="kline-sources-list"></div>
+      </div>
+    `
+  }),
+
+  pipelines: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openPipelineModal()">+ 新建数据流</button>
+        <button class="btn btn-secondary" onclick="refreshPipelines()">🔄 刷新</button>
+      </div>
+      <div class="stats-grid" id="pipeline-stats"></div>
+      <div class="panel">
+        <div id="pipelines-list"></div>
+      </div>
+    `
+  }),
+
+  workflows: async () => ({
+    render: () => `
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
+        <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
+        <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
+      </div>
+      <div class="panel">
+        <div id="workflows-list"></div>
+      </div>
+    `
+  }),
+
+  'ai-script': () => ({
+    render: () => `
+      <div class="panel" style="max-width:900px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div class="panel-title">AI 脚本生成</div>
+            <div style="color:var(--text-dim);font-size:12px;margin-top:4px">用自然语言描述需求，AI 自动生成适配金智汇连ETL SDK 的 Python 脚本</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="ai-remaining" class="badge" style="background:rgba(99,102,241,0.15);color:var(--accent);font-size:12px;padding:4px 10px;border-radius:12px">--</span>
+            <button class="btn btn-secondary btn-sm" onclick="openAiConfigModal()">LLM 配置</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <div class="panel-title" style="font-size:13px;margin-bottom:8px">描述你的需求</div>
+            <textarea id="ai-prompt" class="form-control" style="min-height:160px;font-size:13px;line-height:1.6" placeholder="示例：读取 data.csv 文件，过滤 price > 100 的记录，按 category 分组统计平均值，结果写入 SQLite 数据库 mydb.db 的 summary 表"></textarea>
+
+            <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+              <select id="ai-ctx-source" class="form-control" style="width:auto;min-width:120px">
+                <option value="">数据源类型</option>
+                <option value="csv">CSV 文件</option>
+                <option value="mysql">MySQL</option>
+                <option value="sqlite">SQLite</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="duckdb">DuckDB</option>
+                <option value="http">HTTP API</option>
+                <option value="excel">Excel</option>
+              </select>
+              <select id="ai-ctx-target" class="form-control" style="width:auto;min-width:120px">
+                <option value="">目标类型</option>
+                <option value="csv">CSV 文件</option>
+                <option value="mysql">MySQL</option>
+                <option value="sqlite">SQLite</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="duckdb">DuckDB</option>
+              </select>
+              <input id="ai-ctx-table" class="form-control" style="width:auto;min-width:140px" placeholder="目标表名（可选）">
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn btn-primary" onclick="generateAiScript()" id="ai-gen-btn">生成脚本</button>
+              <button class="btn btn-secondary" onclick="optimizeAiScript()" id="ai-opt-btn">优化脚本</button>
+              <button class="btn btn-secondary" onclick="copyAiScript()">复制</button>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="aiQuickPrompt('读取CSV文件，去重并过滤空值，写入SQLite数据库')">CSV → SQLite</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="aiQuickPrompt('读取CSV文件，清洗数据后批量写入MySQL数据库')">CSV → MySQL</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="aiQuickPrompt('从HTTP API拉取JSON数据，解析后写入DuckDB')">HTTP → DuckDB</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="aiQuickPrompt('设置每日定时任务，读取最新CSV数据同步到SQLite')">定时同步</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:11px" onclick="aiQuickPrompt('读取Excel文件，数据清洗、去重、类型转换，输出为CSV')">Excel → CSV</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-title" style="font-size:13px;margin-bottom:8px">生成结果</div>
+            <div id="ai-notice" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px 12px;font-size:11px;color:#f59e0b;margin-bottom:8px"></div>
+            <textarea id="ai-output" class="form-control" style="min-height:360px;font-family:monospace;font-size:12px;line-height:1.5;background:var(--bg);color:var(--text)" readonly placeholder="生成的脚本将显示在此处..."></textarea>
+          </div>
+        </div>
+      </div>
+    `
+  }),
+
+  about: () => ({
+    render: () => `
+      <div class="panel" style="max-width:720px;margin:0 auto">
+        <div style="text-align:center;margin-bottom:24px">
+          <img src="static/logo.png" alt="logo" style="width:64px;height:64px;border-radius:12px;object-fit:contain;margin-bottom:8px">
+          <div style="font-size:32px;font-weight:700;color:var(--accent);margin-bottom:8px">金智汇连ETL</div>
+          <div style="color:var(--text-dim);margin-bottom:4px">通用可视化ETL数据同步工具</div>
+          <div style="color:var(--text-dim);font-size:12px" id="about-version">版本 1.0.0 | 免费基础版</div>
+        </div>
+
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px">🏢 产品介绍</div>
+        <div style="color:var(--text);line-height:1.8;margin-bottom:20px">
+          金智汇连ETL是一款跨平台（Windows+Mac）通用ETL工具，提供可视化工作流、通用数据连接、数据清洗、调度入库、容错监控能力。内置SDK/API及轻量化大模型，支持通过自然语言指令自动生成自定义脚本，彻底降低数据同步的使用门槛。
+        </div>
+
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px">⚠️ 免责声明</div>
+        <div style="color:var(--text-dim);line-height:1.9;font-size:13px;background:var(--bg);padding:16px;border-radius:8px;border:1px solid var(--border)">
+          <p style="margin-bottom:10px"><strong>1.</strong> 本软件为通用数据处理ETL工具，仅提供数据流转、调度、清洗、入库的基础能力及脚本生成辅助功能，不绑定任何第三方数据源，不提供任何数据本身。</p>
+          <p style="margin-bottom:10px"><strong>2.</strong> 所有用户自行对接的第三方数据源（含金融、产业、办公等各类数据）、账号权限、Token密钥、接口协议，均由用户自行获取、自行管理，用户需严格遵守对应数据源的用户协议与相关法律法规，承担全部合规责任。</p>
+          <p style="margin-bottom:10px"><strong>3.</strong> 本软件与通达信、各券商、期货交易所、Tushare等任何第三方数据源主体无任何合作、关联关系，不负责用户数据源的合规性、稳定性、可用性。</p>
+          <p style="margin-bottom:10px"><strong>4.</strong> 禁止用户使用本软件从事破解、逆向、绕过第三方数据源技术保护措施等违规违法操作，若用户因违规使用产生任何法律责任，均由用户自行承担，与软件开发者无关。</p>
+          <p><strong>5.</strong> 软件内置SDK/API仅为工具自身功能接口，不涉及任何第三方数据源核心逻辑；大模型仅提供脚本生成辅助能力，生成的脚本需用户自行审核合规性，因脚本违规使用产生的法律责任，由用户自行承担。</p>
+        </div>
+
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📋 版本说明</div>
+        <div style="color:var(--text-dim);line-height:1.8;font-size:13px">
+          <p><strong>免费基础版</strong>：包含基础可视化工作流、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV）、简单数据清洗、定时调度等功能。</p>
+          <p style="margin-top:8px"><strong>付费License版</strong>：多工作流并发、高级数据库连接（DuckDB、PG）、断点续传、失败自动重试、大数据量优化、大模型脚本生成（无次数限制）等。</p>
+          <p style="margin-top:8px"><strong>专业版</strong>：分布式任务调度、高级监控告警、数据备份与恢复、批量任务管理、专属技术支持等。</p>
+        </div>
+
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">🔑 License 管理</div>
+        <div id="about-license-info" style="color:var(--text-dim);line-height:1.8;font-size:13px"></div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="openLicenseModal()">管理 License</button>
+        </div>
+
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📦 SDK 使用指南</div>
+        <div style="color:var(--text-dim);line-height:1.8;font-size:13px">
+          <p>金智汇连ETL 提供官方 Python SDK (<code>etl_tool_sdk</code>)，用于在自定义脚本中调用工具的数据连接、清洗、调度能力。</p>
+
+          <p style="margin-top:10px"><strong>安装：</strong></p>
+          <pre style="background:var(--bg);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto">pip install etl_tool_sdk</pre>
+
+          <p style="margin-top:10px"><strong>快速开始：</strong></p>
+          <pre style="background:var(--bg);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto">from etl_tool_sdk import init_sdk, DataConnector, DataCleaner, LogHandler
+
+init_sdk()
+conn = DataConnector()
+cleaner = DataCleaner()
+
+df = conn.read_csv("data.csv")
+df = cleaner.drop_duplicates(df)
+LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
+
+          <p style="margin-top:10px"><strong>API 参考：</strong></p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px"><strong>类名</strong></td><td style="padding:4px 8px"><strong>功能</strong></td></tr>
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">DataConnector</td><td style="padding:4px 8px">数据库读取/写入、文件 I/O、HTTP API 调用</td></tr>
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">DataCleaner</td><td style="padding:4px 8px">去重，空值处理、字段转换、数据校验</td></tr>
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">WorkflowScheduler</td><td style="padding:4px 8px">定时任务调度（Cron/间隔/一次性）</td></tr>
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">ScriptExecutor</td><td style="padding:4px 8px">安全沙箱执行 Python 脚本</td></tr>
+            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">LogHandler</td><td style="padding:4px 8px">结构化日志记录（文件+控制台）</td></tr>
+            <tr><td style="padding:4px 8px">LicenseManager</td><td style="padding:4px 8px">授权等级查询、功能权限校验</td></tr>
+          </table>
+
+          <p style="margin-top:10px">使用 <strong>AI 脚本生成</strong>功能（左侧菜单）可自动生成适配 SDK 的脚本代码。</p>
+          <p style="margin-top:6px;font-size:12px">⚠️ 合规提示：SDK 仅为工具自身功能接口，不提供任何第三方数据源对接逻辑。</p>
+        </div>
+      </div>
+    `
+  }),
+
+  'llm-settings': () => ({
+    render: () => `
+      <div class="panel" style="max-width:800px;margin:0 auto">
+        <div class="panel-title">🤖 AI 设置</div>
+        <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px">
+          配置大模型后，可在凭证测试、数据源配置等场景中获取 AI 辅助排查建议。
+        </div>
+        <div id="llm-settings-form">
+          <div class="form-group">
+            <label>状态</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="toggle" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="llm-enabled" onchange="saveLLMSettings()">
+                <span style="font-size:13px">启用 AI 辅助</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>模型类型</label>
+            <select class="form-control" id="llm-provider" onchange="onLLMProviderChange()">
+              <option value="openai">OpenAI 兼容（GPT 系列）</option>
+              <option value="claude">Claude（Anthropic）</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="qwen">通义千问（Qwen）</option>
+              <option value="custom">自定义（OpenAI 兼容）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>API 地址（base_url）</label>
+            <input class="form-control" id="llm-base-url" placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1">
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input class="form-control" id="llm-api-key" type="password" placeholder="sk-...">
+            <div class="text-dim mt-4" style="font-size:12px">⚠️ API Key 仅本地存储，不上传任何服务器</div>
+          </div>
+          <div class="form-group">
+            <label>模型名称</label>
+            <input class="form-control" id="llm-model" placeholder="gpt-4o-mini" value="gpt-4o-mini">
+            <div class="text-dim mt-4" style="font-size:12px">常用：gpt-4o-mini（性价比）、gpt-4o（更强）、deepseek-chat、qwen-plus</div>
+          </div>
+          <div class="form-group">
+            <label>系统提示词（可选）</label>
+            <textarea class="form-control" id="llm-system-prompt" rows="3" placeholder="你是一个量化交易 ETL 系统的技术顾问...">你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。回答要简洁、有针对性。</textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-primary" onclick="saveLLMSettings()">💾 保存</button>
+            <button class="btn btn-secondary" onclick="testLLM()">🧪 测试连接</button>
+          </div>
+        </div>
+        <div id="llm-test-result" style="margin-top:16px"></div>
+      </div>
+    `
+  }),
+};
+
+// ---------- Quick Start Guide ----------
+const QS_STEPS = {
+  1: {
+    title: '创建数据连接',
+    desc: '数据连接是数据同步的基础。你需要先告诉系统，从哪里获取数据，或把数据存到哪里。',
+    items: [
+      '点击左侧「连接管理」',
+      '点击「+ 新建连接」按钮',
+      '选择连接类型：数据库 (SQLite/MySQL/PostgreSQL/Oracle)、文件 (CSV/JSON/Excel) 或 HTTP 接口',
+      '填写连接名称和配置信息，点击保存',
+    ],
+    tip: '你可以创建多个连接，一个用于读取数据，另一个用于写入目标库。',
+    action: '前往连接管理',
+    actionFn: 'navigate("connections"); closeModal();',
+  },
+  2: {
+    title: '添加数据源',
+    desc: '数据源定义了你要拉取的数据内容。目前支持 K 线数据源和通用 HTTP 数据源。',
+    items: [
+      '点击左侧「数据源」',
+      '点击「+ 新建数据源」',
+      '选择数据类型：K线 / HTTP接口',
+      '配置相关参数（如API地址、查询条件等），保存',
+    ],
+    tip: '如果你已有数据连接，也可以直接从连接中读取数据，不一定需要配置数据源。',
+    action: '前往数据源',
+    actionFn: 'navigate("kline-sources"); closeModal();',
+  },
+  3: {
+    title: '创建数据流 (Pipeline)',
+    desc: '数据流是数据处理的管道。它定义了数据的输入、处理逻辑和输出目标。',
+    items: [
+      '点击左侧「数据流 (Pipeline)」',
+      '点击「+ 新建数据流」',
+      '选择输入数据源和输出连接',
+      '可以添加中间处理步骤：过滤、聚合、清洗等',
+    ],
+    tip: 'Pipeline 是核心概念，一个 Pipeline = 一个输入 → 处理 → 输出的完整链路。',
+    action: '前往数据流',
+    actionFn: 'navigate("pipelines"); closeModal();',
+  },
+  4: {
+    title: '运行同步任务',
+    desc: '数据流创建好后，就可以执行它来同步数据。你也可以设置定时调度。',
+    items: [
+      '点击左侧「导入任务」或「数据流」',
+      '找到刚创建的数据流，点击「运行」',
+      '查看任务执行进度和日志',
+      '如需定时执行，在任务设置中选择 Cron 表达式或时间间隔',
+    ],
+    tip: '支持多种调度方式：Cron表达式（如每天0点）、固定间隔（如每30分钟）、一次性执行。',
+    action: '前往导入任务',
+    actionFn: 'navigate("tasks"); closeModal();',
+  },
+};
+
+function initQuickStartGuide() {
+  const dismissed = localStorage.getItem('qs_dismissed');
+  if (dismissed) return;
+  const el = document.getElementById('quickstart-guide');
+  if (el) el.classList.remove('hidden');
+}
+
+function dismissQuickStartGuide() {
+  localStorage.setItem('qs_dismissed', '1');
+  const el = document.getElementById('quickstart-guide');
+  if (el) el.classList.add('hidden');
+}
+
+function qsOpenStep(num) {
+  const step = QS_STEPS[num];
+  openModal(`步骤 ${num}/4：${step.title}`, `
+    <div class="qs-modal-step">
+      <h3>${step.desc}</h3>
+      <ol>${step.items.map(i => `<li>${i}</li>`).join('')}</ol>
+      <div class="qs-tip">💡 ${step.tip}</div>
+      <button class="btn btn-primary" onclick="${step.actionFn}">${step.action}</button>
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+    <button class="btn btn-secondary btn-sm" onclick="dismissQuickStartGuide(); closeModal()">不再显示</button>
+  `);
+}
+// ---------- Data functions ----------
+async function loadOverviewData() {
+  try {
+    const data = await api('/api/monitor/summary');
+    document.getElementById('overview-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value accent">${data.connections}</div></div>
+      <div class="stat-card"><div class="stat-label">表结构</div><div class="stat-value">${data.schemas}</div></div>
+      <div class="stat-card"><div class="stat-label">运行中任务</div><div class="stat-value warning">${data.tasks.running}</div></div>
+      <div class="stat-card"><div class="stat-label">已完成任务</div><div class="stat-value success">${data.tasks.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">失败任务</div><div class="stat-value danger">${data.tasks.failed}</div></div>
+      <div class="stat-card"><div class="stat-label">导入行数</div><div class="stat-value">${(data.bulk_imports.total_rows_imported || 0).toLocaleString()}</div></div>
+    `;
+
+    const imports = await api('/api/bulk-import');
+    renderOverviewList('overview-imports', imports.slice(0, 5), 'bulk-import');
+
+    const tasks = await api('/api/tasks');
+    renderOverviewList('overview-tasks', tasks.slice(0, 5), 'tasks');
+  } catch(e) { console.error(e); }
+}
+
+function renderOverviewList(elId, items, type) {
+  const el = document.getElementById(elId);
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无数据</p></div>';
+    return;
+  }
+  let html = `<table class="data-table"><thead><tr>
+    <th>名称/ID</th><th>状态</th><th>进度</th><th>时间</th><th>操作</th>
+  </tr></thead><tbody>`;
+  for (const item of items) {
+    const progress = type === 'bulk-import'
+      ? `${((item.imported_rows||0)/(item.total_rows||1)*100).toFixed(1)}%`
+      : item.status;
+    const time = item.updated_at ? new Date(item.updated_at).toLocaleString() : '-';
+    html += `<tr>
+      <td>${item.id.substring(0, 8)}...</td>
+      <td><span class="badge badge-${item.status}">${item.status}</span></td>
+      <td>${type === 'bulk-import' ? `<div style="max-width:120px"><div class="progress-bar"><div class="fill" style="width:${progress}"></div></div><span class="text-dim">${progress}</span></div>` : '-'}</td>
+      <td class="text-dim">${time}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="navigate('${type}')">查看</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ---------- Connections ----------
+async function refreshConnections() {
+  try {
+    const list = await api('/api/connections');
+    const el = document.getElementById('connections-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🔗</div><p>还没有创建任何数据连接。<br>数据连接定义了数据从哪读取、或写入到哪。</p><button class="btn btn-primary" onclick="openNewConnectionModal()">+ 新建连接</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>名称</th><th>类型</th><th>配置</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const c of list) {
+      const cfg = JSON.stringify(c.config).substring(0, 60);
+      html += `<tr>
+        <td>${c.name}</td>
+        <td><span class="badge badge-pending">${c.type}</span></td>
+        <td class="text-dim">${cfg}...</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="testConnection('${c.id}')">测试</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEditConnectionModal('${c.id}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteConnection('${c.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+function openNewConnectionModal() {
+  openModal('新建连接', `
+    <div class="form-group">
+      <label>连接名称</label>
+      <input class="form-control" id="conn-name" placeholder="例如: MySQL生产库">
+    </div>
+    <div class="form-group">
+      <label>数据源类型</label>
+      <div class="conn-type-grid">
+        ${['mysql','postgresql','duckdb','clickhouse','csv','excel','json','parquet','folder_watch','http'].map(t =>
+          `<div class="conn-type-card" data-type="${t}" onclick="selectConnType(this,'${t}')">
+            <div class="type-icon">${typeIcon(t)}</div>
+            <div>${t}</div>
+          </div>`
+        ).join('')}
+      </div>
+      <input type="hidden" id="conn-type" value="">
+    </div>
+    <div id="conn-config-fields"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveConnection()">保存</button>
+  `);
+}
+
+function typeIcon(type) {
+  return {mysql:'🐬',postgresql:'🐘',duckdb:'🦆',clickhouse:'🏠',csv:'📄',excel:'📊',json:'{ }',parquet:'📦',folder_watch:'📁'}[type] || '🔗';
+}
+
+function selectConnType(el, type) {
+  document.querySelectorAll('.conn-type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('conn-type').value = type;
+  const fields = document.getElementById('conn-config-fields');
+  if (type === 'mysql') {
+    fields.innerHTML = connFields('host', 'localhost', 'port', '3306', 'user', '', 'password', '', 'database', '');
+  } else if (type === 'postgresql') {
+    fields.innerHTML = connFields('host', 'localhost', 'port', '5432', 'user', '', 'password', '', 'database', '');
+  } else if (type === 'duckdb') {
+    fields.innerHTML = connFields('db_path', '', '', '', '', '', '', '', '', '');
+  } else if (type === 'clickhouse') {
+    fields.innerHTML = connFields('host', 'localhost', 'port', '9000', 'user', 'default', 'password', '', 'database', 'default');
+  } else if (['csv','excel','json','parquet'].includes(type)) {
+    fields.innerHTML = connFields('file_path', '', '', '', '', '', '', '', '', '');
+  } else if (type === 'folder_watch') {
+    fields.innerHTML = connFields('dir_path', '', 'pattern', '*.csv', 'polling_sec', '30', '', '', '', '');
+  } else if (type === 'http') {
+    fields.innerHTML = `
+      <div class="form-group"><label>base_url</label><input class="form-control" id="conn-cfg-base_url" value="" placeholder="https://api.tushare.pro"></div>
+      <div class="form-group"><label>method</label>
+        <select class="form-control" id="conn-cfg-method">
+          <option value="GET">GET</option><option value="POST" selected>POST</option>
+        </select>
+      </div>
+      <div class="form-group"><label>headers (JSON)</label><textarea class="form-control" id="conn-cfg-headers" rows="2" placeholder='{"Content-Type": "application/json", "token": "YOUR_TOKEN"}'></textarea></div>
+      <div class="form-group"><label>request_template (f-string)</label><textarea class="form-control" id="conn-cfg-request_template" rows="3" placeholder='{"api_name": "daily", "token": "xxx", "params": {"ts_code": "{codes}", "start_date": "{start_time}", "end_date": "{end_time}"}}'></textarea></div>
+      <div class="form-group"><label>response_data_path</label><input class="form-control" id="conn-cfg-response_data_path" value="" placeholder="data.items"></div>
+      <div class="form-group"><label>datetime_column</label><input class="form-control" id="conn-cfg-datetime_column" value="trade_date"></div>
+      <div class="form-group"><label>column_mapping (JSON)</label><textarea class="form-control" id="conn-cfg-column_mapping" rows="2" placeholder='{"trade_date": "datetime", "close": "close"}'></textarea></div>
+    `;
+  } else {
+    fields.innerHTML = '<div class="text-dim">该类型暂不支持配置</div>';
+  }
+}
+
+function connFields(...pairs) {
+  let html = '';
+  for (let i = 0; i < pairs.length; i += 2) {
+    if (!pairs[i]) continue;
+    const label = pairs[i].replace(/_/g, ' ');
+    html += `<div class="form-group"><label>${label}</label><input class="form-control" id="conn-cfg-${pairs[i]}" value="${pairs[i+1] || ''}"></div>`;
+  }
+  return html;
+}
+
+async function saveConnection() {
+  const name = document.getElementById('conn-name').value;
+  const type = document.getElementById('conn-type').value;
+  if (!name || !type) { alert('请填写名称并选择类型'); return; }
+
+  const config = {};
+  document.querySelectorAll('[id^="conn-cfg-"]').forEach(input => {
+    const key = input.id.replace('conn-cfg-', '');
+    if (!key) return;
+    let val = input.value;
+    if ((key === 'headers' || key === 'column_mapping' || key === 'request_template') && val.trim().startsWith('{')) {
+      try { val = JSON.parse(val); } catch(e) {}
+    }
+    config[key] = val;
+  });
+
+  try {
+    await api('/api/connections', {
+      method: 'POST',
+      body: JSON.stringify({ name, type, config }),
+    });
+    closeModal();
+    await refreshConnections();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function testConnection(id) {
+  try {
+    const res = await api(`/api/connections/${id}/test`, { method: 'POST' });
+    alert(res.success ? '✅ ' + res.message : '❌ ' + res.message);
+  } catch(e) { alert('测试失败: ' + e.message); }
+}
+
+async function deleteConnection(id) {
+  if (!confirm('确定删除此连接？')) return;
+  try {
+    await api(`/api/connections/${id}`, { method: 'DELETE' });
+    await refreshConnections();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+async function openEditConnectionModal(id) {
+  try {
+    const conn = await api(`/api/connections/${id}`);
+    openModal('编辑连接', `
+      <input type="hidden" id="conn-edit-id" value="${id}">
+      <div class="form-group">
+        <label>连接名称</label>
+        <input class="form-control" id="conn-name" value="${conn.name || ''}">
+      </div>
+      <div class="form-group">
+        <label>数据源类型</label>
+        <div class="conn-type-grid">
+          ${['mysql','postgresql','duckdb','clickhouse','csv','excel','json','parquet','folder_watch','http'].map(t =>
+            `<div class="conn-type-card${conn.type === t ? ' selected' : ''}" data-type="${t}" onclick="selectConnType(this,'${t}')">
+              <div class="type-icon">${typeIcon(t)}</div>
+              <div>${t}</div>
+            </div>`
+          ).join('')}
+        </div>
+        <input type="hidden" id="conn-type" value="${conn.type || ''}">
+      </div>
+      <div id="conn-config-fields"></div>
+    `, `
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="updateConnection()">保存</button>
+    `);
+    // Populate config fields after modal renders
+    if (conn.type) {
+      const el = document.querySelector(`.conn-type-card[data-type="${conn.type}"]`);
+      if (el) selectConnType(el, conn.type);
+      // Fill in saved config values
+      if (conn.config) {
+        for (const [k, v] of Object.entries(conn.config)) {
+          const inp = document.getElementById(`conn-cfg-${k}`);
+          if (inp) inp.value = typeof v === 'object' ? JSON.stringify(v, null, 2) : v;
+        }
+      }
+    }
+  } catch(e) { alert('加载连接失败: ' + e.message); }
+}
+
+async function updateConnection() {
+  const id = document.getElementById('conn-edit-id').value;
+  const name = document.getElementById('conn-name').value;
+  const type = document.getElementById('conn-type').value;
+  if (!name || !type) { alert('请填写名称并选择类型'); return; }
+
+  const config = {};
+  document.querySelectorAll('[id^="conn-cfg-"]').forEach(input => {
+    const key = input.id.replace('conn-cfg-', '');
+    if (!key) return;
+    let val = input.value;
+    if ((key === 'headers' || key === 'column_mapping' || key === 'request_template') && val.trim().startsWith('{')) {
+      try { val = JSON.parse(val); } catch(e) {}
+    }
+    config[key] = val;
+  });
+
+  try {
+    await api(`/api/connections/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, type, config }),
+    });
+    closeModal();
+    await refreshConnections();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+// ---------- Schemas ----------
+async function refreshSchemas() {
+  try {
+    const list = await api('/api/schemas');
+    const el = document.getElementById('schemas-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🗄️</div><p>暂无表结构</p><button class="btn btn-primary" onclick="openNewSchemaModal()">新建表结构</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>表名</th><th>数据库</th><th>字段数</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const s of list) {
+      const fields = (s.schema_json && s.schema_json.fields) ? s.schema_json.fields.length : 0;
+      html += `<tr>
+        <td>${s.table_name}</td>
+        <td><span class="badge badge-pending">${s.database_type}</span></td>
+        <td>${fields}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="previewDDL('${s.id}')">预览DDL</button>
+          <button class="btn btn-secondary btn-sm" onclick="applySchema('${s.id}')">应用到DB</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSchema('${s.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+function openNewSchemaModal() {
+  openModal('新建表结构', `
+    <div class="form-row">
+      <div class="form-group"><label>表名</label><input class="form-control" id="schema-table-name" placeholder="dat_day"></div>
+      <div class="form-group"><label>数据库类型</label>
+        <select class="form-control" id="schema-db-type">
+          <option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option>
+          <option value="duckdb">DuckDB</option><option value="clickhouse">ClickHouse</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>字段定义</label>
+      <div id="schema-fields"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="addSchemaField()">+ 添加字段</button>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="previewSchemaDDL()">🔍 预览DDL</button>
+    <div id="ddl-preview" class="log-viewer mt-8" style="max-height:200px;display:none"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveSchema()">保存</button>
+  `);
+  addSchemaField();
+}
+
+let fieldCounter = 0;
+function addSchemaField(name = '', type = 'VARCHAR') {
+  fieldCounter++;
+  const container = document.getElementById('schema-fields');
+  const options = ['VARCHAR','INT','BIGINT','DECIMAL','DATETIME','DATE','FLOAT','DOUBLE','TEXT','JSON'];
+  const typeOpts = options.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('');
+  container.insertAdjacentHTML('beforeend', `<div class="field-map-row" id="sf-row-${fieldCounter}">
+    <input class="form-control" id="sf-name-${fieldCounter}" placeholder="字段名" value="${name}">
+    <select class="form-control" id="sf-type-${fieldCounter}">${typeOpts}</select>
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('sf-row-${fieldCounter}').remove()">✕</button>
+  </div>`);
+}
+
+async function previewSchemaDDL() {
+  const fields = [];
+  document.querySelectorAll('[id^="sf-row-"]').forEach(row => {
+    const id = row.id.split('-').pop();
+    const name = document.getElementById(`sf-name-${id}`)?.value;
+    const type = document.getElementById(`sf-type-${id}`)?.value;
+    if (name && type) fields.push({ name, type, nullable: true });
+  });
+  if (!fields.length) { alert('请先添加字段'); return; }
+
+  try {
+    const res = await api('/api/schemas/preview-ddl', {
+      method: 'POST',
+      body: JSON.stringify({
+        table_name: document.getElementById('schema-table-name').value || 'new_table',
+        database_type: document.getElementById('schema-db-type').value,
+        fields, indexes: []
+      }),
+    });
+    const el = document.getElementById('ddl-preview');
+    el.style.display = 'block';
+    if (res.errors) el.innerHTML = `<span class="log-error">错误: ${res.errors.join(', ')}</span>`;
+    else el.innerHTML = `<span class="log-success">✅\n</span><span class="log-line">${res.ddl}</span>`;
+  } catch(e) { alert('预览失败: ' + e.message); }
+}
+
+async function saveSchema() {
+  const tableName = document.getElementById('schema-table-name').value;
+  const dbType = document.getElementById('schema-db-type').value;
+  const fields = [];
+  document.querySelectorAll('[id^="sf-row-"]').forEach(row => {
+    const id = row.id.split('-').pop();
+    const name = document.getElementById(`sf-name-${id}`)?.value;
+    const type = document.getElementById(`sf-type-${id}`)?.value;
+    if (name && type) fields.push({ name, type, nullable: true });
+  });
+  if (!tableName || !fields.length) { alert('请填写表名和字段'); return; }
+
+  try {
+    await api('/api/schemas', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields, indexes: [] }),
+    });
+    closeModal();
+    await refreshSchemas();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+function importSchemaJSON() {
+  openModal('导入表结构 JSON', `
+    <div class="form-group">
+      <label>JSON 数据</label>
+      <textarea class="form-control" id="import-schema-json-input" rows="12"
+        placeholder='{"table_name":"dat_day","database_type":"mysql","fields":[{"name":"code","type":"VARCHAR"},{"name":"trade_time","type":"DATETIME"}],"indexes":[]}'>
+      </textarea>
+    </div>
+    <div class="text-dim mt-8">支持格式: { "table_name", "database_type", "fields": [{ "name", "type", "nullable"? }], "indexes"?: [] }</div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="doImportSchemaJSON()">导入</button>
+  `);
+}
+
+async function doImportSchemaJSON() {
+  const text = document.getElementById('import-schema-json-input').value.trim();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch(e) { alert('JSON 格式错误: ' + e.message); return; }
+
+  if (!data.table_name) { alert('缺少 table_name'); return; }
+  if (!data.fields || !Array.isArray(data.fields) || !data.fields.length) { alert('缺少 fields 数组'); return; }
+
+  const tableName = data.table_name;
+  const dbType = data.database_type || 'mysql';
+  const fields = data.fields.map(f => ({
+    name: f.name,
+    type: f.type || 'VARCHAR',
+    nullable: f.nullable !== false,
+  }));
+  const indexes = data.indexes || [];
+
+  try {
+    await api('/api/schemas', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields, indexes }),
+    });
+    closeModal();
+    await refreshSchemas();
+  } catch(e) { alert('导入失败: ' + e.message); }
+}
+
+async function previewDDL(id) {
+  try {
+    const s = await api(`/api/schemas/${id}`);
+    const res = await api('/api/schemas/preview-ddl', {
+      method: 'POST',
+      body: JSON.stringify(s.schema_json),
+    });
+    openModal('DDL 预览', `<pre class="log-viewer">${res.ddl || res.errors?.join('\n') || '无'}</pre>`, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  } catch(e) { alert('预览失败: ' + e.message); }
+}
+
+async function applySchema(id) {
+  const connId = prompt('请输入目标连接ID (connections列表中的id):');
+  if (!connId) return;
+  try {
+    const s = await api(`/api/schemas/${id}`);
+    const res = await api('/api/schemas/apply', {
+      method: 'POST',
+      body: JSON.stringify({ schema_id: id, connection_id: connId, ...s.schema_json }),
+    });
+    alert(res.success ? '✅ 表已创建: ' + res.message : '❌ 失败: ' + res.message);
+  } catch(e) { alert('应用失败: ' + e.message); }
+}
+
+async function deleteSchema(id) {
+  if (!confirm('确定删除？')) return;
+  try {
+    await api(`/api/schemas/${id}`, { method: 'DELETE' });
+    await refreshSchemas();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+// ---------- Bulk Import ----------
+async function refreshBulkImports() {
+  try {
+    const data = await api('/api/monitor/bulk-imports');
+    document.getElementById('bulk-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">总数</div><div class="stat-value">${data.total}</div></div>
+      <div class="stat-card"><div class="stat-label">运行中</div><div class="stat-value warning">${data.running}</div></div>
+      <div class="stat-card"><div class="stat-label">已完成</div><div class="stat-value success">${data.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">失败</div><div class="stat-value danger">${data.failed}</div></div>
+    `;
+
+    const el = document.getElementById('bulk-imports-list');
+    if (!data.imports.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📥</div><p>暂无批量导入记录</p><button class="btn btn-primary" onclick="openBulkImportModal()">新建导入</button></div>';
+      return;
+    }
+    renderBulkImportTable(el, data.imports);
+  } catch(e) { console.error(e); }
+}
+
+function renderBulkImportTable(el, imports) {
+  let html = `<table class="data-table"><thead><tr>
+    <th>文件</th><th>目标表</th><th>状态</th><th>进度</th><th>速度</th><th>操作</th>
+  </tr></thead><tbody>`;
+  for (const imp of imports) {
+    const pct = ((imp.imported_rows||0)/(imp.total_rows||1)*100).toFixed(1);
+    const speed = imp.status === 'running' ? estimateSpeed(imp) : '-';
+    const actions = {
+      'pending': `<button class="btn btn-success btn-sm" onclick="executeImport('${imp.id}')">执行</button>`,
+      'running': `<button class="btn btn-warning btn-sm" onclick="pauseImport('${imp.id}')">暂停</button>
+                  <button class="btn btn-danger btn-sm" onclick="stopImport('${imp.id}')">停止</button>`,
+      'paused': `<button class="btn btn-success btn-sm" onclick="resumeImport('${imp.id}')">恢复</button>`,
+      'failed': `<button class="btn btn-secondary btn-sm" onclick="retryImport('${imp.id}')">重试</button>`,
+      'completed': '-',
+    }[imp.status] || '';
+    html += `<tr>
+      <td title="${imp.file_path}">${imp.file_path.split(/[/\\]/).pop().substring(0, 30)}</td>
+      <td>${imp.target_table}</td>
+      <td><span class="badge badge-${imp.status}">${imp.status}</span></td>
+      <td style="min-width:120px">
+        <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
+        <span class="text-dim">${(imp.imported_rows||0).toLocaleString()} / ${(imp.total_rows||0).toLocaleString()} (${pct}%)</span>
+      </td>
+      <td class="text-dim">${speed}</td>
+      <td class="actions">${actions}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function estimateSpeed(imp) {
+  if (!imp.started_at || imp.imported_rows <= 0) return '-';
+  const secs = (Date.now() - new Date(imp.started_at).getTime()) / 1000;
+  if (secs <= 0) return '-';
+  const rps = imp.imported_rows / secs;
+  return `${rps.toFixed(0)} 行/秒`;
+}
+
+async function openBulkImportModal() {
+  const connections = await api('/api/connections');
+  const dbConns = connections.filter(c => ['mysql','postgresql','duckdb','clickhouse'].includes(c.type));
+  if (!dbConns.length) {
+    alert('请先创建目标数据库连接'); return;
+  }
+
+  openModal('新建批量导入', `
+    <div class="form-group">
+      <label>源文件路径</label>
+      <input class="form-control" id="bi-file-path" placeholder="C:\\data\\stock.csv 或 /data/stock.csv">
+    </div>
+    <div class="form-group">
+      <button class="btn btn-secondary btn-sm" onclick="previewBulkFile()">🔍 预览文件</button>
+    </div>
+    <div id="bi-preview-info" class="log-viewer mt-8" style="display:none;max-height:120px"></div>
+    <div id="bi-preview-table" style="display:none;overflow:auto;max-height:150px;margin-top:8px"></div>
+    <div class="form-row mt-8">
+      <div class="form-group">
+        <label>目标连接</label>
+        <select class="form-control" id="bi-target-conn">
+          ${dbConns.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>目标表</label>
+        <input class="form-control" id="bi-target-table" placeholder="dat_day">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>字段映射</label>
+      <div id="bi-field-mappings"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="addBIMapping()">+ 添加映射</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>导入模式</label>
+        <select class="form-control" id="bi-mode">
+          <option value="incremental">增量</option>
+          <option value="full">全量</option>
+          <option value="bulk_load">原生Bulk Load</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>批次大小</label>
+        <input class="form-control" id="bi-batch-size" value="5000">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>断点续传</label>
+      <select class="form-control" id="bi-checkpoint">
+        <option value="true">启用</option><option value="false">禁用</option>
+      </select>
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="createBulkImport()">创建并执行</button>
+  `);
+
+  window._biSourceFields = [];
+}
+
+async function previewBulkFile() {
+  const path = document.getElementById('bi-file-path').value;
+  if (!path) { alert('请输入文件路径'); return; }
+  try {
+    const res = await api('/api/bulk-import/preview?file_path=' + encodeURIComponent(path));
+    document.getElementById('bi-preview-info').style.display = 'block';
+    document.getElementById('bi-preview-info').innerHTML = `<span class="log-success">✅</span> <span class="log-line">文件: ${res.file_info.file_path.split(/[/\\]/).pop()} | 编码: ${res.file_info.encoding} | 行数: ${res.file_info.total_rows.toLocaleString()} | 列: ${res.file_info.columns.join(', ')}</span>`;
+
+    window._biSourceFields = res.columns;
+    const tbl = document.getElementById('bi-preview-table');
+    tbl.style.display = 'block';
+    let h = '<table class="data-table"><thead><tr>';
+    for (const col of res.columns) h += `<th>${col}</th>`;
+    h += '</tr></thead><tbody>';
+    for (const row of (res.preview||[]).slice(0, 5)) {
+      h += '<tr>';
+      for (const col of res.columns) h += `<td>${row[col] ?? ''}</td>`;
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    tbl.innerHTML = h;
+
+    const mappingDiv = document.getElementById('bi-field-mappings');
+    mappingDiv.innerHTML = '';
+    for (const col of res.columns) {
+      addBIMapping(col, col);
+    }
+  } catch(e) { alert('预览失败: ' + e.message); }
+}
+
+let biMappingId = 0;
+function addBIMapping(source = '', target = '') {
+  biMappingId++;
+  const container = document.getElementById('bi-field-mappings');
+  container.innerHTML += `<div class="field-map-row" id="bi-map-${biMappingId}">
+    <input class="form-control" id="bi-src-${biMappingId}" value="${source}" placeholder="源字段">
+    <input class="form-control" id="bi-tgt-${biMappingId}" value="${target}" placeholder="目标字段">
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('bi-map-${biMappingId}').remove()">✕</button>
+  </div>`;
+}
+
+async function createBulkImport() {
+  const filePath = document.getElementById('bi-file-path').value;
+  const targetConn = document.getElementById('bi-target-conn').value;
+  const targetTable = document.getElementById('bi-target-table').value;
+  const mode = document.getElementById('bi-mode').value;
+  const batchSize = parseInt(document.getElementById('bi-batch-size').value) || 5000;
+  const checkpoint = document.getElementById('bi-checkpoint').value === 'true';
+
+  if (!filePath || !targetConn || !targetTable) { alert('请填写必填项'); return; }
+
+  const fieldMappings = [];
+  document.querySelectorAll('[id^="bi-map-"]').forEach(row => {
+    const id = row.id.split('-').pop();
+    const src = document.getElementById(`bi-src-${id}`)?.value;
+    const tgt = document.getElementById(`bi-tgt-${id}`)?.value;
+    if (src && tgt) fieldMappings.push({ source_field: src, target_field: tgt });
+  });
+
+  try {
+    const res = await api('/api/bulk-import', {
+      method: 'POST',
+      body: JSON.stringify({
+        source_connection_id: 'file-source',
+        target_connection_id: targetConn,
+        target_table: targetTable,
+        file_path: filePath,
+        field_mappings: fieldMappings,
+        import_mode: mode,
+        batch_size: batchSize,
+        parallel_threads: 1,
+        enable_checkpoint: checkpoint,
+      }),
+    });
+    closeModal();
+    await executeImport(res.id);
+  } catch(e) { alert('创建失败: ' + e.message); }
+}
+
+async function executeImport(id) {
+  try {
+    await api(`/api/bulk-import/${id}/execute`, { method: 'POST' });
+    await refreshBulkImports();
+  } catch(e) { alert('执行失败: ' + e.message); }
+}
+
+async function pauseImport(id) {
+  try { await api(`/api/bulk-import/${id}/pause`, { method: 'POST' }); await refreshBulkImports(); } catch(e) { alert(e.message); }
+}
+
+async function resumeImport(id) {
+  try { await api(`/api/bulk-import/${id}/resume`, { method: 'POST' }); await refreshBulkImports(); } catch(e) { alert(e.message); }
+}
+
+async function stopImport(id) {
+  if (!confirm('确定停止？')) return;
+  try {
+    const imp = await api(`/api/bulk-import/${id}`);
+    imp.status = 'failed';
+    imp.error_message = '用户手动停止';
+    await api(`/api/bulk-import/${id}`, { method: 'PUT', body: JSON.stringify(imp) });
+    await refreshBulkImports();
+  } catch(e) { alert(e.message); }
+}
+
+async function retryImport(id) {
+  try {
+    const imp = await api(`/api/bulk-import/${id}`);
+    imp.status = 'pending';
+    imp.imported_rows = 0;
+    imp.last_imported_index = 0;
+    imp.error_message = null;
+    imp.error_at_row = null;
+    imp.updated_at = new Date().toISOString();
+    await api(`/api/bulk-import/${id}`, { method: 'PUT', body: JSON.stringify(imp) });
+    await executeImport(id);
+  } catch(e) { alert(e.message); }
+}
+
+// ---------- Tasks ----------
+async function refreshTasks() {
+  try {
+    const data = await api('/api/monitor/tasks');
+    document.getElementById('task-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">总数</div><div class="stat-value">${data.total}</div></div>
+      <div class="stat-card"><div class="stat-label">运行中</div><div class="stat-value warning">${data.running}</div></div>
+      <div class="stat-card"><div class="stat-label">已完成</div><div class="stat-value success">${data.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">失败</div><div class="stat-value danger">${data.failed}</div></div>
+    `;
+
+    const el = document.getElementById('tasks-list');
+    if (!data.tasks.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">⚡</div><p>暂无同步任务</p><button class="btn btn-primary" onclick="openNewTaskModal()">新建任务</button></div>';
+      return;
+    }
+    renderTaskTable(el, data.tasks);
+  } catch(e) { console.error(e); }
+}
+
+function renderTaskTable(el, tasks) {
+  let html = `<table class="data-table"><thead><tr>
+    <th>名称</th><th>类型</th><th>目标表</th><th>状态</th><th>上次运行</th><th>操作</th>
+  </tr></thead><tbody>`;
+  for (const t of tasks) {
+    const time = t.last_run_at ? new Date(t.last_run_at).toLocaleString() : '-';
+    html += `<tr>
+      <td>${t.name}</td>
+      <td><span class="badge badge-pending">${t.task_type}</span></td>
+      <td>${t.target_table}</td>
+      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td class="text-dim">${time}</td>
+      <td class="actions">
+        ${t.status !== 'running' ? `<button class="btn btn-success btn-sm" onclick="runTask('${t.id}')">运行</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">删除</button>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function openNewTaskModal() {
+  const connections = await api('/api/connections');
+  if (!connections.length) { alert('请先创建连接'); return; }
+  openModal('新建同步任务', `
+    <div class="form-group"><label>任务名称</label><input class="form-control" id="task-name" placeholder="每日Tushare同步"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>任务类型</label>
+        <select class="form-control" id="task-type">
+          <option value="incremental">增量同步</option>
+          <option value="full">全量同步</option>
+          <option value="scheduled">定时同步</option>
+          <option value="file_trigger">文件触发</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cron表达式 (可选)</label>
+        <input class="form-control" id="task-cron" placeholder="0 9 * * *">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>源连接</label>
+        <select class="form-control" id="task-source">
+          ${connections.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>目标连接</label>
+        <select class="form-control" id="task-target">
+          ${connections.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>目标表</label><input class="form-control" id="task-table" placeholder="dat_day"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveTask()">保存</button>
+  `);
+}
+
+async function saveTask() {
+  const name = document.getElementById('task-name').value;
+  const taskType = document.getElementById('task-type').value;
+  const sourceId = document.getElementById('task-source').value;
+  const targetId = document.getElementById('task-target').value;
+  const table = document.getElementById('task-table').value;
+  const cron = document.getElementById('task-cron').value;
+
+  if (!name || !table) { alert('请填写名称和目标表'); return; }
+
+  try {
+    await api('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        name, task_type: taskType, source_connection_id: sourceId,
+        target_connection_id: targetId, target_table: table,
+        config_json: {}, cron_expression: cron || null,
+      }),
+    });
+    closeModal();
+    await refreshTasks();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function runTask(id) {
+  try {
+    await api(`/api/tasks/${id}/run`, { method: 'POST' });
+    await refreshTasks();
+  } catch(e) { alert(e.message); }
+}
+
+async function deleteTask(id) {
+  if (!confirm('确定删除？')) return;
+  try {
+    await api(`/api/tasks/${id}`, { method: 'DELETE' });
+    await refreshTasks();
+  } catch(e) { alert(e.message); }
+}
+
+// ---------- Monitor ----------
+async function refreshMonitor() {
+  try {
+    const [taskData, importData] = await Promise.all([
+      api('/api/monitor/tasks'),
+      api('/api/monitor/bulk-imports'),
+    ]);
+
+    document.getElementById('monitor-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">总任务</div><div class="stat-value">${taskData.total}</div></div>
+      <div class="stat-card"><div class="stat-label">运行中任务</div><div class="stat-value warning">${taskData.running}</div></div>
+      <div class="stat-card"><div class="stat-label">总导入</div><div class="stat-value">${importData.total}</div></div>
+      <div class="stat-card"><div class="stat-label">运行中导入</div><div class="stat-value warning">${importData.running}</div></div>
+    `;
+
+    renderBulkImportTable(document.getElementById('monitor-imports'), importData.imports);
+    renderTaskTable(document.getElementById('monitor-tasks'), taskData.tasks);
+  } catch(e) { console.error(e); }
+}
+
+// ---------- Logs ----------
+const logLines = [];
+function addLog(msg, level = 'info') {
+  const time = new Date().toLocaleTimeString();
+  logLines.push(`<div class="log-${level}">[${time}] ${msg}</div>`);
+  if (logLines.length > 200) logLines.shift();
+  const el = document.getElementById('log-viewer');
+  if (el) {
+    el.innerHTML = logLines.join('');
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+async function loadLogs() {
+  addLog('金智汇连ETL 服务运行中', 'success');
+  addLog(`页面加载时间: ${new Date().toLocaleString()}`, 'info');
+  try {
+    const summary = await api('/api/monitor/summary');
+    addLog(`系统状态: 连接数=${summary.connections}, 表结构=${summary.schemas}`, 'info');
+  } catch(e) {
+    addLog(`API 连接失败: ${e.message}`, 'error');
+  }
+}
+
+function clearLogs() {
+  logLines.length = 0;
+  const el = document.getElementById('log-viewer');
+  if (el) el.innerHTML = '';
+  addLog('日志已清空', 'warning');
+}
+
+// ---------- Reports ----------
+async function loadReportsView() {
+  try {
+    const summary = await api('/api/reports/summary');
+    const impStats = summary.bulk_imports;
+
+    document.getElementById('report-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value accent">${summary.connections.total}</div></div>
+      <div class="stat-card"><div class="stat-label">任务数</div><div class="stat-value">${summary.tasks.total}</div></div>
+      <div class="stat-card"><div class="stat-label">导入数</div><div class="stat-value">${impStats.total}</div></div>
+      <div class="stat-card"><div class="stat-label">已完成</div><div class="stat-value success">${impStats.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">总导入行数</div><div class="stat-value">${(impStats.total_rows_imported || 0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="stat-label">整体进度</div><div class="stat-value warning">${impStats.overall_progress_pct || 0}%</div></div>
+    `;
+
+    const allReports = await api('/api/reports/all');
+
+    // Task reports
+    const tasksEl = document.getElementById('report-tasks');
+    if ((allReports.task_reports || []).length === 0) {
+      tasksEl.innerHTML = '<div class="empty-state"><div class="icon">📄</div><p>暂无任务报告</p></div>';
+    } else {
+      let html = '<table class="data-table"><thead><tr><th>任务名</th><th>类型</th><th>状态</th><th>插入行数</th><th>错误</th><th>操作</th></tr></thead><tbody>';
+      for (const r of allReports.task_reports) {
+        const result = r.execution?.last_result || {};
+        html += `<tr>
+          <td>${r.task?.name || r.task_id}</td>
+          <td><span class="badge badge-pending">${r.task?.type || 'N/A'}</span></td>
+          <td><span class="badge badge-${r.status}">${r.status}</span></td>
+          <td>${result.rows_inserted ?? 'N/A'}</td>
+          <td class="text-dim">${r.execution?.last_error || '-'}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="exportReport('${r.task_id}', 'task', 'html')">HTML</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportReport('${r.task_id}', 'task', 'json')">JSON</button>
+          </td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      tasksEl.innerHTML = html;
+    }
+
+    // Import reports
+    const impEl = document.getElementById('report-imports');
+    if ((allReports.import_reports || []).length === 0) {
+      impEl.innerHTML = '<div class="empty-state"><div class="icon">📄</div><p>暂无导入报告</p></div>';
+    } else {
+      let html = '<table class="data-table"><thead><tr><th>文件</th><th>目标表</th><th>进度</th><th>行数</th><th>操作</th></tr></thead><tbody>';
+      for (const r of allReports.import_reports) {
+        const pct = r.progress?.progress_pct || 0;
+        html += `<tr>
+          <td>${(r.file?.path || '').split(/[/\\]/).pop().substring(0, 30)}</td>
+          <td>${r.target?.table || 'N/A'}</td>
+          <td style="min-width:100px">
+            <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
+            <span class="text-dim">${pct}%</span>
+          </td>
+          <td>${(r.progress?.imported_rows || 0).toLocaleString()} / ${(r.file?.total_rows || 0).toLocaleString()}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="exportReport('${r.import_id}', 'import', 'html')">HTML</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportReport('${r.import_id}', 'import', 'json')">JSON</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportReport('${r.import_id}', 'import', 'csv')">CSV</button>
+          </td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      impEl.innerHTML = html;
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function exportReport(id, type, format) {
+  try {
+    const url = type === 'import'
+      ? `/api/reports/bulk-import/${id}?format=${format}`
+      : `/api/reports/task/${id}?format=${format}`;
+    const mediaType = { json: 'application/json', html: 'text/html', csv: 'text/csv' }[format];
+    const res = await fetch(url);
+    const content = await res.text();
+    const ext = { json: 'json', html: 'html', csv: 'csv' }[format];
+
+    // Open in new tab for HTML/JSON, download for CSV
+    if (format === 'html') {
+      const blob = new Blob([content], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    } else {
+      const blob = new Blob([content], { type: mediaType });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${type}_${id}.${ext}`;
+      a.click();
+    }
+  } catch(e) { alert('导出失败: ' + e.message); }
+}
+
+function openExportSummaryModal() {
+  openModal('系统报告导出', `
+    <p style="margin-bottom:16px;color:var(--text-dim)">导出系统整体运行报告，包含所有连接、任务、导入记录的统计摘要。</p>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="exportSummaryReport('json')">JSON</button>
+    <button class="btn btn-primary" onclick="exportSummaryReport('html')">HTML</button>
+    <button class="btn btn-primary" onclick="exportSummaryReport('csv')">CSV</button>
+  `);
+}
+
+async function exportSummaryReport(format) {
+  try {
+    const url = `/api/reports/summary`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (format === 'html') {
+      // Simple HTML summary
+      const html = `<html><head><meta charset="utf-8"><title>系统报告</title></head><body><pre>${JSON.stringify(data, null, 2)}</pre></body></html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    } else {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `system_report.${format}`;
+      a.click();
+    }
+    closeModal();
+  } catch(e) { alert('导出失败: ' + e.message); }
+}
+
+// ---------- Init ----------
+window._biSourceFields = [];
+window._biMappingId = 0;
+
+// ---------- K线数据源 ----------
+async function refreshKlineSources() {
+  try {
+    const list = await api('/api/kline-sources/');
+    const el = document.getElementById('kline-sources-list');
+    // 显示所有连接类型（包括 HTTP、WebSocket 及用户自定义类型）
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📡</div><p>暂无数据源，请先创建</p><button class="btn btn-primary" onclick="openKlineSourceModal()">新建数据源</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>名称</th><th>类型</th><th>配置概要</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const c of list) {
+      const cfgStr = JSON.stringify(c.config || {});
+      const cfg = cfgStr.length > 60 ? cfgStr.substring(0, 60) + '...' : cfgStr;
+      const typeLabel = {http: 'HTTP REST', ws: 'WebSocket', tdx: 'HTTP(TDX)', akshare: 'HTTP(AK)', tushare: 'HTTP(TS)', mysql: 'MySQL', postgresql: 'PostgreSQL', duckdb: 'DuckDB', clickhouse: 'ClickHouse'}[c.type] || c.type;
+      html += `<tr>
+        <td>${c.name}</td>
+        <td><span class="badge badge-pending">${typeLabel}</span></td>
+        <td class="text-dim">${cfg}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="testKlineSource('${c.id}')">测试</button>
+          <button class="btn btn-secondary btn-sm" onclick="previewSourceById('${c.id}')">预览数据</button>
+          <button class="btn btn-secondary btn-sm" onclick="openKlineSourceModal('${c.id}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteKlineSource('${c.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+function openKlineSourceModal(editId = null) {
+  openModal(editId ? '编辑数据源' : '新建数据源', `
+    <input type="hidden" id="ks-edit-id" value="${editId || ''}">
+    <div class="form-group">
+      <label>数据源名称</label>
+      <input class="form-control" id="ks-name" placeholder="例如: 我的Tushare数据源">
+    </div>
+    <div class="form-group">
+      <label>数据源类型</label>
+      <div class="kline-type-grid">
+        <div class="kline-type-card" data-type="http" onclick="selectKsType(this,'http')">
+          <div class="icon">🌐</div><div class="label">HTTP REST</div><div class="desc">通用REST API</div>
+        </div>
+        <div class="kline-type-card" data-type="tdx" onclick="selectKsType(this,'tdx')">
+          <div class="icon">📈</div><div class="label">通达信行情</div><div class="desc">TCP直连 7709</div>
+        </div>
+        <div class="kline-type-card" data-type="ws" onclick="selectKsType(this,'ws')">
+          <div class="icon">⚡</div><div class="label">WebSocket</div><div class="desc">实时数据流</div>
+        </div>
+      </div>
+      <input type="hidden" id="ks-type" value="">
+    </div>
+    <div id="ks-config-fields"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-secondary" id="ks-preview-btn" onclick="previewKlineSourceData()">🔍 预览数据</button>
+    <button class="btn btn-primary" onclick="saveKlineSource()">保存</button>
+  `);
+  window._ksPreviewDone = false;
+  if (editId) {
+    loadKlineSourceData(editId);
+    window._ksPreviewDone = true;
+  }
+}
+
+function selectKsType(el, type) {
+  document.querySelectorAll('.kline-type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('ks-type').value = type;
+  window._ksPreviewDone = false;
+  const fields = document.getElementById('ks-config-fields');
+  if (type === 'http') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>凭证（可选）</label>
+        <select class="form-control" id="ks-cfg-credential_id" onchange="onCredSelectChange(this.value)">
+          <option value="">— 不使用凭证，手动填写认证信息 —</option>
+        </select>
+        <div class="text-dim" style="font-size:12px;margin-top:4px">选择已有凭证自动填充认证信息，或直接在下方手动填写</div>
+      </div>
+      <div class="form-group">
+        <label>API 基础地址（base_url）</label>
+        <input class="form-control" id="ks-cfg-base_url" value="" placeholder="https://api.example.com">
+      </div>
+      <div class="form-group">
+        <label>HTTP 方法</label>
+        <select class="form-control" id="ks-cfg-method">
+          <option value="GET">GET</option>
+          <option value="POST" selected>POST</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>请求头（JSON 格式）</label>
+        <textarea class="form-control" id="ks-cfg-headers" rows="3" placeholder='{"Authorization": "Bearer YOUR_TOKEN", "Content-Type": "application/json"}'></textarea>
+        <div class="text-dim mt-4" style="font-size:12px">⚠️ Token 和密钥请自行填写，工具不存储任何敏感信息</div>
+      </div>
+      <div class="form-group">
+        <label>请求体模板（Python f-string 格式）</label>
+        <textarea class="form-control" id="ks-cfg-request_template" rows="3" placeholder='{"start_date": "{start_time}", "end_date": "{end_time}", "codes": "{codes}"}'></textarea>
+        <div class="text-dim mt-4" style="font-size:12px">可用变量：{start_time}, {end_time}, {codes}, {interval}</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>响应数据路径</label>
+          <input class="form-control" id="ks-cfg-response_data_path" value="" placeholder="data.items">
+        </div>
+        <div class="form-group">
+          <label>时间字段名</label>
+          <input class="form-control" id="ks-cfg-datetime_column" value="datetime" placeholder="trade_date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>字段映射（JSON 格式）</label>
+        <textarea class="form-control" id="ks-cfg-column_mapping" rows="2" placeholder='{"datetime": "dt", "open": "open", "close": "close"}'></textarea>
+        <div class="text-dim mt-4" style="font-size:12px">将 API 响应字段映射到标准 K 线字段</div>
+      </div>
+      <div class="form-group">
+        <label>股票代码列表接口路径（可选）</label>
+        <input class="form-control" id="ks-cfg-list_codes_path" value="" placeholder="v1/stock/list">
+      </div>
+      <div class="form-group">
+        <label>预览股票代码（逗号分隔）</label>
+        <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
+      </div>
+    `;
+  } else if (type === 'ws') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>WebSocket 地址</label>
+        <input class="form-control" id="ks-cfg-ws_url" value="" placeholder="wss://stream.example.com">
+      </div>
+      <div class="form-group">
+        <label>订阅消息模板（JSON）</label>
+        <textarea class="form-control" id="ks-cfg-subscribe_template" rows="3" placeholder='{"action": "subscribe", "codes": ["{codes}"]}'></textarea>
+      </div>
+      <div class="form-group">
+        <label>预览股票代码</label>
+        <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001">
+      </div>
+`;
+  } else if (type === 'tdx') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>行情服务器</label>
+        <select class="form-control" id="ks-cfg-tdx_server" onchange="onTdxServerSelect(this)">
+          <option value="">— 选择或自定义 —</option>
+          <option value="119.147.212.81:7709">深圳行情 119.147.212.81:7709</option>
+          <option value="114.80.63.12:7709">上海行情 114.80.63.12:7709</option>
+          <option value="218.75.126.9:7709">湖南电信 218.75.126.9:7709</option>
+          <option value="124.74.234.130:7709">上海电信 124.74.234.130:7709</option>
+          <option value="180.153.18.17:7709">上海联通 180.153.18.17:7709</option>
+          <option value="61.152.107.141:7709">上海电信 61.152.107.141:7709</option>
+          <option value="221.231.159.216:7709">上海移动 221.231.159.216:7709</option>
+          <option value="218.9.148.108:7709">黑龙江 218.9.148.108:7709</option>
+          <option value="custom">自定义地址</option>
+        </select>
+        <div class="text-dim" style="font-size:12px;margin-top:4px">通达信行情服务器为公开免费服务，无需注册/凭证</div>
+      </div>
+      <div class="form-group" id="ks-cfg-tdx-custom-group" style="display:none">
+        <label>自定义服务器地址</label>
+        <input class="form-control" id="ks-cfg-tdx_custom" value="" placeholder="IP:端口，如 119.147.212.81:7709">
+      </div>
+      <div class="form-group">
+        <label>股票代码列表（逗号分隔）</label>
+        <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
+      </div>
+      <div class="form-group">
+        <label>连接超时（秒）</label>
+        <input class="form-control" id="ks-cfg-timeout" value="15" placeholder="15">
+      </div>
+      <div class="text-dim" style="font-size:11px;color:var(--text-dim);margin-top:8px">
+        💡 提示：通达信行情服务器由券商/第三方提供，不保证 100% 可用。如连接失败，请尝试切换其他服务器。
+      </div>
+`;
+  }
+  // Populate credential selector
+  loadCredentialSelect();
+}
+
+function onTdxServerSelect(el) {
+  const customGroup = document.getElementById('ks-cfg-tdx-custom-group');
+  if (customGroup) {
+    customGroup.style.display = el.value === 'custom' ? 'block' : 'none';
+  }
+}
+
+async function loadCredentialSelect() {
+  const sel = document.getElementById('ks-cfg-credential_id');
+  if (!sel) return;
+  const creds = await api('/api/credentials/for-select/');
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">— 不使用凭证，手动填写认证信息 —</option>' +
+    creds.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('');
+  if (currentVal) sel.value = currentVal;
+}
+
+async function onCredSelectChange(credId) {
+  if (!credId) return;
+  try {
+    const cred = await api(`/api/credentials/${credId}`);
+    const cfg = cred.config || {};
+    const credType = cred.type || '';
+    // Inject into headers
+    const headersEl = document.getElementById('ks-cfg-headers');
+    if (headersEl) {
+      let headers = {};
+      try { headers = JSON.parse(headersEl.value || '{}'); } catch(e) {}
+      if (cfg.token && credType !== 'apikey') {
+        headers['Authorization'] = `Bearer ${cfg.token}`;
+      } else if (cfg.username && cfg.password) {
+        headers['Authorization'] = `Basic ${btoa(cfg.username + ':' + cfg.password)}`;
+      }
+      headersEl.value = JSON.stringify(headers, null, 2);
+    }
+    // Inject base_url from credential
+    const baseUrlEl = document.getElementById('ks-cfg-base_url');
+    if (baseUrlEl && cfg.base_url) {
+      baseUrlEl.value = cfg.base_url;
+    }
+    // Inject into request_template for tushare_token type
+    const reqTmpl = document.getElementById('ks-cfg-request_template');
+    if (reqTmpl && cfg.token) {
+      let tmpl = {};
+      try { tmpl = JSON.parse(reqTmpl.value || '{}'); } catch(e) {}
+      if (credType === 'tushare_token') {
+        tmpl.token = cfg.token;
+        reqTmpl.value = JSON.stringify(tmpl, null, 2);
+      }
+    }
+  } catch(e) { console.error('credential inject error:', e); }
+}
+
+async function loadKlineSourceData(id) {
+  try {
+    const conn = await api(`/api/kline-sources/${id}`);
+    document.getElementById('ks-name').value = conn.name || '';
+    const el = document.querySelector(`.kline-type-card[data-type="${conn.type}"]`);
+    if (el) selectKsType(el, conn.type);
+    if (conn.config) {
+      // Set credential_id if present
+      if (conn.config.credential_id) {
+        const credSel = document.getElementById('ks-cfg-credential_id');
+        if (credSel) credSel.value = conn.config.credential_id;
+      }
+      for (const [k, v] of Object.entries(conn.config)) {
+        const inp = document.getElementById(`ks-cfg-${k}`);
+        if (inp) inp.value = typeof v === 'object' ? JSON.stringify(v, null, 2) : v;
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function saveKlineSource() {
+  const name = document.getElementById('ks-name').value;
+  const type = document.getElementById('ks-type').value;
+  if (!name || !type) { alert('请填写名称并选择类型'); return; }
+  const config = {};
+  document.querySelectorAll('[id^="ks-cfg-"]').forEach(inp => {
+    const key = inp.id.replace('ks-cfg-', '');
+    if (key) {
+      let val = inp.value;
+      // 自动解析 JSON
+      if ((key === 'headers' || key === 'request_template' || key === 'column_mapping' || key === 'subscribe_template') && val.startsWith('{')) {
+        try { val = JSON.parse(val); } catch(e) {}
+      }
+      config[key] = val;
+    }
+  });
+  const editId = document.getElementById('ks-edit-id').value;
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  try {
+    if (editId) {
+      await api(`/api/kline-sources/${editId}`, { method: 'PUT', body: JSON.stringify({ name, type, config }) });
+    } else {
+      await api('/api/kline-sources/', { method: 'POST', body: JSON.stringify({ name, type, config }) });
+    }
+    closeModal();
+    refreshKlineSources();
+  } catch(e) { alert('保存失败: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '保存'; } }
+}
+
+async function testKlineSource(id) {
+  try {
+    const res = await api(`/api/kline-sources/${id}/test`, { method: 'POST' });
+    alert(res.success ? '✅ ' + res.message : '❌ ' + res.message);
+  } catch(e) { alert('测试失败: ' + e.message); }
+}
+
+async function previewSourceById(id) {
+  try {
+    const res = await api(`/api/kline-sources/${id}/preview`, { loadingMsg: '正在从数据源拉取样例数据...' });
+    showPreviewModal(res);
+  } catch(e) {
+    showPreviewModal({ error: e.message });
+  }
+}
+
+async function previewKlineSourceData() {
+  const editId = document.getElementById('ks-edit-id')?.value;
+  if (!editId) {
+    showPreviewModal({ error: '请先保存数据源，然后点击「预览数据」按钮' });
+    return;
+  }
+  try {
+    const res = await api(`/api/kline-sources/${editId}/preview`, { loadingMsg: '正在拉取数据...' });
+    showPreviewModal(res);
+  } catch(e) {
+    showPreviewModal({ error: e.message });
+  }
+}
+
+function showPreviewModal(res) {
+  let html;
+  if (res.error) {
+    html = `
+      <div style="padding:24px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">❌</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">未获取到数据</div>
+        <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px;max-width:500px;margin-left:auto;margin-right:auto">
+          请求失败，错误信息：${res.error}
+        </div>
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:14px;text-align:left;font-size:13px;color:#f87171;line-height:1.8">
+          <strong>排查建议：</strong><br>
+          1. 确认已创建凭证并选择了该凭证<br>
+          2. 检查 base_url 是否正确（Tushare 应为 <code>http://api.tushare.pro</code>）<br>
+          3. 点击「📖 API 参考」选择一个接口填充配置<br>
+          4. 预览数据前需要先将配置保存
+        </div>
+      </div>`;
+  } else {
+    const rows = (res.data || []).slice(0, 20);
+    const columns = rows.length ? Object.keys(rows[0]) : [];
+    const types = inferColumnTypes(rows, columns);
+
+    // Debug info
+    const debugHTML = `
+      <div style="margin-bottom:16px">
+        <div class="text-dim" style="font-size:12px;margin-bottom:8px">📡 请求详情</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+          <div><strong>数据源：</strong>${res.source_name || '-'}</div>
+          <div><strong>类型：</strong>${res.source_type || '-'}</div>
+          <div><strong>请求 URL：</strong><code>${res.request_url || '-'}</code></div>
+          <div><strong>HTTP 方法：</strong>${res.request_method || '-'}</div>
+          <div><strong>响应状态：</strong>${res.http_status ? `<span style="color:#10b981">HTTP ${res.http_status} ✅</span>` : '<span style="color:#f87171">无响应</span>'}</div>
+          <div><strong>总行数：</strong>${res.total_rows || 0}</div>
+        </div>
+        ${res.request_body ? `
+          <div style="margin-top:10px"><strong>请求体：</strong></div>
+          <pre style="background:var(--bg);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:4px;max-height:120px;overflow-y:auto">${res.request_body}</pre>
+        ` : ''}
+        ${res.response_sample ? `
+          <div style="margin-top:10px"><strong>响应样例（截取）：</strong></div>
+          <pre style="background:var(--bg);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:4px;max-height:150px;overflow-y:auto">${res.response_sample}</pre>
+        ` : ''}
+      </div>`;
+
+    let tableHTML = '';
+    if (rows.length && columns.length) {
+      tableHTML = `
+        <div class="text-dim" style="font-size:12px;margin-bottom:8px">📋 字段信息</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+          ${columns.map((c, i) => `<span style="padding:4px 10px;background:rgba(99,102,241,0.1);border-radius:4px;font-size:12px">
+            <strong>${c}</strong> <span class="preview-type-badge">${types[i]}</span>
+            <span style="color:var(--text-dim);margin-left:4px;font-size:11px">${rows[0][c] ?? 'null'}</span>
+          </span>`).join('')}
+        </div>
+        <div class="text-dim" style="font-size:12px;margin-bottom:8px">📊 数据样例（前20行）</div>
+        <div class="preview-table-wrap" style="border:1px solid var(--border);border-radius:6px;background:var(--bg);max-height:400px;overflow:auto">
+          <table class="data-table">
+            <thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(row => `<tr>${columns.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+    } else {
+      tableHTML = `<div style="text-align:center;padding:24px;color:var(--text-dim)">请求成功但未返回数据</div>`;
+    }
+
+    html = `
+      <div style="margin-bottom:16px">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('preview-debug').style.display=document.getElementById('preview-debug').style.display==='none'?'block':'none'">🔍 请求详情</button>
+        <div id="preview-debug" style="display:none">${debugHTML}</div>
+      </div>
+      ${tableHTML}`;
+  }
+
+  openModal('数据预览', html, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+  `);
+}
+
+function inferColumnTypes(rows, columns) {
+  return columns.map(c => {
+    const vals = rows.slice(0, 10).map(r => r[c]).filter(v => v !== null && v !== undefined);
+    if (!vals.length) return 'unknown';
+    const first = String(vals[0]);
+    if (/^\d+$/.test(first)) return 'integer';
+    if (/^\d+\.\d+$/.test(first)) return 'float';
+    if (/^\d{4}-\d{2}-\d{2}/.test(first) || /^\d{2}:\d{2}/.test(first)) return 'datetime';
+    if (first.length <= 50) return 'string';
+    return 'text';
+  });
+}
+
+// ============ Credentials (凭证管理) ============
+async function refreshCredentials() {
+  try {
+    const list = await api('/api/credentials/');
+    const el = document.getElementById('credentials-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🔑</div><p>暂无凭证</p><button class="btn btn-primary" onclick="openCredentialModal()">新建凭证</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>名称</th><th>类型</th><th>创建时间</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const c of list) {
+      const typeLabel = {tushare_token:'Tushare Token',http_bearer:'HTTP Bearer',basic_auth:'Basic Auth',apikey:'API Key'}[c.type] || c.type;
+      const created = new Date(c.created_at).toLocaleString('zh-CN');
+      html += `<tr>
+        <td>${c.name}</td>
+        <td><span class="badge badge-pending">${typeLabel}</span></td>
+        <td class="text-dim">${created}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="testCredential('${c.id}')">🔗 测试</button>
+          <button class="btn btn-secondary btn-sm" onclick="openCredentialModal('${c.id}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCredential('${c.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+async function openCredentialModal(editId = null) {
+  // Load credential types definition
+  let types = {};
+  try { types = await api('/api/credentials/types'); } catch(e) {}
+
+  const typeOptions = Object.entries(types).map(([k, v]) =>
+    `<div class="cred-type-card" data-type="${k}" onclick="selectCredType(this,'${k}')">
+      <div class="cred-type-icon">${v.icon || '🔑'}</div>
+      <div class="cred-type-label">${v.label}</div>
+    </div>`
+  ).join('');
+
+  openModal(editId ? '编辑凭证' : '新建凭证', `
+    <input type="hidden" id="cred-edit-id" value="${editId || ''}">
+    <div class="form-group">
+      <label>凭证名称</label>
+      <input class="form-control" id="cred-name" placeholder="例如: Tushare Pro">
+    </div>
+    <div class="form-group">
+      <label>凭证类型</label>
+      <div class="cred-type-grid">${typeOptions}</div>
+      <input type="hidden" id="cred-type" value="">
+    </div>
+    <div id="cred-config-fields"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveCredential()">保存</button>
+  `);
+
+  if (editId) {
+    loadCredentialData(editId);
+  }
+}
+
+async function loadCredentialData(id) {
+  try {
+    const cred = await api(`/api/credentials/${id}`);
+    document.getElementById('cred-name').value = cred.name || '';
+    // Select the type
+    const card = document.querySelector(`.cred-type-card[data-type="${cred.type}"]`);
+    if (card) selectCredType(card, cred.type);
+    // Fill fields (masked ones show ***)
+    if (cred.config) {
+      for (const [k, v] of Object.entries(cred.config)) {
+        const inp = document.getElementById(`cred-cfg-${k}`);
+        if (inp) inp.value = typeof v === 'object' ? JSON.stringify(v) : v;
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
+function selectCredType(el, type) {
+  document.querySelectorAll('.cred-type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('cred-type').value = type;
+  const fields = document.getElementById('cred-config-fields');
+  if (type === 'tushare_token') {
+    fields.innerHTML = `
+      <div class="form-group"><label>Token</label>
+        <textarea class="form-control" id="cred-cfg-token" rows="2" placeholder="填入你的 Tushare Pro Token"></textarea></div>
+      <div class="form-group"><label>API 地址（base_url）</label>
+        <input class="form-control" id="cred-cfg-base_url" value="http://api.tushare.pro" placeholder="默认: http://api.tushare.pro"></div>`;
+  } else if (type === 'http_bearer') {
+    fields.innerHTML = `<div class="form-group"><label>Header Key</label>
+      <input class="form-control" id="cred-cfg-header_key" value="Authorization">
+    </div>
+    <div class="form-group"><label>Token</label>
+      <textarea class="form-control" id="cred-cfg-token" rows="2" placeholder="填入 Bearer Token"></textarea></div>`;
+  } else if (type === 'basic_auth') {
+    fields.innerHTML = `<div class="form-group"><label>用户名</label>
+      <input class="form-control" id="cred-cfg-username">
+    </div>
+    <div class="form-group"><label>密码</label>
+      <input class="form-control" id="cred-cfg-password" type="password"></div>`;
+  } else if (type === 'apikey') {
+    fields.innerHTML = `<div class="form-group"><label>Header Key</label>
+      <input class="form-control" id="cred-cfg-key_name" value="X-API-KEY">
+    </div>
+    <div class="form-group"><label>API Key</label>
+      <input class="form-control" id="cred-cfg-api_key">
+    </div>
+    <div class="form-group"><label>API Secret（可选）</label>
+      <input class="form-control" id="cred-cfg-api_secret" type="password"></div>`;
+  } else {
+    fields.innerHTML = '';
+  }
+}
+
+async function saveCredential() {
+  const name = document.getElementById('cred-name').value;
+  const type = document.getElementById('cred-type').value;
+  if (!name || !type) { alert('请填写名称并选择类型'); return; }
+
+  const config = {};
+  document.querySelectorAll('[id^="cred-cfg-"]').forEach(input => {
+    const key = input.id.replace('cred-cfg-', '');
+    if (key && input.value) config[key] = input.value;
+  });
+
+  const editId = document.getElementById('cred-edit-id').value;
+  try {
+    if (editId) {
+      await api(`/api/credentials/${editId}`, { method: 'PUT', body: JSON.stringify({ name, type, config }) });
+    } else {
+      await api('/api/credentials/', { method: 'POST', body: JSON.stringify({ name, type, config }) });
+    }
+    closeModal();
+    refreshCredentials();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function deleteCredential(id) {
+  if (!confirm('确定删除此凭证？')) return;
+  try {
+    await api(`/api/credentials/${id}`, { method: 'DELETE' });
+    refreshCredentials();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+async function testCredential(id) {
+  try {
+    const res = await api(`/api/credentials/${id}/test`, { method: 'POST', loadingMsg: '正在测试连通性...' });
+    if (res.success) {
+      alert('✅ ' + res.message);
+    } else {
+      const err = res.message || '未知错误';
+      const advice = `${err}\n\n排查步骤：\n1. 确认 base_url 正确\n2. 确认 Token/密钥 有效且未过期\n3. 检查网络是否能访问该地址`;
+      const askAI = confirm(`${advice}\n\n是否使用 AI 辅助排查？`);
+      if (askAI) {
+        const llm = await api('/api/llm/', { silent: true });
+        if (!llm || !llm.length || !llm[0].api_key) {
+          alert('请先配置 AI 设置（侧边栏 → AI 设置 → 填入 API Key）');
+          navigate('llm-settings');
+          return;
+        }
+        const resp = await api('/api/llm/troubleshoot', {
+          method: 'POST',
+          body: JSON.stringify({
+            error: err,
+            context: `凭证类型：${id}\n这是凭证连通性测试失败。`,
+            config_id: llm[0].id
+          }),
+          loadingMsg: 'AI 分析中...'
+        });
+        if (resp.error) {
+          alert('❌ AI 排查失败：' + resp.error);
+        } else {
+          alert('🤖 AI 排查建议：\n\n' + resp.advice);
+        }
+      }
+    }
+  } catch(e) { alert('测试失败: ' + e.message); }
+}
+
+
+// ============ API Reference Modal (按数据源 + 分类搜索) ============
+function openApiRefModal() {
+  const srcTabsHTML = Object.entries(sourceTabMap).map(([key, val], i) =>
+    `<span class="api-ref-tab ${i === 0 ? 'active' : ''}" onclick="selectApiRefTab(this,'${key}')">${val.label}</span>`
+  ).join('');
+
+  const catTabsHTML = Object.entries(catLabels).map(([key, val], i) =>
+    `<span class="api-ref-subtab ${i === 0 ? 'active' : ''}" onclick="selectApiRefCat(this,'${key}')">${val}</span>`
+  ).join('');
+
+  const cardsHTML = renderApiCards('all', 'market');
+
+  openModal('📖 API 接口参考', `
+    <div class="api-ref-toolbar">
+      <input class="form-control api-ref-search" style="max-width:300px" placeholder="搜索接口名或说明..." oninput="filterApiRef(this.value)">
+      <div class="api-ref-tabs" id="api-ref-src-tabs">${srcTabsHTML}</div>
+      <div class="api-ref-subtabs" id="api-ref-cat-tabs">${catTabsHTML}</div>
+    </div>
+    <div class="api-ref-grid" id="api-ref-cards">${cardsHTML}</div>
+  `, `<button class="btn btn-primary" onclick="closeModal()">关闭</button>`);
+}
+
+function renderApiCards(srcFilter, catFilter) {
+  const apis = (srcFilter === 'all' ? allApis : (sourceTabMap[srcFilter]?.apis || []))
+    .filter(api => catFilter === 'market' || api.cat === catFilter);
+  return apis.map(api => `
+    <div class="api-ref-card" data-src="${api.src}" data-cat="${api.cat}" data-name="${api.apiName}" data-desc="${api.desc}" onclick="useApi('${api.apiName}')">
+      <div class="api-ref-src-badge">${srcLabels[api.src] || api.src}</div>
+      <div class="api-ref-header">
+        <span class="api-ref-name">${api.apiName}</span>
+        <span class="api-ref-desc">${api.desc}</span>
+      </div>
+      <div class="api-ref-params">参数：${api.params}</div>
+      <div class="api-ref-fields">返回：${api.fields}</div>
+      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();useApi('${api.apiName}')">使用此接口</button>
+    </div>
+  `).join('');
+}
+
+function selectApiRefTab(el, src) {
+  document.querySelectorAll('#api-ref-src-tabs .api-ref-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const cat = document.querySelector('#api-ref-cat-tabs .api-ref-subtab.active')?.textContent;
+  const catMap = {'全部':'market','行情':'market','财务':'finance','基金':'fund','指数':'index','资金':'flow','板块':'sector'};
+  const catKey = catMap[cat] || 'market';
+  const q = document.querySelector('.api-ref-search')?.value || '';
+  document.getElementById('api-ref-cards').innerHTML = renderApiCards(src, catKey);
+  filterApiRef(q);
+}
+
+function selectApiRefCat(el, cat) {
+  document.querySelectorAll('#api-ref-cat-tabs .api-ref-subtab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const src = document.querySelector('#api-ref-src-tabs .api-ref-tab.active')?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1] || 'all';
+  const q = document.querySelector('.api-ref-search')?.value || '';
+  document.getElementById('api-ref-cards').innerHTML = renderApiCards(src, cat);
+  filterApiRef(q);
+}
+
+function filterApiRef(query) {
+  const q = (query || '').toLowerCase();
+  const container = document.getElementById('api-ref-cards');
+  if (!container) return;
+  container.querySelectorAll('.api-ref-card').forEach(card => {
+    const name = (card.dataset.name || '').toLowerCase();
+    const desc = (card.dataset.desc || '').toLowerCase();
+    card.style.display = (!q || name.includes(q) || desc.includes(q)) ? '' : 'none';
+  });
+}
+
+// API reference data — organized by source (NOT generic — each API belongs to a specific data source)
+// Source badges: 🔵=Tushare | 🟢=AkShare | 🟠=通达信(TDX)
+
+const tushareApis = [
+  // 行情 market
+  { src: 'tushare', cat: 'market', apiName: 'daily', desc: '日线行情',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"daily","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101","end_date":"20240110"},"fields":"ts_code,trade_date,open,high,low,close,vol,amount"}' },
+  { src: 'tushare', cat: 'market', apiName: 'weekly', desc: '周线行情',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"weekly","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101","end_date":"20240601"},"fields":"ts_code,trade_date,open,high,low,close,vol,amount"}' },
+  { src: 'tushare', cat: 'market', apiName: 'monthly', desc: '月线行情',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"monthly","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20240601"},"fields":"ts_code,trade_date,open,high,low,close,vol,amount"}' },
+  { src: 'tushare', cat: 'market', apiName: 'adj_factor', desc: '复权因子',
+    params: 'ts_code, trade_date', fields: 'ts_code,trade_date,adj_factor' },
+  // 财务 finance
+  { src: 'tushare', cat: 'finance', apiName: 'stock_basic', desc: '股票列表',
+    params: 'exchange, list_status', fields: 'ts_code,symbol,name,area,industry,list_date',
+    reqExample: '{"api_name":"stock_basic","token":"YOUR_TOKEN","params":{"list_status":"L"},"fields":"ts_code,symbol,name,area,industry,list_date"}' },
+  { src: 'tushare', cat: 'finance', apiName: 'daily_basic', desc: '每日指标(PE/PB等)',
+    params: 'ts_code, trade_date, start_date, end_date', fields: 'ts_code,trade_date,close,turnover_rate,pe_ttm,pb',
+    reqExample: '{"api_name":"daily_basic","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","trade_date":"20240110"},"fields":"ts_code,trade_date,close,turnover_rate,pe_ttm,pb"}' },
+  { src: 'tushare', cat: 'finance', apiName: 'fina_indicator', desc: '财务指标',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,end_date,eps,roe,debt_to_assets',
+    reqExample: '{"api_name":"fina_indicator","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20240601"},"fields":"ts_code,ann_date,end_date,eps,roe"}' },
+  { src: 'tushare', cat: 'finance', apiName: 'income', desc: '利润表',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,f_ann_date,end_date,revenue,profit',
+    reqExample: '{"api_name":"income","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20230601"},"fields":"ts_code,ann_date,revenue,profit"}' },
+  { src: 'tushare', cat: 'finance', apiName: 'balance', desc: '资产负债表',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,f_ann_date,end_date,total_share,assets' },
+  { src: 'tushare', cat: 'finance', apiName: 'cashflow', desc: '现金流量表',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,f_ann_date,end_date,cash_flows_nif' },
+  // 基金 fund
+  { src: 'tushare', cat: 'fund', apiName: 'fund_daily', desc: '基金日线',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,pre_close,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"fund_daily","token":"YOUR_TOKEN","params":{"ts_code":"510300.SH","start_date":"20240101","end_date":"20240110"},"fields":"ts_code,trade_date,open,high,low,close,vol"}' },
+  { src: 'tushare', cat: 'fund', apiName: 'fund_nav', desc: '基金净值',
+    params: 'ts_code, trade_date, start_date, end_date', fields: 'ts_code,ann_date,end_date,unit_nav,accum_nav' },
+  // 指数 index
+  { src: 'tushare', cat: 'index', apiName: 'index_daily', desc: '大盘指数日线',
+    params: 'ts_code(指数代码), start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"index_daily","token":"YOUR_TOKEN","params":{"ts_code":"000001.SH","start_date":"20240101","end_date":"20240110"},"fields":"ts_code,trade_date,open,high,low,close,vol"}' },
+  { src: 'tushare', cat: 'index', apiName: 'index_weekly', desc: '指数周线',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount' },
+  // 资金 flow
+  { src: 'tushare', cat: 'flow', apiName: 'moneyflow', desc: '个股资金流向',
+    params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,buy_lg_amount,sell_lg_amount,net_lg_amount',
+    reqExample: '{"api_name":"moneyflow","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101","end_date":"20240110"},"fields":"ts_code,trade_date,buy_lg_amount,sell_lg_amount"}' },
+  { src: 'tushare', cat: 'flow', apiName: 'limit_list', desc: '涨跌停列表',
+    params: 'trade_date, ts_code', fields: 'ts_code,trade_date,close,change_rate,amount,fd_count,up_limit,down_limit' },
+  // 板块 sector
+  { src: 'tushare', cat: 'sector', apiName: 'ths_index', desc: '同花顺概念板块',
+    params: 'exchange, type', fields: 'ts_code,name,count,type' },
+  { src: 'tushare', cat: 'sector', apiName: 'ths_member', desc: '板块成分股',
+    params: 'ts_code(板块代码)', fields: 'ts_code,ths_code,code,name' },
+  { src: 'tushare', cat: 'sector', apiName: 'concept_detail', desc: '概念板块详情',
+    params: 'id', fields: 'id,code,name,src' },
+];
+
+const akshareApis = [
+  // 行情
+  { src: 'akshare', cat: 'market', apiName: 'stock_zh_a_hist', desc: 'A股历史行情(单只)',
+    params: 'symbol, period, start_date, end_date, adjust', fields: '日期,股票代码,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率',
+    reqExample: '{"func":"stock_zh_a_hist","symbol":"000001","period":"daily","start_date":"20240101","end_date":"20240110","adjust":"qfq"}' },
+  { src: 'akshare', cat: 'market', apiName: 'stock_zh_a_spot_em', desc: 'A股实时行情',
+    params: 'symbol(股票代码)', fields: '代码,名称,最新价,涨跌幅,涨跌额,成交量,成交额,振幅,换手率,市盈率,市净率,总市值,流通市值',
+    reqExample: '{"func":"stock_zh_a_spot_em","symbol":"000001"}' },
+  { src: 'akshare', cat: 'market', apiName: 'stock_zh_index_spot_em', desc: '指数实时行情',
+    params: 'symbol(指数代码)', fields: '代码,名称,最新价,涨跌幅,涨跌额,成交量,成交额' },
+  // 基金
+  { src: 'akshare', cat: 'fund', apiName: 'fund_open_fund_info_em', desc: '开放基金信息',
+    params: 'fund, indicator', fields: '基金代码,基金名称,日期,单位净值,累计净值,日增长率,近1周,近1月,近3月,近1年,今年来,成立来',
+    reqExample: '{"func":"fund_open_fund_info_em","fund":"000001","indicator":"单位净值走势"}' },
+  { src: 'akshare', cat: 'fund', apiName: 'fund_etf_hist_em', desc: 'ETF历史行情',
+    params: 'symbol, period, start_date, end_date, adjust', fields: '日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率' },
+  // 指数
+  { src: 'akshare', cat: 'index', apiName: 'index_zh_a_hist_em', desc: 'A股指数历史行情',
+    params: 'symbol, period, start_date, end_date', fields: '日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率',
+    reqExample: '{"func":"index_zh_a_hist_em","symbol":"000001","period":"daily","start_date":"20240101","end_date":"20240110"}' },
+  { src: 'akshare', cat: 'index', apiName: 'index_zh_a_spot_em', desc: 'A股指数实时行情',
+    params: 'symbol', fields: '代码,名称,最新价,涨跌幅,涨跌额,成交量,成交额,今开,昨收,最高,最低' },
+  // 资金 flow
+  { src: 'akshare', cat: 'flow', apiName: 'stock_individual_fund_flow', desc: '个股资金流向',
+    params: 'symbol, market', fields: '股票代码,股票名称,主力净流入,主力净流入占比,超大单净流入,超大单净流入占比,大单净流入,大单净流入占比,中单净流入,中单净流入占比,小单净流入,小单净流入占比',
+    reqExample: '{"func":"stock_individual_fund_flow","symbol":"000001","market":"sh"}' },
+  { src: 'akshare', cat: 'flow', apiName: 'stock_sector_fund_flow_rank', desc: '行业板块资金流向排名',
+    params: 'indicator, sector_type', fields: '名称,涨跌幅,主力净流入,主力净流入占比,超大单净流入,大单净流入,中单净流入,小单净流入,成交额' },
+  // 财务
+  { src: 'akshare', cat: 'finance', apiName: 'stock_financial_report_sina', desc: '新浪财报',
+    params: 'stock, type(income/balance/cashflow)', fields: '报告日期,指标名称,数值' },
+  { src: 'akshare', cat: 'finance', apiName: 'stock_profit_sheet_by_report_em', desc: '东方财富利润表',
+    params: 'symbol, report_type', fields: '股票代码,股票名称,报告日期,营业总收入,净利润,扣非净利润' },
+];
+
+const tdxApis = [
+  // 通达信 HTTP 接口 — 常见接口路径
+  { src: 'tdx', cat: 'market', apiName: 'get_security_bars', desc: 'K线(单只股票)',
+    params: 'category(0日线/1周线/2月线), code, count, start', fields: 'datetime,open,high,low,close,amount,vol',
+    reqExample: '{"category":0,"market":0,"code":"000001","count":10,"start":0}' },
+  { src: 'tdx', cat: 'market', apiName: 'get_minute_time_data', desc: '分时数据',
+    params: 'market, code', fields: 'time,open,high,low,close,amount,vol' },
+  { src: 'tdx', cat: 'market', apiName: 'get_history_minute_time_data', desc: '历史分时数据',
+    params: 'market, code, date', fields: 'time,open,high,low,close,amount,vol' },
+  { src: 'tdx', cat: 'market', apiName: 'get_security_list', desc: '股票列表',
+    params: 'market(0沪/1深), start, end', fields: 'code,name,open,high,low,close,vol' },
+  { src: 'tdx', cat: 'market', apiName: 'get_index_bars', desc: '指数K线',
+    params: 'category, code, count, start', fields: 'datetime,open,high,low,close,amount,vol' },
+  { src: 'tdx', cat: 'flow', apiName: 'get_transaction_data', desc: '分笔成交',
+    params: 'market, code, start, count', fields: 'time,price,volume,type' },
+  { src: 'tdx', cat: 'flow', apiName: 'get_history_transaction_data', desc: '历史分笔',
+    params: 'market, code, start, count, date', fields: 'time,price,volume,type' },
+  { src: 'tdx', cat: 'finance', apiName: 'get_finance_info', desc: '财务信息',
+    params: 'market, code', fields: '总股本,流通股本,市盈率,市净率,总市值,流通市值' },
+];
+
+// All APIs merged for "全部" tab
+const allApis = [...tushareApis, ...akshareApis, ...tdxApis];
+
+const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信' };
+const catLabels = { market:'行情', finance:'财务', fund:'基金', index:'指数', flow:'资金', sector:'板块' };
+
+// Group APIs by source for the tab bar
+const sourceTabMap = {
+  all:     { label: '全部',   apis: allApis },
+  tushare: { label: '🔵 Tushare', apis: tushareApis },
+  akshare: { label: '🟢 AkShare', apis: akshareApis },
+  tdx:     { label: '🟠 通达信',  apis: tdxApis },
+};
+
+function useApi(apiName) {
+  const apiInfo = allApis.find(a => a.apiName === apiName);
+  const src = apiInfo ? apiInfo.src : 'tushare';
+  const label = catLabels[apiInfo?.cat] || '行情';
+  closeModal();
+  setTimeout(() => {
+    openKlineSourceModal();
+    setTimeout(() => {
+      const httpCard = document.querySelector('.kline-type-card[data-type="http"]');
+      if (httpCard) selectKsType(httpCard, 'http');
+      setTimeout(() => {
+        // Set source name
+        const nameEl = document.getElementById('ks-name');
+        if (nameEl && !nameEl.value) nameEl.value = `${src.toUpperCase()}-${apiInfo?.desc || apiName}`;
+        fillApiTemplate(apiName, apiInfo, src);
+      }, 80);
+    }, 80);
+  }, 80);
+}
+
+function fillApiTemplate(apiName, apiInfo, src) {
+  const baseUrl = document.getElementById('ks-cfg-base_url');
+  const method = document.getElementById('ks-cfg-method');
+  if (src === 'tushare') {
+    if (baseUrl) baseUrl.value = 'http://api.tushare.pro';
+    if (method) method.value = 'POST';
+    const tmpl = { api_name: apiName, token: '{YOUR_TOKEN}', params: { ts_code: '{codes}', start_date: '{start_time}', end_date: '{end_time}' }, fields: apiInfo ? apiInfo.fields : '' };
+    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
+    const requestTemplate = document.getElementById('ks-cfg-request_template');
+    if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
+    const respPath = document.getElementById('ks-cfg-response_data_path');
+    if (respPath) respPath.value = 'data.items';
+    const colMapping = document.getElementById('ks-cfg-column_mapping');
+    if (colMapping) colMapping.value = JSON.stringify({ trade_date: 'datetime', open: 'open', high: 'high', low: 'low', close: 'close', vol: 'vol', amount: 'amount' }, null, 2);
+  } else if (src === 'akshare') {
+    if (baseUrl) baseUrl.value = 'https://api.akshare.online';
+    if (method) method.value = 'POST';
+    const tmpl = { func: apiName };
+    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
+    const requestTemplate = document.getElementById('ks-cfg-request_template');
+    if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
+    const respPath = document.getElementById('ks-cfg-response_data_path');
+    if (respPath) respPath.value = 'result';
+  } else if (src === 'tdx') {
+    if (baseUrl) baseUrl.value = 'http://127.0.0.1:8888';
+    if (method) method.value = 'POST';
+    const tmpl = { code: '{codes}', count: 10, start: 0 };
+    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
+    const requestTemplate = document.getElementById('ks-cfg-request_template');
+    if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
+    const respPath = document.getElementById('ks-cfg-response_data_path');
+    if (respPath) respPath.value = 'data';
+    const colMapping = document.getElementById('ks-cfg-column_mapping');
+    if (colMapping) colMapping.value = JSON.stringify({ datetime: 'datetime', open: 'open', high: 'high', low: 'low', close: 'close', vol: 'vol', amount: 'amount' }, null, 2);
+  }
+}
+
+async function deleteKlineSource(id) {
+  if (!confirm('确定删除此数据源？')) return;
+  try {
+    await api(`/api/kline-sources/${id}`, { method: 'DELETE' });
+    refreshKlineSources();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+// ---------- 数据流 (Pipeline) ----------
+async function refreshPipelines() {
+  try {
+    const [pipelines, runs] = await Promise.all([
+      api('/api/pipelines/'),
+      api('/api/pipelines/runs?limit=20'),
+    ]);
+    document.getElementById('pipeline-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">数据流数</div><div class="stat-value accent">${pipelines.length}</div></div>
+      <div class="stat-card"><div class="stat-label">执行次数</div><div class="stat-value">${runs.length}</div></div>
+      <div class="stat-card"><div class="stat-label">成功</div><div class="stat-value success">${runs.filter(r => r.status === 'success').length}</div></div>
+      <div class="stat-card"><div class="stat-label">失败</div><div class="stat-value danger">${runs.filter(r => r.status === 'failed').length}</div></div>
+    `;
+    const el = document.getElementById('pipelines-list');
+    if (!pipelines.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🔄</div><p>暂无数据流</p><button class="btn btn-primary" onclick="openPipelineModal()">新建数据流</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>名称</th><th>数据源数</th><th>目标</th><th>状态</th><th>Cron</th><th>上次运行</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const p of pipelines) {
+      const pjson = p.pipeline_json || {};
+      const srcCount = (pjson.sources || []).length;
+      const tgt = pjson.target || {};
+      const tgtName = tgt.table || '-';
+      const time = p.last_run_at ? new Date(p.last_run_at).toLocaleString() : '-';
+      html += `<tr>
+        <td>${p.name}</td>
+        <td>${srcCount}</td>
+        <td class="text-dim">${tgtName}</td>
+        <td><span class="badge badge-${p.status || 'pending'}">${p.status || 'pending'}</span></td>
+        <td class="text-dim">${p.cron_expression || '-'}</td>
+        <td class="text-dim">${time}</td>
+        <td class="actions">
+          <button class="btn btn-success btn-sm" onclick="runPipeline('${p.id}')">执行</button>
+          <button class="btn btn-secondary btn-sm" onclick="openPipelineModal('${p.id}')">编辑</button>
+          <button class="btn btn-secondary btn-sm" onclick="showPipelineRuns('${p.id}')">记录</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePipeline('${p.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+let _pipelineModalData = null;
+let plSourceIdx = 0;
+function addPipelineSource(cfg = null) {
+  plSourceIdx++;
+  const idx = plSourceIdx;
+  const params = cfg?.params || {};
+  const sources = _pipelineModalData?.sources || [];
+  const sourceOptions = sources.map(s =>
+    `<option value="${s.id}" ${cfg?.connection_id === s.id ? 'selected' : ''}>${s.name} (${s.type})</option>`
+  ).join('') || '<option value="">无可用数据源</option>';
+  const container = document.getElementById('pl-sources-list');
+  container.innerHTML += `
+    <div class="panel" style="padding:12px;margin-bottom:8px;border:1px dashed var(--border)" id="pl-src-${idx}">
+      <div class="flex-between">
+        <span style="font-weight:600;font-size:13px">数据源 #${idx}</span>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('pl-src-${idx}').remove()">删除</button>
+      </div>
+      <div class="form-row" style="margin-top:8px">
+        <div class="form-group">
+          <label>数据源连接</label>
+          <select class="form-control" id="pl-src-conn-${idx}">${sourceOptions}</select>
+        </div>
+        <div class="form-group">
+          <label>周期</label>
+          <select class="form-control" id="pl-src-interval-${idx}">
+            <option value="1min" ${params.interval==='1min'?'selected':''}>1分钟</option>
+            <option value="5min" ${params.interval==='5min'?'selected':''}>5分钟</option>
+            <option value="15min" ${params.interval==='15min'?'selected':''}>15分钟</option>
+            <option value="30min" ${params.interval==='30min'?'selected':''}>30分钟</option>
+            <option value="60min" ${params.interval==='60min'?'selected':''}>60分钟</option>
+            <option value="D" ${params.interval==='D'?'selected':''}>日线</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>股票代码（逗号分隔）</label>
+          <input class="form-control" id="pl-src-codes-${idx}" value="${(params.codes || []).join(',')}" placeholder="000001,600000">
+        </div>
+        <div class="form-group">
+          <label>回溯天数</label>
+          <input class="form-control" id="pl-src-lookback-${idx}" value="${params.lookback_days || 10}">
+        </div>
+      </div>
+    </div>`;
+}
+
+async function openPipelineModal(editId = null) {
+  const [sources, connections, workflows] = await Promise.all([
+    api('/api/kline-sources/'),
+    api('/api/connections'),
+    api('/api/workflows/'),
+  ]);
+  _pipelineModalData = { sources, connections, workflows };
+  const dbConns = connections.filter(c => ['mysql','postgresql','duckdb','clickhouse'].includes(c.type));
+  let cfg = null;
+  let pjson = { sources: [], target: {}, field_mappings: [], batch_size: 5000, on_duplicate: 'ignore' };
+  if (editId) {
+    cfg = await api(`/api/pipelines/${editId}`);
+    pjson = cfg?.pipeline_json || pjson;
+  }
+
+  openModal(editId ? '编辑数据流' : '新建数据流', `
+    <input type="hidden" id="pl-edit-id" value="${editId || ''}">
+    <div class="form-group"><label>数据流名称</label><input class="form-control" id="pl-name" value="${cfg?.name || ''}" placeholder="每日K线同步数据流"></div>
+    <div class="form-group"><label>描述</label><input class="form-control" id="pl-desc" value="${cfg?.description || ''}" placeholder="简要描述此数据流用途"></div>
+
+    <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">数据源</div>
+    <div id="pl-sources-list"></div>
+    <button class="btn btn-secondary btn-sm" onclick="addPipelineSource()">+ 添加数据源</button>
+
+    <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">ETL工作流（可选）</div>
+    <div class="form-group">
+      <select class="form-control" id="pl-workflow">
+        <option value="">不使用工作流</option>
+        ${workflows.map(w => `<option value="${w.id}" ${pjson.workflow_id === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">目标存储</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>目标数据库连接</label>
+        <select class="form-control" id="pl-target-conn">
+          <option value="">请选择</option>
+          ${dbConns.map(c => `<option value="${c.id}" ${pjson.target?.connection_id === c.id ? 'selected' : ''}>${c.name} (${c.type})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>目标表名</label>
+        <input class="form-control" id="pl-target-table" value="${pjson.target?.table || 'dat_kline'}" placeholder="dat_kline">
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">字段映射（可选）</div>
+    <div id="pl-field-mappings"></div>
+    <button class="btn btn-secondary btn-sm mt-8" onclick="addPlMapping()">+ 添加映射</button>
+
+    <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">调度与配置</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cron表达式</label>
+        <input class="form-control" id="pl-cron" value="${cfg?.cron_expression || ''}" placeholder="0 9 * * 1-5">
+      </div>
+      <div class="form-group"><label>批次大小</label><input class="form-control" id="pl-batch" value="${pjson.batch_size || 5000}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>重复写入策略</label>
+        <select class="form-control" id="pl-dup">
+          <option value="ignore" ${(pjson.on_duplicate || 'ignore') === 'ignore' ? 'selected' : ''}>忽略重复</option>
+          <option value="update" ${pjson.on_duplicate === 'update' ? 'selected' : ''}>更新覆盖</option>
+        </select>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="savePipeline()">保存</button>
+  `);
+
+  plSourceIdx = 0;
+  if (pjson.sources && pjson.sources.length) {
+    for (const s of pjson.sources) addPipelineSource(s);
+  } else {
+    addPipelineSource();
+  }
+  const mappings = pjson.field_mappings || [];
+  if (mappings.length) {
+    for (const m of mappings) addPlMapping(m.source_field, m.target_field);
+  } else {
+    addPlMapping('code', 'stock_code'); addPlMapping('dt', 'trade_time');
+    addPlMapping('open', 'open_price'); addPlMapping('high', 'high_price');
+    addPlMapping('low', 'low_price'); addPlMapping('close', 'close_price');
+    addPlMapping('vol', 'volume'); addPlMapping('amount', 'amount');
+  }
+}
+
+let plMapId = 0;
+function addPlMapping(src = '', tgt = '') {
+  plMapId++;
+  const c = document.getElementById('pl-field-mappings');
+  c.innerHTML += `<div class="field-map-row" id="pl-map-${plMapId}">
+    <input class="form-control" id="pl-src-f-${plMapId}" value="${src}" placeholder="源字段">
+    <input class="form-control" id="pl-tgt-f-${plMapId}" value="${tgt}" placeholder="目标字段">
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('pl-map-${plMapId}').remove()">✕</button>
+  </div>`;
+}
+
+async function savePipeline() {
+  const name = document.getElementById('pl-name').value;
+  const desc = document.getElementById('pl-desc').value;
+  const workflowId = document.getElementById('pl-workflow').value;
+  const targetConnId = document.getElementById('pl-target-conn').value;
+  const targetTable = document.getElementById('pl-target-table').value;
+  const batch = parseInt(document.getElementById('pl-batch').value) || 5000;
+  const dup = document.getElementById('pl-dup').value;
+  const cron = document.getElementById('pl-cron').value;
+
+  if (!name) { alert('请填写数据流名称'); return; }
+  if (!targetConnId) { alert('请选择目标数据库连接'); return; }
+
+  // Collect sources
+  const sources = [];
+  document.querySelectorAll('[id^="pl-src-conn-"]').forEach(el => {
+    const idx = el.id.replace('pl-src-conn-', '');
+    const codesStr = document.getElementById(`pl-src-codes-${idx}`)?.value || '';
+    const codes = codesStr ? codesStr.split(',').map(c => c.trim()).filter(c => c) : [];
+    sources.push({
+      connection_id: el.value,
+      params: {
+        codes,
+        interval: document.getElementById(`pl-src-interval-${idx}`)?.value || '1min',
+        lookback_days: parseInt(document.getElementById(`pl-src-lookback-${idx}`)?.value) || 10,
+      }
+    });
+  });
+
+  // Collect field mappings
+  const fieldMappings = [];
+  document.querySelectorAll('[id^="pl-map-"]').forEach(row => {
+    const id = row.id.replace('pl-map-', '');
+    const s = document.getElementById(`pl-src-f-${id}`)?.value;
+    const t = document.getElementById(`pl-tgt-f-${id}`)?.value;
+    if (s && t) fieldMappings.push({ source_field: s, target_field: t });
+  });
+
+  const pipelineJson = {
+    sources,
+    target: { connection_id: targetConnId, table: targetTable },
+    field_mappings: fieldMappings,
+    batch_size: batch,
+    on_duplicate: dup,
+  };
+  if (workflowId) pipelineJson.workflow_id = workflowId;
+
+  const editId = document.getElementById('pl-edit-id').value;
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  try {
+    if (editId) {
+      await api(`/api/pipelines/${editId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, description: desc, pipeline_json: pipelineJson, cron_expression: cron || null }),
+      });
+    } else {
+      await api('/api/pipelines/', {
+        method: 'POST',
+        body: JSON.stringify({ name, description: desc, pipeline_json: pipelineJson, cron_expression: cron || null }),
+      });
+    }
+    closeModal();
+    refreshPipelines();
+  } catch(e) { alert('保存失败: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '保存'; } }
+}
+
+async function runPipeline(id) {
+  try {
+    const res = await api(`/api/pipelines/${id}/run`, { method: 'POST' });
+    alert('数据流已启动: ' + res.message);
+    setTimeout(refreshPipelines, 2000);
+  } catch(e) { alert('执行失败: ' + e.message); }
+}
+
+async function showPipelineRuns(id) {
+  try {
+    const records = await api(`/api/pipelines/${id}/runs`);
+    if (!records.length) { alert('暂无执行记录'); return; }
+    let html = `<table class="data-table"><thead><tr><th>执行时间</th><th>状态</th><th>读取</th><th>写入</th><th>耗时</th><th>错误</th></tr></thead><tbody>`;
+    for (const r of records) {
+      html += `<tr>
+        <td>${new Date(r.started_at).toLocaleString()}</td>
+        <td><span class="badge badge-${r.status}">${r.status}</span></td>
+        <td>${r.rows_read ?? '-'}</td><td>${r.rows_written ?? '-'}</td>
+        <td>${r.duration ? r.duration + 's' : '-'}</td>
+        <td class="text-dim">${r.error_message || '-'}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    openModal('执行记录', html, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  } catch(e) { alert('获取失败: ' + e.message); }
+}
+
+async function deletePipeline(id) {
+  if (!confirm('确定删除此数据流？')) return;
+  try {
+    await api(`/api/pipelines/${id}`, { method: 'DELETE' });
+    refreshPipelines();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+// ---------- License 管理 ----------
+let _licenseInfo = { type: 'free', machine_code: 'N/A', expires_at: null };
+
+async function loadAboutData() {
+  await loadLicenseInfo();
+}
+
+async function refreshLLMSettings() {
+  // Called by navigate to pre-load data before rendering
+}
+
+function onLLMProviderChange() {
+  const provider = document.getElementById('llm-provider')?.value;
+  const baseUrl = document.getElementById('llm-base-url');
+  const model = document.getElementById('llm-model');
+  const presets = {
+    openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+    claude: { url: 'https://api.anthropic.com/v1', model: 'claude-3-haiku-20240307' },
+    deepseek: { url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+    qwen: { url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+    custom: { url: '', model: '' },
+  };
+  const p = presets[provider] || presets.openai;
+  if (baseUrl) baseUrl.value = baseUrl.value || p.url;
+  if (model) model.value = model.value || p.model;
+}
+
+async function saveLLMSettings() {
+  const enabled = document.getElementById('llm-enabled')?.checked ? 1 : 0;
+  const provider = document.getElementById('llm-provider')?.value || 'openai';
+  const base_url = document.getElementById('llm-base-url')?.value || '';
+  const api_key = document.getElementById('llm-api-key')?.value || '';
+  const model = document.getElementById('llm-model')?.value || 'gpt-4o-mini';
+  const system_prompt = document.getElementById('llm-system-prompt')?.value || '';
+
+  try {
+    const existing = await api('/api/llm/', { silent: true });
+    if (existing && existing.length > 0) {
+      await api(`/api/llm/${existing[0].id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, enabled })
+      });
+    } else {
+      await api('/api/llm/', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, enabled })
+      });
+    }
+    alert('✅ 配置已保存');
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function loadLLMSettings() {
+  try {
+    const list = await api('/api/llm/', { silent: true });
+    if (list && list.length > 0) {
+      const cfg = list[0];
+      const inp = (id, val) => { const el = document.getElementById(id); if (el) el.value = cfg[val] || ''; };
+      inp('llm-enabled', 'enabled');
+      inp('llm-provider', 'provider');
+      inp('llm-base-url', 'base_url');
+      inp('llm-api-key', 'api_key');
+      inp('llm-model', 'model');
+      inp('llm-system-prompt', 'system_prompt');
+      const enEl = document.getElementById('llm-enabled');
+      if (enEl) enEl.checked = cfg.enabled === 1;
+    }
+  } catch(e) { /* ignore */ }
+}
+
+async function testLLM() {
+  const el = document.getElementById('llm-test-result');
+  if (el) el.innerHTML = '<span class="text-dim">正在连接测试...</span>';
+  const provider = document.getElementById('llm-provider')?.value || 'openai';
+  const base_url = document.getElementById('llm-base-url')?.value || '';
+  const api_key = document.getElementById('llm-api-key')?.value || '';
+  const model = document.getElementById('llm-model')?.value || 'gpt-4o-mini';
+  if (!api_key) { if (el) el.innerHTML = '❌ 请先填入 API Key'; return; }
+  if (!base_url) { if (el) el.innerHTML = '❌ 请先填入 base_url'; return; }
+  try {
+    const resp = await api('/api/llm/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: '回复"OK"，不需要其他内容。',
+        config_id: 'default',
+        override: { provider, base_url, api_key, model }
+      }),
+      loadingMsg: '连接测试中...'
+    });
+    if (resp.error) {
+      if (el) el.innerHTML = `<div style="color:#ef4444;background:rgba(239,68,68,0.08);padding:12px;border-radius:6px;font-size:13px">❌ 测试失败：${resp.error}</div>`;
+    } else {
+      if (el) el.innerHTML = `<div style="color:#10b981;background:rgba(16,185,129,0.08);padding:12px;border-radius:6px;font-size:13px">✅ 连接成功！模型回复：${resp.content?.substring(0, 200)}</div>`;
+    }
+  } catch(e) {
+    if (el) el.innerHTML = `❌ 测试失败：${e.message}`;
+  }
+}
+
+async function navigateToLLMSettings() {
+  navigate('llm-settings');
+  setTimeout(loadLLMSettings, 50);
+}
+
+async function loadLicenseInfo() {
+  try {
+    const info = await api('/api/license/info', { silent: true });
+    _licenseInfo = info;
+    const el = document.getElementById('about-version');
+    if (el) {
+      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
+      const typeName = typeNames[info.type] || '免费基础版';
+      el.textContent = `版本 1.0.0 | ${typeName}`;
+    }
+    const licInfo = document.getElementById('about-license-info');
+    if (licInfo) {
+      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
+      const typeName = typeNames[info.type] || '免费基础版';
+      let html = `<p>当前版本：<strong>${typeName}</strong></p>`;
+      html += `<p>机器码：<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${info.machine_code || '-'}</code></p>`;
+      if (info.type !== 'free' && info.expires_at) {
+        html += `<p>到期时间：${new Date(info.expires_at).toLocaleDateString()}</p>`;
+      }
+      if (info.type === 'free') {
+        html += `<p style="margin-top:12px;color:var(--accent)">💡 升级付费版可获得大模型脚本生成（无次数限制）、断点续传、多工作流并发、高级数据库连接等更多功能。</p>`;
+      }
+      licInfo.innerHTML = html;
+    }
+  } catch(e) {
+    // License API not available yet (backend not implemented)
+    const licInfo = document.getElementById('about-license-info');
+    if (licInfo) {
+      licInfo.innerHTML = `<p>当前版本：<strong>免费基础版</strong></p>
+        <p style="margin-top:8px;color:var(--text-dim)">💡 升级付费版可获得更多功能。</p>
+        <p class="text-dim mt-8">License 管理系统正在开发中...</p>`;
+    }
+  }
+}
+
+async function openLicenseModal() {
+  try {
+    const info = await api('/api/license/info', { silent: true });
+    _licenseInfo = info;
+  } catch(e) {
+    // API not ready yet
+  }
+
+  const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
+  const currentType = _licenseInfo.type || 'free';
+  const typeName = typeNames[currentType] || '免费基础版';
+
+  openModal('License 管理', `
+    <div class="panel-title mb-16">当前授权信息</div>
+    <div style="margin-bottom:16px">
+      <div class="form-row">
+        <div class="form-group"><label>当前版本</label><div style="padding:8px;background:var(--bg);border-radius:6px">${typeName}</div></div>
+        <div class="form-group"><label>机器码</label><div style="padding:8px;background:var(--bg);border-radius:6px;font-family:monospace;font-size:12px">${_licenseInfo.machine_code || '未初始化'}</div></div>
+      </div>
+    </div>
+
+    <div class="panel-title mb-16">激活 License</div>
+    <div class="form-group">
+      <label>激活码（在线激活）</label>
+      <div class="form-row">
+        <input class="form-control" id="license-activate-code" placeholder="输入 License 激活码">
+        <button class="btn btn-primary" onclick="activateLicense()" style="white-space:nowrap">激活</button>
+      </div>
+    </div>
+
+    <div class="panel-title mb-16 mt-16">离线授权</div>
+    <div class="form-group">
+      <label>导入授权文件</label>
+      <input type="file" id="license-file" accept=".lic" style="color:var(--text)">
+      <div class="text-dim mt-8">适用于无网络环境，请联系客服获取 .lic 文件</div>
+    </div>
+
+    <div class="panel-title mb-16 mt-16">版本说明</div>
+    <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
+      <p><strong>免费基础版</strong>：基础可视化工作流（单工作流）、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV、TXT）、简单数据清洗（去重、空值处理）、基础定时调度（每日/hourly）、基础日志记录、单任务运行无并发。</p>
+      <p style="margin-top:8px"><strong>个人版（月卡 ¥69 / 年卡 ¥129 / 永久 ¥199）</strong>：多工作流并发（≤5个）、高级数据库连接（DuckDB、PG）、HTTP接口连接、断点续传、失败自动重试、大模型脚本生成无次数限制。</p>
+      <p style="margin-top:8px"><strong>专业版（年卡 ¥599 / 永久 ¥999）</strong>：多工作流并发（无上限）、分布式任务调度、高级监控告警、数据备份与恢复、专属技术支持。</p>
+    </div>
+
+    ${currentType !== 'free' ? `
+    <div class="panel-title mt-16">解绑设备</div>
+    <div class="text-dim mb-8">解绑后可在新设备激活，每月限1次。</div>
+    <button class="btn btn-warning btn-sm" onclick="deactivateLicense()">解绑当前设备</button>
+    ` : ''}
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+    ${currentType === 'free' ? '<button class="btn btn-primary" onclick="window.open(\'#\')">升级付费版</button>' : ''}
+  `);
+}
+
+async function activateLicense() {
+  const code = document.getElementById('license-activate-code').value;
+  if (!code) { alert('请输入激活码'); return; }
+  try {
+    const res = await api('/api/license/activate', {
+      method: 'POST',
+      body: JSON.stringify({ activation_code: code }),
+    });
+    alert('激活成功！版本：' + (res.type || '已激活'));
+    closeModal();
+    loadLicenseInfo();
+  } catch(e) { alert('激活失败: ' + e.message); }
+}
+
+async function deactivateLicense() {
+  if (!confirm('确定解绑当前设备？')) return;
+  try {
+    await api('/api/license/deactivate', { method: 'POST' });
+    alert('解绑成功');
+    closeModal();
+    loadLicenseInfo();
+  } catch(e) { alert('解绑失败: ' + e.message); }
+}
+
+// ---------- AI 脚本生成 ----------
+let _aiStatus = {};
+
+async function refreshAiScript() {
+  try {
+    const status = await api('/api/ai-script/status', { silent: true });
+    _aiStatus = status;
+    const el = document.getElementById('ai-remaining');
+    if (el) {
+      if (status.unlimited) {
+        el.textContent = '无限制';
+        el.style.background = 'rgba(16,185,129,0.15)';
+        el.style.color = '#10b981';
+      } else if (status.remaining_today >= 0) {
+        el.textContent = `今日剩余 ${status.remaining_today}/3`;
+        if (status.remaining_today === 0) {
+          el.style.background = 'rgba(239,68,68,0.15)';
+          el.style.color = '#ef4444';
+        }
+      } else {
+        el.textContent = '免费版';
+      }
+    }
+    // Update optimize button visibility
+    const optBtn = document.getElementById('ai-opt-btn');
+    if (optBtn) {
+      optBtn.style.display = (status.tier === 'personal' || status.tier === 'professional') ? '' : 'none';
+    }
+  } catch(e) {
+    console.error('AI status load failed:', e);
+  }
+}
+
+async function generateAiScript() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) {
+    showAiNotice('请先输入需求描述');
+    return;
+  }
+
+  const btn = document.getElementById('ai-gen-btn');
+  btn.disabled = true;
+  btn.textContent = '生成中...';
+  document.getElementById('ai-output').value = '';
+
+  try {
+    const ctx = {
+      source_type: document.getElementById('ai-ctx-source').value,
+      target_type: document.getElementById('ai-ctx-target').value,
+      table_name: document.getElementById('ai-ctx-table').value,
+    };
+    const res = await api('/api/ai-script/generate', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, context: ctx }),
+    });
+
+    if (res.success) {
+      document.getElementById('ai-output').value = res.script;
+      if (res.compliance_notice) {
+        showAiNotice(res.compliance_notice);
+      }
+      // Update remaining counter
+      if (res.remaining_today >= 0) {
+        const el = document.getElementById('ai-remaining');
+        if (el) {
+          el.textContent = `今日剩余 ${res.remaining_today}/3`;
+          if (res.remaining_today === 0) {
+            el.style.background = 'rgba(239,68,68,0.15)';
+            el.style.color = '#ef4444';
+          }
+        }
+      }
+    } else {
+      showAiNotice(res.error || res.compliance_notice || '生成失败');
+    }
+  } catch(e) {
+    showAiNotice('网络错误：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '生成脚本';
+  }
+}
+
+async function optimizeAiScript() {
+  const script = document.getElementById('ai-output').value.trim();
+  if (!script) {
+    showAiNotice('先生成或输入脚本');
+    return;
+  }
+  const instruction = prompt('输入优化指令（如：增加增量同步、添加数据校验逻辑）：');
+  if (!instruction) return;
+
+  const btn = document.getElementById('ai-opt-btn');
+  btn.disabled = true;
+  btn.textContent = '优化中...';
+
+  try {
+    const res = await api('/api/ai-script/optimize', {
+      method: 'POST',
+      body: JSON.stringify({ script, instruction }),
+    });
+
+    if (res.success) {
+      document.getElementById('ai-output').value = res.script;
+      if (res.compliance_notice) showAiNotice(res.compliance_notice);
+    } else {
+      showAiNotice(res.error || '优化失败');
+    }
+  } catch(e) {
+    showAiNotice('优化失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '优化脚本';
+  }
+}
+
+function copyAiScript() {
+  const code = document.getElementById('ai-output').value;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    showAiNotice('已复制到剪贴板');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showAiNotice('已复制到剪贴板');
+  });
+}
+
+function aiQuickPrompt(text) {
+  document.getElementById('ai-prompt').value = text;
+}
+
+function showAiNotice(msg) {
+  const el = document.getElementById('ai-notice');
+  if (el) {
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 8000);
+  }
+}
+
+async function openAiConfigModal() {
+  let cfg = {};
+  try {
+    cfg = await api('/api/ai-script/configure', { silent: true }) || {};
+  } catch(e) {}
+
+  openModal('LLM 配置', `
+    <div style="color:var(--text-dim);font-size:12px;margin-bottom:16px;line-height:1.7">
+      配置 OpenAI 兼容的 LLM API（如 OpenAI、DeepSeek、硅基流动等），启用 AI 脚本生成功能。
+      API Key 仅保存在本地，不会上传至任何服务器。
+    </div>
+    <div class="form-group"><label>API Endpoint</label>
+      <input id="llm-endpoint" class="form-control" value="${cfg.endpoint || 'https://api.openai.com/v1'}" placeholder="https://api.openai.com/v1">
+    </div>
+    <div class="form-group"><label>API Key</label>
+      <input id="llm-apikey" class="form-control" type="password" value="" placeholder="${cfg.api_key || 'sk-...'}">
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">${cfg.api_key ? '已保存（填入新值可重新设置）' : '请填入 API Key'}</div>
+    </div>
+    <div class="form-group"><label>模型</label>
+      <input id="llm-model" class="form-control" value="${cfg.model || 'gpt-4o-mini'}" placeholder="gpt-4o-mini">
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">推荐：gpt-4o-mini（性价比高），或根据服务商支持的模型填入</div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" onclick="saveAiConfig()">保存配置</button>
+      <button class="btn btn-secondary" onclick="clearAiConfig()">清除配置</button>
+    </div>
+  `, '');
+}
+
+async function saveAiConfig() {
+  const endpoint = document.getElementById('llm-endpoint').value.trim();
+  const api_key = document.getElementById('llm-apikey').value.trim();
+  const model = document.getElementById('llm-model').value.trim();
+
+  if (!endpoint || !api_key) {
+    alert('请填写 Endpoint 和 API Key');
+    return;
+  }
+
+  try {
+    const res = await api('/api/ai-script/configure', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint, api_key, model }),
+    });
+    if (res.success) {
+      closeModal();
+      showAiNotice('LLM 配置已保存');
+      await refreshAiScript();
+    } else {
+      alert('保存失败：' + (res.error || '未知错误'));
+    }
+  } catch(e) {
+    alert('保存失败：' + e.message);
+  }
+}
+
+async function clearAiConfig() {
+  try {
+    await api('/api/ai-script/configure', { method: 'DELETE' });
+    closeModal();
+    showAiNotice('LLM 配置已清除');
+    await refreshAiScript();
+  } catch(e) {
+    alert('清除失败：' + e.message);
+  }
+}
+
+// ---------- 工作流 ----------
+async function refreshWorkflows() {
+  try {
+    const list = await api('/api/workflows/');
+    const el = document.getElementById('workflows-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">🔀</div><p>暂无工作流</p><button class="btn btn-primary" onclick="openWorkflowModal()">新建工作流</button></div>';
+      return;
+    }
+    let html = `<table class="data-table"><thead><tr>
+      <th>名称</th><th>描述</th><th>节点数</th><th>操作</th>
+    </tr></thead><tbody>`;
+    for (const w of list) {
+      const nodes = (w.workflow_json?.nodes || []).length;
+      html += `<tr>
+        <td>${w.name}</td>
+        <td class="text-dim">${w.description || '-'}</td>
+        <td>${nodes}</td>
+        <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="openWorkflowModal('${w.id}')">编辑</button>
+          <button class="btn btn-secondary btn-sm" onclick="previewWorkflow('${w.id}')">预览</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportWorkflowJson('${w.id}')">导出</button>
+          <button class="btn btn-secondary btn-sm" onclick="importWorkflowJson()">导入</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteWorkflow('${w.id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+function openPluginMarket() {
+  openModal('插件市场', `
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:8px">🧩 内置插件</div>
+      <div id="plugin-market-builtin"></div>
+    </div>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:8px">📦 自定义插件</div>
+      <div class="text-dim mb-16">自定义插件存放目录: <code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/</code></div>
+      <div id="plugin-market-custom"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="openCreatePluginModal()">+ 创建自定义插件</button>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="margin-bottom:8px">📥 导入插件配置</div>
+      <div class="form-group">
+        <textarea class="form-control" id="plugin-import-json" rows="6" placeholder='{"name":"自定义插件","node_type":"my_filter","category":"数据处理","process_code":"def process(df,params):..."}'></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="doImportPlugin()">导入插件</button>
+    </div>
+  `, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  loadPluginMarket();
+}
+
+async function loadPluginMarket() {
+  try {
+    const res = await api('/api/workflows/nodes');
+    const nodes = res.nodes || [];
+    const builtin = nodes.filter(n => n.source && n.source.startsWith('app.nodes.'));
+    const custom = nodes.filter(n => n.source && !n.source.startsWith('app.nodes.'));
+    document.getElementById('plugin-market-builtin').innerHTML = renderPluginList(builtin, true);
+    document.getElementById('plugin-market-custom').innerHTML = custom.length ? renderPluginList(custom, false) : '<div class="text-dim">暂无自定义插件</div>';
+  } catch(e) { document.getElementById('plugin-market-builtin').innerHTML = '<div class="text-dim">加载失败</div>'; }
+}
+
+function renderPluginList(nodes, builtin) {
+  if (!nodes.length) return '<div class="text-dim">无</div>';
+  let html = '';
+  for (const n of nodes) {
+    const color = { '指标计算': '#6366f1', '数据处理': '#22c55e', '流程控制': '#ec4899', '高级': '#f59e0b' }[n.category] || '#6366f1';
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="color:${color};font-weight:600;font-size:13px">${n.display_name}</span>
+        <span class="badge badge-pending" style="margin-left:6px">${n.category}</span>
+        <div class="text-dim" style="font-size:11px;margin-top:2px">${n.type}</div>
+      </div>
+      ${!builtin ? `<button class="btn btn-danger btn-sm" onclick="deletePlugin('${n.type}')">删除</button>` : ''}
+    </div>`;
+  }
+  return html;
+}
+
+function openCreatePluginModal() {
+  closeModal();
+  openModal('创建自定义插件', `
+    <div class="form-group"><label>插件名称</label><input class="form-control" id="cp-name" placeholder="自定义过滤"></div>
+    <div class="form-group"><label>节点类型标识</label><input class="form-control" id="cp-type" placeholder="my_filter（英文唯一标识）"></div>
+    <div class="form-group"><label>分类</label>
+      <select class="form-control" id="cp-category">
+        <option value="数据处理">数据处理</option><option value="指标计算">指标计算</option>
+        <option value="流程控制">流程控制</option><option value="高级">高级</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Python 处理代码</label>
+      <textarea class="form-control" id="cp-code" rows="10" placeholder="def process(df, params):
+    # df: pandas.DataFrame
+    # params: dict
+    return df"></textarea>
+    <div class="text-dim mt-8">插件保存到 plugins/ 目录，重启服务后生效。</div>
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="doCreatePlugin()">创建</button>
+  `);
+}
+
+async function doCreatePlugin() {
+  const name = document.getElementById('cp-name').value;
+  const type = document.getElementById('cp-type').value;
+  const category = document.getElementById('cp-category').value;
+  const code = document.getElementById('cp-code').value;
+  if (!name || !type || !code) { alert('请填写完整'); return; }
+  if (!/^[a-z_][a-z0-9_]*$/.test(type)) { alert('类型标识只能包含小写字母、数字、下划线'); return; }
+  try {
+    const res = await api('/api/workflows/create-plugin', { method: 'POST', body: JSON.stringify({ name, node_type: type, category, code }) });
+    alert(res.success ? '✅ 插件创建成功（重启服务后生效）' : '❌ ' + res.message);
+    closeModal();
+  } catch(e) { alert('创建失败: ' + e.message); }
+}
+
+async function doImportPlugin() {
+  const text = document.getElementById('plugin-import-json').value.trim();
+  let data;
+  try { data = JSON.parse(text); } catch(e) { alert('JSON 格式错误'); return; }
+  data.node_type = data.node_type || data.name.toLowerCase().replace(/\s+/g, '_');
+  data.category = data.category || '数据处理';
+  try {
+    await api('/api/workflows/create-plugin', { method: 'POST', body: JSON.stringify(data) });
+    alert('✅ 导入成功');
+    loadPluginMarket();
+  } catch(e) { alert('导入失败: ' + e.message); }
+}
+
+async function exportWorkflowJson(id) {
+  try {
+    const wf = await api(`/api/workflows/${id}`);
+    const blob = new Blob([JSON.stringify(wf.workflow_json, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${wf.name || 'workflow'}.json`;
+    a.click();
+  } catch(e) { alert('导出失败: ' + e.message); }
+}
+
+function importWorkflowJson() {
+  openModal('导入工作流', `
+    <div class="form-group"><label>工作流名称</label><input class="form-control" id="wf-import-name" placeholder="导入的工作流"></div>
+    <div class="form-group"><label>JSON 配置</label><textarea class="form-control" id="wf-import-json" rows="12" placeholder='{"nodes":[{"id":"n1","type":"filter","parameters":{...}}]}'></textarea></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="doImportWorkflow()">导入</button>
+  `);
+}
+
+async function doImportWorkflow() {
+  const name = document.getElementById('wf-import-name').value;
+  const text = document.getElementById('wf-import-json').value;
+  if (!name || !text) { alert('请填写名称和JSON'); return; }
+  let json;
+  try { json = JSON.parse(text); } catch(e) { alert('JSON 格式错误'); return; }
+  try {
+    await api('/api/workflows/', { method: 'POST', body: JSON.stringify({ name, description: '', workflow_json: json }) });
+    closeModal();
+    refreshWorkflows();
+    alert('✅ 导入成功');
+  } catch(e) { alert('导入失败: ' + e.message); }
+}
+
+function openWorkflowModal(editId = null) {
+  openModal(editId ? '编辑工作流' : '新建工作流', `
+    <input type="hidden" id="wf-edit-id" value="${editId || ''}">
+    <div class="form-group"><label>工作流名称</label><input class="form-control" id="wf-name" placeholder="1min转30min"></div>
+    <div class="form-group"><label>描述</label><input class="form-control" id="wf-desc" placeholder="将1分钟K线重采样为30分钟"></div>
+    <div id="wf-canvas-area"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveWorkflow()">保存</button>
+  `);
+
+  const wfName = document.getElementById('wf-name');
+  const wfDesc = document.getElementById('wf-desc');
+
+  if (editId) {
+    loadWorkflowForEdit(editId, (name, desc, json) => {
+      wfName.value = name;
+      wfDesc.value = desc || '';
+      initWfEditor(json);
+    });
+  } else {
+    initWfEditor(null);
+  }
+}
+
+const wfNodeCategories = {
+  '指标计算': [
+    { type: 'resample', label: '周期重采样', icon: '📊' },
+    { type: 'ma', label: '移动平均', icon: '📈' },
+    { type: 'macd', label: 'MACD', icon: '📉' },
+    { type: 'rsi', label: 'RSI', icon: '🔢' },
+    { type: 'boll', label: '布林带', icon: '🎯' },
+  ],
+  '数据处理': [
+    { type: 'filter', label: '过滤行', icon: '🔍' },
+    { type: 'sort', label: '排序', icon: '↕️' },
+    { type: 'group_by', label: '分组聚合', icon: '📋' },
+    { type: 'column_rename', label: '列重命名', icon: '✏️' },
+    { type: 'expression', label: '表达式计算', icon: '🔢' },
+    { type: 'condition', label: '条件分支', icon: '🔀' },
+    { type: 'custom_python', label: '自定义脚本', icon: '🐍' },
+  ],
+};
+
+function initWfEditor(existingJson) {
+  const area = document.getElementById('wf-canvas-area');
+  let paletteHtml = '';
+  for (const [cat, nodes] of Object.entries(wfNodeCategories)) {
+    paletteHtml += `<div class="wf-palette-section">${cat}</div>`;
+    for (const n of nodes) {
+      paletteHtml += `<div class="wf-palette-node" data-type="${n.type}" onclick="addWfNode('${n.type}')">
+        <span>${n.icon}</span><span>${n.label}</span>
+      </div>`;
+    }
+  }
+  area.innerHTML = `<div class="wf-editor">
+    <div class="wf-palette">${paletteHtml}</div>
+    <div class="wf-canvas" id="wf-canvas"></div>
+    <div class="wf-props" id="wf-props"><h3>节点属性</h3><div id="wf-props-content">选择节点查看属性</div></div>
+  </div>`;
+  window._wfNodes = [];
+  window._wfNodesData = {};
+  window._wfSelectedId = null;
+
+  if (existingJson && existingJson.nodes) {
+    for (const node of existingJson.nodes) {
+      addWfNode(node.type, node);
+    }
+  }
+}
+
+function addWfNode(type, data = null) {
+  const id = 'wf_' + Math.random().toString(36).slice(2, 8);
+  const meta = findNodeMeta(type);
+  const label = meta ? meta.label : type;
+  const icon = meta ? meta.icon : '⬡';
+  const canvas = document.getElementById('wf-canvas');
+  if (!canvas) return;
+  let x = 60, y = 60;
+  const existing = canvas.querySelectorAll('.wf-node');
+  if (existing.length) {
+    const last = existing[existing.length - 1];
+    x = parseInt(last.style.left) + 210;
+    y = parseInt(last.style.top);
+    if (x > 500) { x = 60; y += 100; }
+  }
+  const colorMap = {
+    kline_resample: '#6366f1', kline_ma: '#22c55e', kline_macd: '#f59e0b',
+    kline_rsi: '#38bdf8', kline_boll: '#ec4899',
+    filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e',
+    column_rename: '#f59e0b', expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
+  };
+  const color = colorMap[type] || '#6366f1';
+  const defaultParams = getDefaultNodeParams(type);
+  const nodeData = data || { id, type, parameters: defaultParams };
+  // Migrate params -> parameters for backwards compat
+  if (nodeData.params && !nodeData.parameters) {
+    nodeData.parameters = nodeData.params;
+    delete nodeData.params;
+  }
+  nodeData.id = id; nodeData.type = type;
+
+  const el = document.createElement('div');
+  el.className = 'wf-node'; el.id = id;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.innerHTML = `
+    <div class="wf-node-header" style="background:${color}20;border-left:3px solid ${color}">
+      <span>${icon}</span><span>${label}</span>
+    </div>
+    <div class="wf-node-body">参数: ${JSON.stringify(nodeData.parameters || {}).substring(0, 30)}...</div>
+    <div class="wf-node-port input" title="输入"></div>
+    <div class="wf-node-port output" title="输出"></div>
+  `;
+  el.addEventListener('click', () => selectWfNode(id));
+  el.addEventListener('mousedown', (e) => dragWfNode(e, el));
+  canvas.appendChild(el);
+  window._wfNodes.push(id);
+  window._wfNodesData[id] = nodeData;
+  selectWfNode(id);
+}
+
+function findNodeMeta(type) {
+  for (const nodes of Object.values(wfNodeCategories)) {
+    for (const n of nodes) if (n.type === type) return n;
+  }
+  return null;
+}
+
+function getDefaultNodeParams(type) {
+  return {
+    resample: { rule: '30min', time_column: 'dt', group_column: '' },
+    ma: { windows: '5,10,20', source_column: 'close', use_ema: false },
+    macd: { fast: 12, slow: 26, signal: 9, source_column: 'close' },
+    rsi: { window: 14, source_column: 'close' },
+    boll: { window: 20, std_mult: 2, source_column: 'close' },
+    filter: { column: 'close', operator: '>', value: '0', mode: 'keep' },
+    sort: { by: 'dt', ascending: 'true' },
+    group_by: { columns: 'code', aggregations: 'close=last,vol=sum' },
+    column_rename: { renames: 'code=stock_code,dt=trade_time' },
+    expression: { target_column: 'new_col', expression: "df['open'] + df['close']" },
+    condition: { condition: "df['close'] > 0", branch: 'true' },
+    custom_python: { code: 'def process(df):\n    return df' },
+  }[type] || {};
+}
+
+let wfDraggingNode = null, wfDragOffset = { x: 0, y: 0 };
+function dragWfNode(e, el) {
+  if (e.target.classList.contains('wf-node-port')) return;
+  wfDraggingNode = el;
+  wfDragOffset = { x: e.clientX - el.offsetLeft, y: e.clientY - el.offsetTop };
+  document.addEventListener('mousemove', onWfDrag);
+  document.addEventListener('mouseup', stopWfDrag);
+}
+function onWfDrag(e) {
+  if (!wfDraggingNode) return;
+  const canvas = document.getElementById('wf-canvas');
+  const rect = canvas.getBoundingClientRect();
+  wfDraggingNode.style.left = Math.max(0, e.clientX - rect.left - wfDragOffset.x + canvas.scrollLeft) + 'px';
+  wfDraggingNode.style.top = Math.max(0, e.clientY - rect.top - wfDragOffset.y + canvas.scrollTop) + 'px';
+}
+function stopWfDrag() {
+  document.removeEventListener('mousemove', onWfDrag);
+  document.removeEventListener('mouseup', stopWfDrag);
+  wfDraggingNode = null;
+}
+
+function selectWfNode(id) {
+  document.querySelectorAll('.wf-node').forEach(n => n.classList.remove('selected'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('selected');
+  window._wfSelectedId = id;
+  renderWfProps(id);
+}
+
+function renderWfProps(id) {
+  const data = window._wfNodesData[id];
+  if (!data) return;
+  const meta = findNodeMeta(data.type);
+  const html = `
+    <h3>${meta ? meta.label : data.type}</h3>
+    <div class="form-group"><label>节点类型</label><input class="form-control" value="${data.type}" readonly></div>
+    ${renderPropsFields(data.type, data.parameters || {})}
+    <button class="btn btn-danger btn-sm mt-16" onclick="removeWfNode('${id}')">删除节点</button>
+  `;
+  document.getElementById('wf-props-content').innerHTML = html;
+}
+
+function renderPropsFields(type, params) {
+  const fields = {
+    resample: [
+      { id: 'rule', label: '目标周期', type: 'select', opts: ['5min','15min','30min','60min','D','W','M'] },
+      { id: 'time_column', label: '时间字段', type: 'text' },
+      { id: 'group_column', label: '分组字段', type: 'text' },
+    ],
+    ma: [
+      { id: 'windows', label: '窗口（逗号分隔）', type: 'text' },
+      { id: 'source_column', label: '源字段', type: 'text' },
+      { id: 'use_ema', label: '使用 EMA', type: 'checkbox' },
+    ],
+    macd: [
+      { id: 'fast', label: '快线周期', type: 'text' },
+      { id: 'slow', label: '慢线周期', type: 'text' },
+      { id: 'signal', label: '信号线周期', type: 'text' },
+      { id: 'source_column', label: '源字段', type: 'text' },
+    ],
+    rsi: [
+      { id: 'window', label: '窗口', type: 'text' },
+      { id: 'source_column', label: '源字段', type: 'text' },
+    ],
+    boll: [
+      { id: 'window', label: '窗口', type: 'text' },
+      { id: 'std_mult', label: '标准差倍数', type: 'text' },
+      { id: 'source_column', label: '源字段', type: 'text' },
+    ],
+    filter: [
+      { id: 'column', label: '字段', type: 'text' },
+      { id: 'operator', label: '操作符', type: 'select', opts: ['>','<','>=','<=','==','!=','is_not_null','is_null'] },
+      { id: 'value', label: '值', type: 'text' },
+      { id: 'mode', label: '模式', type: 'select', opts: ['keep','drop'] },
+    ],
+    sort: [
+      { id: 'by', label: '排序字段', type: 'text' },
+      { id: 'ascending', label: '升序', type: 'checkbox' },
+    ],
+    group_by: [
+      { id: 'columns', label: '分组字段', type: 'text' },
+      { id: 'aggregations', label: '聚合规则', type: 'text' },
+    ],
+    column_rename: [
+      { id: 'renames', label: '映射(old=new)', type: 'text' },
+    ],
+    expression: [
+      { id: 'target_column', label: '目标列名', type: 'text' },
+      { id: 'expression', label: '表达式', type: 'textarea' },
+    ],
+    condition: [
+      { id: 'condition', label: '条件', type: 'text' },
+      { id: 'branch', label: '分支', type: 'select', opts: ['true','false'] },
+    ],
+    custom_python: [
+      { id: 'code', label: 'Python代码', type: 'textarea' },
+    ],
+  };
+  const flds = fields[type] || [];
+  let html = '';
+  for (const f of flds) {
+    const val = params[f.id] || '';
+    if (f.type === 'select') {
+      html += `<div class="form-group"><label>${f.label}</label><select class="form-control" id="wp-${f.id}" onchange="updateWfParam('${f.id}', this.value)">${f.opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    } else if (f.type === 'textarea') {
+      html += `<div class="form-group"><label>${f.label}</label><textarea class="form-control" id="wp-${f.id}" onchange="updateWfParam('${f.id}', this.value)">${val}</textarea></div>`;
+    } else if (f.type === 'checkbox') {
+      html += `<div class="form-group"><label>${f.label}</label><input type="checkbox" id="wp-${f.id}" ${val === 'true' || val === true ? 'checked' : ''} onchange="updateWfParam('${f.id}', this.checked)"></div>`;
+    } else {
+      html += `<div class="form-group"><label>${f.label}</label><input class="form-control" id="wp-${f.id}" value="${val}" onchange="updateWfParam('${f.id}', this.value)"></div>`;
+    }
+  }
+  return html;
+}
+
+function updateWfParam(key, val) {
+  const id = window._wfSelectedId;
+  if (!id) return;
+  const data = window._wfNodesData[id];
+  data.parameters = data.parameters || {};
+  data.parameters[key] = val;
+  const el = document.getElementById(id);
+  if (el) {
+    el.querySelector('.wf-node-body').textContent = '参数: ' + JSON.stringify(data.parameters).substring(0, 30) + '...';
+  }
+}
+
+function removeWfNode(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  delete window._wfNodesData[id];
+  window._wfNodes = window._wfNodes.filter(n => n !== id);
+  document.getElementById('wf-props-content').innerHTML = '<div class="text-dim">选择节点查看属性</div>';
+}
+
+async function loadWorkflowForEdit(id, cb) {
+  const wf = await api(`/api/workflows/${id}`);
+  cb(wf.name, wf.description, wf.workflow_json);
+}
+
+async function saveWorkflow() {
+  const name = document.getElementById('wf-name').value;
+  const desc = document.getElementById('wf-desc').value;
+  if (!name) { alert('请输入工作流名称'); return; }
+  const nodes = [];
+  for (const id of window._wfNodes || []) {
+    const data = window._wfNodesData[id];
+    if (data) nodes.push({ id: data.id, type: data.type, parameters: data.parameters || {} });
+  }
+  const editId = document.getElementById('wf-edit-id').value;
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  try {
+    if (editId) {
+      await api(`/api/workflows/${editId}`, { method: 'PUT', body: JSON.stringify({ name, description: desc, workflow_json: { nodes } }) });
+    } else {
+      await api('/api/workflows/', { method: 'POST', body: JSON.stringify({ name, description: desc, workflow_json: { nodes } }) });
+    }
+    closeModal();
+    refreshWorkflows();
+  } catch(e) { alert('保存失败: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '保存'; } }
+}
+
+async function previewWorkflow(id) {
+  try {
+    const res = await api(`/api/workflows/${id}/preview`);
+    if (res.error) { alert('预览失败: ' + res.error); return; }
+    openModal('工作流预览', `
+      <div class="text-dim mb-16">输出行数: ${res.rows} | 列: ${(res.columns || []).join(', ')}</div>
+      <div style="overflow:auto;max-height:400px">
+        <table class="data-table">
+          <thead><tr>${(res.columns || []).map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${(res.preview || []).map(row => `<tr>${(res.columns || []).map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${res.timings ? `<div class="text-dim mt-8">节点耗时: ${JSON.stringify(res.timings)}</div>` : ''}
+    `, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  } catch(e) { alert('预览失败: ' + e.message); }
+}
+
+async function deleteWorkflow(id) {
+  if (!confirm('确定删除此工作流？')) return;
+  try {
+    await api(`/api/workflows/${id}`, { method: 'DELETE' });
+    refreshWorkflows();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+// Connect WebSocket for real-time updates
+// ─── Theme Toggle ───
+
+function getTheme() {
+  return localStorage.getItem('theme') || 'dark';
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  const iconEl = document.getElementById('theme-icon');
+  const labelEl = document.getElementById('theme-label');
+  if (iconEl) iconEl.textContent = theme === 'dark' ? '🌙' : '☀️';
+  if (labelEl) labelEl.textContent = theme === 'dark' ? '切换亮色' : '切换深色';
+}
+
+function toggleTheme() {
+  setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+}
+
+// Apply theme on load
+setTheme(getTheme());
+
+connectWS();
+
+// Start with overview
+navigate('overview');
+initQuickStartGuide();
+</script>
+</body>
+</html>

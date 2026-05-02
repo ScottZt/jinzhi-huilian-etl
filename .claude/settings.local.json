@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pyinstaller --clean --noconfirm build.spec)",
+      "Bash(where pyinstaller *)",
+      "Bash(python -m PyInstaller --version)",
+      "Bash(python -m PyInstaller --clean --noconfirm build.spec)",
+      "Bash(tasklist)",
+      "Bash(findstr -i \"QuantSync\")",
+      "Bash(taskkill //PID 3524 //F)",
+      "Bash(taskkill //PID 17496 //F)",
+      "Bash(wmic process *)",
+      "Bash(python -m PyInstaller --noconfirm build.spec)",
+      "Bash(taskkill *)",
+      "Bash(python *)",
+      "Bash(tasklist /FI \"IMAGENAME eq QuantSyncETL.exe\")",
+      "Bash(tasklist //FI \"IMAGENAME eq QuantSyncETL.exe\")",
+      "Bash(pip show *)",
+      "Bash(cd /d \"D:\\\\02.kdcz\\\\quantsync-etl\\\\backend\")",
+      "Bash(pyinstaller build.spec --clean)",
+      "Bash(del \"D:\\\\02.kdcz\\\\quantsync-etl\\\\backend\\\\build\" -Recurse -Force)",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force 'D:\\\\02.kdcz\\\\quantsync-etl\\\\backend\\\\build'; Remove-Item -Force 'D:\\\\02.kdcz\\\\quantsync-etl\\\\backend\\\\dist\\\\QuantSyncETL.exe'\")",
+      "Bash(pyinstaller build.spec --noconfirm)",
+      "Bash(cmd *)",
+      "Bash(powershell -Command '& { $h = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey\\('\\\\''CLSID'\\\\''\\); Get-Process | Format-Table Name, Id, Path -AutoSize }')",
+      "Bash(powershell *)",
+      "Bash(xargs grep *)",
+      "WebSearch",
+      "Bash(which pyinstaller *)",
+      "Bash(grep -n '      </div>\\\\n    \\\\`' \"D:/02.kdcz/quantsync-etl/backend/app/static/index.html\")",
+      "Bash(python3)",
+      "Bash(curl -s http://127.0.0.1:8899)",
+      "Bash(pyinstaller build.spec)"
+    ]
+  }
+}

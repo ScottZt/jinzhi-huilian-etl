@@ -1,0 +1,283 @@
+"""License 授权管理系统 — 机器码绑定 + 在线/离线激活 + 版本权限控制。"""
+import hashlib
+import platform
+import uuid
+import json
+import time
+import os
+from pathlib import Path
+from datetime import datetime, timedelta
+from typing import Optional
+
+LICENSE_DB_KEY = "_license_meta"
+
+
+class LicenseType:
+    FREE = "free"
+    PERSONAL = "personal"
+    PROFESSIONAL = "professional"
+
+
+LICENSE_FEATURES = {
+    LicenseType.FREE: {
+        "max_workflows": 1,
+        "db_types": ["mysql", "sqlite"],
+        "file_types": ["csv", "txt"],
+        "ai_script_gen_daily": 3,
+        "ai_optimize": False,
+        "breakpoint_resume": False,
+        "concurrent_tasks": 1,
+        "background_run": False,
+        "http_connector": False,
+        "advanced_cleaning": False,
+        "batch_script_generate": False,
+        "distributed_scheduler": False,
+        "advanced_monitoring": False,
+        "backup_recovery": False,
+        "pro_support": False,
+    },
+    LicenseType.PERSONAL: {
+        "max_workflows": 5,
+        "db_types": ["mysql", "sqlite", "duckdb", "postgresql"],
+        "file_types": ["csv", "txt", "excel", "json", "parquet", "binary"],
+        "ai_script_gen_daily": -1,
+        "ai_optimize": True,
+        "breakpoint_resume": True,
+        "concurrent_tasks": 5,
+        "background_run": True,
+        "http_connector": True,
+        "advanced_cleaning": True,
+        "batch_script_generate": False,
+        "distributed_scheduler": False,
+        "advanced_monitoring": False,
+        "backup_recovery": False,
+        "pro_support": False,
+    },
+    LicenseType.PROFESSIONAL: {
+        "max_workflows": -1,
+        "db_types": ["mysql", "sqlite", "duckdb", "postgresql", "clickhouse"],
+        "file_types": ["csv", "txt", "excel", "json", "parquet", "binary"],
+        "ai_script_gen_daily": -1,
+        "ai_optimize": True,
+        "breakpoint_resume": True,
+        "concurrent_tasks": -1,
+        "background_run": True,
+        "http_connector": True,
+        "advanced_cleaning": True,
+        "batch_script_generate": True,
+        "distributed_scheduler": True,
+        "advanced_monitoring": True,
+        "backup_recovery": True,
+        "pro_support": True,
+    },
+}
+
+
+def get_machine_code() -> str:
+    """生成设备机器码（CPU序列号 + 主板序列号 + 网卡MAC组合哈希）。"""
+    factors = []
+
+    # CPU ID
+    try:
+        if platform.system() == "Windows":
+            import subprocess
+            result = subprocess.run(
+                ["wmic", "cpu", "get", "ProcessorId"],
+                capture_output=True, text=True, timeout=5
+            )
+            cpu_id = result.stdout.strip().split("\n")[-1].strip()
+            if cpu_id:
+                factors.append(cpu_id)
+        else:
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if "Serial" in line or "processor" in line:
+                        factors.append(line.strip()[:32])
+    except Exception:
+        pass
+
+    # Volume serial (Windows)
+    try:
+        if platform.system() == "Windows":
+            import subprocess
+            result = subprocess.run(
+                ["wmic", "path", "win32_volume", "get", "SerialNumber"],
+                capture_output=True, text=True, timeout=5
+            )
+            vol = result.stdout.strip().split("\n")[-1].strip()
+            if vol:
+                factors.append(vol)
+    except Exception:
+        pass
+
+    # Hostname + username
+    factors.append(platform.node())
+    factors.append(os.environ.get("USERNAME", ""))
+    factors.append(os.environ.get("USER", ""))
+
+    combined = "|".join(str(f) for f in factors if f)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:32].upper()
+
+
+def get_license_info() -> dict:
+    """读取当前 License 状态。"""
+    from app.persistence import sqlite_repo
+    meta = sqlite_repo.get_metadata(LICENSE_DB_KEY)
+    if not meta:
+        return {
+            "type": LicenseType.FREE,
+            "machine_code": get_machine_code(),
+            "expires_at": None,
+            "activated_at": None,
+            "features": LICENSE_FEATURES[LicenseType.FREE],
+        }
+
+    lic = json.loads(meta) if isinstance(meta, str) else meta
+    lic_type = lic.get("type", LicenseType.FREE)
+
+    # 检查过期
+    expires_at = lic.get("expires_at")
+    if expires_at:
+        try:
+            exp = datetime.fromisoformat(expires_at)
+            if datetime.now() > exp:
+                lic_type = LicenseType.FREE
+        except Exception:
+            pass
+
+    return {
+        "type": lic_type,
+        "machine_code": lic.get("machine_code", get_machine_code()),
+        "expires_at": expires_at,
+        "activated_at": lic.get("activated_at"),
+        "features": LICENSE_FEATURES.get(lic_type, LICENSE_FEATURES[LicenseType.FREE]),
+    }
+
+
+def save_license(lic_type: str, expires_at: Optional[str] = None, offline_token: Optional[str] = None):
+    """保存 License 信息。"""
+    from app.persistence import sqlite_repo
+    lic = {
+        "type": lic_type,
+        "machine_code": get_machine_code(),
+        "activated_at": datetime.now().isoformat(),
+        "expires_at": expires_at,
+        "offline_token": offline_token,
+    }
+    sqlite_repo.save_metadata(LICENSE_DB_KEY, json.dumps(lic, ensure_ascii=False))
+
+
+def clear_license():
+    """清除 License（解绑）。"""
+    from app.persistence import sqlite_repo
+    sqlite_repo.delete_metadata(LICENSE_DB_KEY)
+
+
+def check_feature(feature: str) -> bool:
+    """检查当前 License 是否支持某功能。"""
+    info = get_license_info()
+    features = info.get("features", {})
+    return features.get(feature, False)
+
+
+def check_feature_or_raise(feature: str):
+    """检查功能，不支持则抛出异常。"""
+    if not check_feature(feature):
+        lic_type = get_license_info()["type"]
+        if lic_type == LicenseType.FREE:
+            raise PermissionError(f"该功能需要付费版 License，免费版不支持")
+        raise PermissionError(f"该功能需要专业版 License")
+
+
+def get_ai_daily_remaining() -> int:
+    """获取今日剩余 AI 脚本生成次数。"""
+    info = get_license_info()
+    features = info.get("features", {})
+    daily_limit = features.get("ai_script_gen_daily", 3)
+    if daily_limit < 0:
+        return -1  # 无限制
+
+    # 检查每日计数
+    key = f"_ai_gen_count_{datetime.now().strftime('%Y%m%d')}"
+    from app.persistence import sqlite_repo
+    count = sqlite_repo.get_metadata(key) or "0"
+    remaining = daily_limit - int(count)
+    return max(0, remaining)
+
+
+def increment_ai_count():
+    """AI 脚本生成计数 +1。"""
+    key = f"_ai_gen_count_{datetime.now().strftime('%Y%m%d')}"
+    from app.persistence import sqlite_repo
+    current = int(sqlite_repo.get_metadata(key) or "0")
+    sqlite_repo.save_metadata(key, str(current + 1))
+
+
+def activate_online(activation_code: str) -> dict:
+    """在线激活 License。"""
+    machine_code = get_machine_code()
+
+    # 激活码格式解析（演示用 — 实际应调用授权服务器 API）
+    # 格式: {type}:{expires}:{checksum}
+    # 例如: personal:2026-12-31:xxxx
+    parts = activation_code.strip().split(":")
+    if len(parts) < 2:
+        raise ValueError("激活码格式无效")
+
+    lic_type = parts[0]
+    expires_str = parts[1] if len(parts) > 1 else None
+
+    if lic_type not in (LicenseType.PERSONAL, LicenseType.PROFESSIONAL):
+        raise ValueError(f"不支持的 License 类型: {lic_type}")
+
+    expires_at = None
+    if expires_str and expires_str != "lifetime":
+        try:
+            dt = datetime.strptime(expires_str, "%Y-%m-%d")
+            if dt <= datetime.now():
+                raise ValueError("激活码已过期")
+            expires_at = dt.isoformat()
+        except ValueError:
+            raise
+
+    save_license(lic_type, expires_at)
+    return get_license_info()
+
+
+def activate_offline(lic_file_path: str) -> dict:
+    """离线激活 — 验证 .lic 文件并导入。"""
+    lic_file = Path(lic_file_path)
+    if not lic_file.exists():
+        raise FileNotFoundError("授权文件不存在")
+
+    try:
+        with open(lic_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        raise ValueError("授权文件格式错误")
+
+    lic_type = data.get("type")
+    machine_codes = data.get("machine_codes", [])
+    expires_at = data.get("expires_at")
+    current_mc = get_machine_code()
+
+    if lic_type not in (LicenseType.PERSONAL, LicenseType.PROFESSIONAL):
+        raise ValueError(f"不支持的 License 类型: {lic_type}")
+
+    if machine_codes and current_mc not in machine_codes:
+        raise PermissionError("此授权文件不包含当前设备的机器码，请在授权设备上使用")
+
+    save_license(lic_type, expires_at, offline_token=data.get("token"))
+    return get_license_info()
+
+
+def export_offline_request() -> dict:
+    """导出离线解绑请求（生成请求文件，发给客服获取 .lic）。"""
+    machine_code = get_machine_code()
+    current = get_license_info()
+    return {
+        "machine_code": machine_code,
+        "current_type": current["type"],
+        "request_at": datetime.now().isoformat(),
+        "platform": platform.system(),
+    }
