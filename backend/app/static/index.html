@@ -171,6 +171,16 @@
     .btn-warning:hover { opacity: 0.85; }
     .btn-sm { padding: 4px 10px; font-size: 12px; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* 字段映射删除按钮使用紧凑图标样式，减少视觉占用。 */
+    .btn-icon {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      padding: 0;
+      justify-content: center;
+      line-height: 1;
+      font-size: 13px;
+    }
 
     #theme-toggle-btn:hover { background: var(--card-hover); border-color: var(--accent); }
 
@@ -298,13 +308,16 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
+      caret-color: var(--text);
       font-size: 13px;
       transition: border-color 0.15s;
     }
 
     .form-control:focus {
-      outline: none;
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(64, 156, 255, 0.15);
     }
 
     .form-control::placeholder { color: var(--text-dim); opacity: 0.6; }
@@ -360,6 +373,13 @@
       gap: 8px;
       padding: 14px 20px;
       border-top: 1px solid var(--border);
+    }
+    /* Keep text selection/editing behavior stable for form controls in modal. */
+    .modal input,
+    .modal textarea,
+    .modal select {
+      -webkit-user-select: text;
+      user-select: text;
     }
 
     /* Tabs */
@@ -496,9 +516,12 @@
       padding: 12px;
       font-family: 'Cascadia Code', 'Fira Code', monospace;
       font-size: 12px;
+      color: #d1d5db;
       max-height: 300px;
       overflow-y: auto;
       line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .log-viewer .log-line { color: var(--text-dim); }
@@ -634,107 +657,6 @@
     .api-ref-desc { font-size: 12px; color: var(--text-dim); margin-left: 8px; }
     .api-ref-params, .api-ref-fields { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
 
-    /* Workflow editor */
-    .wf-editor {
-      display: flex;
-      height: 600px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .wf-palette {
-      width: 200px;
-      background: var(--bg);
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      padding: 12px;
-      flex-shrink: 0;
-    }
-    .wf-palette-section {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-dim);
-      padding: 10px 0 4px;
-    }
-    .wf-palette-node {
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      cursor: grab;
-      font-size: 12px;
-      margin-bottom: 4px;
-      transition: all 0.1s;
-      background: var(--card);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .wf-palette-node:hover { border-color: var(--accent); }
-    .wf-canvas {
-      flex: 1;
-      position: relative;
-      background: var(--bg);
-      overflow: hidden;
-    }
-    .wf-canvas svg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-    .wf-node {
-      position: absolute;
-      width: 180px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0;
-      cursor: move;
-      user-select: none;
-      z-index: 2;
-    }
-    .wf-node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
-    .wf-node-header {
-      padding: 8px 10px;
-      border-radius: 8px 8px 0 0;
-      font-size: 12px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .wf-node-body {
-      padding: 6px 10px 8px;
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-    .wf-node-port {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--card);
-    }
-    .wf-node-port.output { right: -5px; top: 50%; transform: translateY(-50%); }
-    .wf-node-port.input { left: -5px; top: 50%; transform: translateY(-50%); }
-    .wf-props {
-      width: 280px;
-      background: var(--card);
-      border-left: 1px solid var(--border);
-      overflow-y: auto;
-      padding: 12px;
-      flex-shrink: 0;
-    }
-    .wf-props h3 { font-size: 13px; margin-bottom: 12px; }
-    .wf-props .form-group { margin-bottom: 10px; }
-    .wf-props .form-group label { font-size: 11px; }
-    .wf-props .form-control { font-size: 12px; padding: 6px 8px; }
-    .wf-props textarea.form-control { min-height: 80px; font-family: monospace; }
-
     /* Responsive */
     @media (max-width: 768px) {
       #sidebar { width: 60px; }
@@ -847,6 +769,10 @@
 <script>
 const API = '';
 const VIEWS = {};
+// 全局 AI 调用模式：normal=普通请求，sse=流式事件。默认普通模式。
+let _llmStreamMode = 'normal';
+// API 模板 SSE 会话句柄：用于取消正在进行的流式解析。
+let _apiTemplateSSE = null;
 
 // ---------- Navigation ----------
 const VIEW_DATA_LOADER = {
@@ -905,25 +831,52 @@ function hideLoading() {
     document.getElementById('loading-overlay').classList.add('hidden');
   }
 }
+function forceHideLoading() {
+  // 强制解锁全局蒙层，兜底处理异常路径导致的计数失衡或请求长期挂起。
+  _loadingCount = 0;
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+const API_TIMEOUT_MS = 20000;
 
 // ---------- API helpers ----------
 async function api(url, opts = {}) {
   const silent = opts.silent;
   if (!silent) showLoading(opts.loadingMsg || '加载中...');
+  // 为每个请求设置超时，避免后端偶发无响应时 loading 蒙层长期占用页面交互。
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
     const res = await fetch(API + url, {
       headers: { 'Content-Type': 'application/json', ...opts.headers },
       ...opts,
+      signal: opts.signal || controller.signal,
     });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(text || `HTTP ${res.status}`);
     }
     return await res.json();
+  } catch (e) {
+    if (e && e.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试');
+    }
+    throw e;
   } finally {
+    clearTimeout(timeoutId);
     if (!silent) hideLoading();
   }
 }
+
+document.addEventListener('keydown', (event) => {
+  // 允许用户使用 Esc 快捷键立即解除 loading 锁定，降低“无法输入”体感故障。
+  if (event.key !== 'Escape') return;
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay && !overlay.classList.contains('hidden')) {
+    forceHideLoading();
+  }
+});
 
 // ---------- WebSocket ----------
 let ws = null;
@@ -966,17 +919,20 @@ function handleWSMessage(msg) {
   if (msg.type === 'status_update') {
     // Update overview stats if on overview
     const view = document.querySelector('.nav-item.active')?.dataset.view;
-    if (view === 'overview') loadOverviewData();
+    // Auto-refresh should be silent to avoid frequent loading overlays.
+    if (view === 'overview') loadOverviewData({ silent: true });
   } else if (msg.type === 'import_update') {
     const view = document.querySelector('.nav-item.active')?.dataset.view;
-    if (view === 'bulk-import') refreshBulkImports();
-    if (view === 'monitor') refreshMonitor();
+    // WebSocket-driven refresh is frequent; keep UI non-blocking.
+    if (view === 'bulk-import') refreshBulkImports({ silent: true });
+    if (view === 'monitor') refreshMonitor({ silent: true });
     // Update progress directly in the table
     updateImportRow(msg);
   } else if (msg.type === 'task_update') {
     const view = document.querySelector('.nav-item.active')?.dataset.view;
-    if (view === 'tasks') refreshTasks();
-    if (view === 'monitor') refreshMonitor();
+    // WebSocket-driven refresh is frequent; keep UI non-blocking.
+    if (view === 'tasks') refreshTasks({ silent: true });
+    if (view === 'monitor') refreshMonitor({ silent: true });
   } else if (msg.type === 'log') {
     addLog(msg.message, msg.level);
   }
@@ -1003,11 +959,341 @@ function openModal(title, bodyHtml, footerHtml) {
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-footer').innerHTML = footerHtml;
   document.getElementById('modal-overlay').classList.remove('hidden');
+  // Focus the first editable field after modal content is rendered.
+  setTimeout(() => {
+    const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]), #modal-body textarea, #modal-body select');
+    if (firstEditable) firstEditable.focus();
+  }, 0);
 }
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
 }
+
+// ---------- AI Assistant helpers ----------
+// 助手会话状态：保留当前场景上下文（如数据源ID、最近错误），用于动作闭环执行。
+const _assistantState = { scene: '', sourceId: '', currentConfig: {}, lastError: '' };
+
+function escapeHtml(value) {
+  // 统一转义动态文本，避免建议内容中的特殊字符影响 DOM 渲染。
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+// ---------- Enum label helpers ----------
+// 统一维护“后端枚举值 -> 前端中文文案”，避免各处散落硬编码导致显示不一致。
+const STATUS_LABEL_MAP = {
+  pending: '待执行',
+  queued: '排队中',
+  running: '运行中',
+  paused: '已暂停',
+  completed: '已完成',
+  success: '成功',
+  failed: '失败',
+  error: '错误',
+  skipped: '已跳过',
+  ok: '正常',
+};
+const CONNECTION_TYPE_LABEL_MAP = {
+  mysql: 'MySQL',
+  postgresql: 'PostgreSQL',
+  duckdb: 'DuckDB',
+  clickhouse: 'ClickHouse',
+  csv: 'CSV 文件',
+  excel: 'Excel 文件',
+  json: 'JSON 文件',
+  parquet: 'Parquet 文件',
+  folder_watch: '目录监听',
+  http: 'HTTP REST',
+};
+const KLINE_SOURCE_TYPE_LABEL_MAP = {
+  http: 'HTTP REST',
+  ws: 'WebSocket',
+  tdx: '通达信本地文件',
+  akshare: 'AkShare 直连',
+  tushare: 'Tushare HTTP',
+};
+const CREDENTIAL_TYPE_LABEL_MAP = {
+  tushare_token: 'Tushare Token',
+  http_bearer: 'HTTP Bearer',
+  basic_auth: '基础认证',
+  apikey: 'API Key',
+};
+const TASK_TYPE_LABEL_MAP = {
+  incremental: '增量同步',
+  full: '全量同步',
+  scheduled: '定时同步',
+  file_trigger: '文件触发',
+};
+
+function labelByMap(value, mapObj) {
+  // 按映射表返回中文；未命中时回退原值，保证兼容未知新枚举。
+  const key = String(value || '').trim();
+  return mapObj[key] || key || '-';
+}
+
+function labelStatus(value) {
+  // 状态类枚举统一中文显示。
+  return labelByMap(value, STATUS_LABEL_MAP);
+}
+
+function badgeClassForStatus(value) {
+  // 状态样式归一化：success/completed 共用 completed 色，error 归并到 failed 色。
+  const key = String(value || '').trim();
+  if (key === 'success' || key === 'completed') return 'completed';
+  if (key === 'failed' || key === 'error') return 'failed';
+  if (key === 'running') return 'running';
+  if (key === 'paused') return 'paused';
+  return 'pending';
+}
+
+function labelConnectionType(value) {
+  // 连接类型统一中文显示。
+  return labelByMap(value, CONNECTION_TYPE_LABEL_MAP);
+}
+
+function labelKlineSourceType(value) {
+  // 数据源类型统一中文显示。
+  return labelByMap(value, KLINE_SOURCE_TYPE_LABEL_MAP);
+}
+
+function labelCredentialType(value) {
+  // 凭证类型统一中文显示。
+  return labelByMap(value, CREDENTIAL_TYPE_LABEL_MAP);
+}
+
+function labelTaskType(value) {
+  // 任务类型统一中文显示。
+  return labelByMap(value, TASK_TYPE_LABEL_MAP);
+}
+
+async function trackAssistantEvent(eventName, scene, payload = {}) {
+  // 事件埋点以“尽量不打断主流程”为原则，失败时静默降级。
+  try {
+    await api('/api/llm/assistant-event', {
+      method: 'POST',
+      silent: true,
+      body: JSON.stringify({ event_name: eventName, scene, payload }),
+    });
+  } catch (e) {
+    console.debug('assistant track ignored:', e.message);
+  }
+}
+
+function applyAssistantAction(scene, selector, value) {
+  // 快捷动作将建议参数直接填充到当前表单，减少手工输入成本。
+  if (!selector) return;
+  const target = document.querySelector(selector);
+  if (!target) {
+    alert(`未找到可操作字段：${selector}`);
+    return;
+  }
+  if (target.tagName === 'SELECT') {
+    target.value = value;
+    target.dispatchEvent(new Event('change'));
+  } else if (target.type === 'checkbox') {
+    target.checked = Boolean(value);
+    target.dispatchEvent(new Event('change'));
+  } else {
+    target.value = value ?? '';
+    target.dispatchEvent(new Event('input'));
+  }
+  // 自动聚焦并高亮被助手修改的字段，帮助用户快速定位变更点。
+  target.focus();
+  const oldBoxShadow = target.style.boxShadow;
+  target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.6)';
+  setTimeout(() => {
+    target.style.boxShadow = oldBoxShadow || '';
+  }, 1200);
+  trackAssistantEvent('assistant_action_applied', scene, { selector, value });
+}
+
+function runAssistantNavAction(action) {
+  // 导航动作用于跨页面引导，帮助新手直接跳到对应功能区。
+  if (action === 'navigate_credentials') navigate('credentials');
+  if (action === 'navigate_workflows') navigate('workflows');
+  if (action === 'open_workflow_editor') openWorkflowModal();
+  // 数据源场景闭环动作：在助手里直接触发重测/预览，不再只给文本建议。
+  if (action === 'retest_datasource') {
+    const id = _assistantState.sourceId || document.getElementById('ks-edit-id')?.value || '';
+    if (!id) { alert('请先保存数据源，再执行重测'); return; }
+    testKlineSource(id);
+  }
+  if (action === 'preview_datasource') {
+    const id = _assistantState.sourceId || document.getElementById('ks-edit-id')?.value || '';
+    if (id) previewSourceById(id);
+    else previewKlineSourceData();
+  }
+}
+
+function renderAssistantResult(scene, data) {
+  // 将结构化建议渲染到弹窗区域，保持“步骤+检查+快捷动作”固定布局。
+  const host = document.getElementById('assistant-result');
+  if (!host) return;
+  const steps = (data.steps || []).map((s, idx) =>
+    `<li style="margin-bottom:8px"><strong>${idx + 1}. ${escapeHtml(s.title)}</strong><br><span class="text-dim">${escapeHtml(s.detail)}</span></li>`
+  ).join('');
+  const checks = (data.checks || []).map(c => `<li>${escapeHtml(c)}</li>`).join('');
+  const actions = (data.quick_actions || []).map((a, idx) => {
+    const label = escapeHtml(a.label || `动作${idx + 1}`);
+    if (a.selector) {
+      return `<button class="btn btn-secondary btn-sm" style="margin-right:8px;margin-bottom:8px" onclick="applyAssistantAction('${scene}','${escapeHtml(a.selector)}','${escapeHtml(a.value || '')}')">${label}</button>`;
+    }
+    if (a.action) {
+      return `<button class="btn btn-secondary btn-sm" style="margin-right:8px;margin-bottom:8px" onclick="runAssistantNavAction('${escapeHtml(a.action)}')">${label}</button>`;
+    }
+    return '';
+  }).join('');
+  const troubleshoot = (data.troubleshoot || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
+  const diagnosis = (data.diagnosis || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
+  const llmAdvice = escapeHtml(data.llm_advice || '');
+
+  host.innerHTML = `
+    <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);padding:10px 12px;border-radius:8px;margin-bottom:10px">
+      <strong>结论：</strong>${escapeHtml(data.summary || '')}
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-weight:600;margin-bottom:6px">推荐步骤</div>
+      <ol style="padding-left:18px">${steps || '<li>暂无建议</li>'}</ol>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-weight:600;margin-bottom:6px">自检清单</div>
+      <ul style="padding-left:18px">${checks || '<li>暂无</li>'}</ul>
+    </div>
+    ${diagnosis ? `<div style="margin-bottom:10px"><div style="font-weight:600;margin-bottom:6px">问题定位</div><ul style="padding-left:18px">${diagnosis}</ul></div>` : ''}
+    ${troubleshoot ? `<div style="margin-bottom:10px"><div style="font-weight:600;margin-bottom:6px">故障诊断</div><ul style="padding-left:18px">${troubleshoot}</ul></div>` : ''}
+    ${llmAdvice ? `<div style="margin-bottom:10px"><div style="font-weight:600;margin-bottom:6px">LLM 增强建议</div><div style="white-space:pre-wrap;line-height:1.6;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:10px">${llmAdvice}</div></div>` : ''}
+    <div>
+      <div style="font-weight:600;margin-bottom:6px">快捷动作</div>
+      <div>${actions || '<span class="text-dim">暂无快捷动作</span>'}</div>
+    </div>
+  `;
+}
+
+function getCurrentDatasourceConfig() {
+  // 采集数据源弹窗里的当前配置，提供给助手做强上下文诊断。
+  const cfg = {};
+  const nameEl = document.getElementById('ks-name');
+  const typeEl = document.getElementById('ks-type');
+  const editEl = document.getElementById('ks-edit-id');
+  if (nameEl) cfg.name = nameEl.value || '';
+  if (typeEl) cfg.type = typeEl.value || '';
+  if (editEl) cfg.source_id = editEl.value || '';
+  document.querySelectorAll('[id^="ks-cfg-"]').forEach((input) => {
+    const key = input.id.replace('ks-cfg-', '');
+    if (!key) return;
+    cfg[key] = input.value ?? '';
+  });
+  return cfg;
+}
+
+async function generateAssistantGuide(scene, triggerBtn = null) {
+  // 根据当前表单状态实时生成引导建议，避免用户在文档和页面间来回切换。
+  const goalEl = document.getElementById('assistant-goal');
+  const errEl = document.getElementById('assistant-last-error');
+  const modeEl = document.getElementById('assistant-mode');
+  const goal = goalEl ? goalEl.value.trim() : '';
+  const lastError = errEl ? errEl.value.trim() : '';
+  const mode = modeEl ? modeEl.value : 'wizard';
+  const currentConfig = { ...(_assistantState.currentConfig || {}) };
+
+  // 仅提取当前弹窗中已展示字段，作为上下文传给后端助手。
+  document.querySelectorAll('#modal-body [id^="cred-cfg-"], #modal-body [id^="conn-cfg-"], #modal-body [id^="ks-cfg-"]').forEach(input => {
+    const key = input.id.replace(/^cred-cfg-|^conn-cfg-|^ks-cfg-/, '');
+    if (!key) return;
+    currentConfig[key] = input.value;
+  });
+  const typeEl = document.getElementById('cred-type') || document.getElementById('conn-type') || document.getElementById('ks-type');
+  if (typeEl && typeEl.value) currentConfig.type = typeEl.value;
+  if (_assistantState.sourceId && scene === 'datasource') currentConfig.source_id = _assistantState.sourceId;
+
+  // 点击后立即禁用按钮并显示生成中，提供明确的响应反馈。
+  const originalBtnText = triggerBtn ? triggerBtn.textContent : '';
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = '生成中...';
+  }
+
+  try {
+    const res = await api('/api/llm/assistant-guide', {
+      method: 'POST',
+      body: JSON.stringify({
+        scene,
+        goal,
+        mode,
+        last_error: lastError,
+        current_config: currentConfig,
+      }),
+      loadingMsg: 'AI 正在生成交互建议...',
+    });
+    renderAssistantResult(scene, res);
+    trackAssistantEvent('assistant_guidance_generated', scene, { mode, hasError: !!lastError });
+  } finally {
+    // 请求结束后恢复按钮，避免用户被锁死在 loading 状态。
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = originalBtnText || '生成引导建议';
+    }
+  }
+}
+
+function openAIAssistantModal(scene, opts = {}) {
+  // 统一入口：凭证/数据源/连接/工作流都使用同一套交互助手弹窗。
+  const mode = opts.mode || 'wizard';
+  // 保存场景上下文，供“自动重测/预览”等动作复用。
+  _assistantState.scene = scene;
+  _assistantState.sourceId = opts.sourceId || document.getElementById('ks-edit-id')?.value || '';
+  _assistantState.currentConfig = opts.currentConfig || (scene === 'datasource' ? getCurrentDatasourceConfig() : {});
+  _assistantState.lastError = opts.lastError || '';
+  openModal('🤖 AI 交互式助手', `
+    <div style="margin-bottom:10px;color:var(--text-dim);font-size:12px">当前场景：<strong style="color:var(--accent)">${escapeHtml(scene)}</strong>。输入目标后可生成步骤化引导。</div>
+    <div class="form-group">
+      <label>辅助模式</label>
+      <select class="form-control" id="assistant-mode">
+        <option value="wizard" ${mode === 'wizard' ? 'selected' : ''}>新手引导</option>
+        <option value="troubleshoot" ${mode === 'troubleshoot' ? 'selected' : ''}>故障排查</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>你的目标</label>
+      <textarea class="form-control" id="assistant-goal" rows="3" placeholder="例如：连接 Tushare 并拉取近一年日线数据"></textarea>
+    </div>
+    <div class="form-group">
+      <label>最近错误信息（可选）</label>
+      <textarea class="form-control" id="assistant-last-error" rows="2" placeholder="粘贴错误提示可获得更精准排查"></textarea>
+    </div>
+    <div id="assistant-result" style="margin-top:10px"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+    <button class="btn btn-primary" onclick="generateAssistantGuide('${scene}', this)">生成引导建议</button>
+  `);
+  if (_assistantState.lastError) {
+    const errEl = document.getElementById('assistant-last-error');
+    if (errEl) errEl.value = _assistantState.lastError;
+  }
+  trackAssistantEvent('assistant_opened', scene, { mode });
+}
+
+// Guard modal input focus in Electron: some environments may steal focus right after click.
+document.addEventListener('mousedown', (event) => {
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (!modalOverlay || modalOverlay.classList.contains('hidden')) return;
+  const target = event.target.closest('#modal-body input, #modal-body textarea, #modal-body select');
+  if (!target) return;
+  target.disabled = false;
+  target.readOnly = false;
+  setTimeout(() => {
+    target.focus();
+    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && typeof target.setSelectionRange === 'function') {
+      const cursorPos = String(target.value || '').length;
+      target.setSelectionRange(cursorPos, cursorPos);
+    }
+  }, 0);
+}, true);
 
 // ---------- Load views ----------
 async function loadView(view, force = false) {
@@ -1043,27 +1329,27 @@ overview: async () => ({
         <div class="qs-steps">
           <div class="qs-step current" data-step="1" onclick="qsOpenStep(1)">
             <div class="qs-step-num">1</div>
-            <div class="qs-step-icon">🔗</div>
-            <div class="qs-step-title">创建数据连接</div>
-            <div class="qs-step-desc">连接数据库、文件或HTTP接口，作为数据来源</div>
+            <div class="qs-step-icon">🔑</div>
+            <div class="qs-step-title">配置访问凭证</div>
+            <div class="qs-step-desc">先配置 Tushare Token 或 API Key，避免后续调用失败</div>
           </div>
           <div class="qs-step" data-step="2" onclick="qsOpenStep(2)">
             <div class="qs-step-num">2</div>
             <div class="qs-step-icon">📡</div>
             <div class="qs-step-title">添加数据源</div>
-            <div class="qs-step-desc">配置 K线数据源或自定义 HTTP 数据接口</div>
+            <div class="qs-step-desc">绑定凭证后配置数据源，并完成一次预览校验</div>
           </div>
           <div class="qs-step" data-step="3" onclick="qsOpenStep(3)">
             <div class="qs-step-num">3</div>
             <div class="qs-step-icon">🔄</div>
-            <div class="qs-step-title">创建数据流</div>
-            <div class="qs-step-desc">定义数据从哪来、经过什么处理、到哪里去</div>
+            <div class="qs-step-title">搭建数据流</div>
+            <div class="qs-step-desc">在 Pipeline 中串联输入、处理与输出，先跑通最小可用链路</div>
           </div>
           <div class="qs-step" data-step="4" onclick="qsOpenStep(4)">
             <div class="qs-step-num">4</div>
             <div class="qs-step-icon">⚡</div>
-            <div class="qs-step-title">运行同步任务</div>
-            <div class="qs-step-desc">手动执行或定时调度，自动同步数据</div>
+            <div class="qs-step-title">运行与结果验证</div>
+            <div class="qs-step-desc">执行任务并核对日志、数据质量，最后按需导出结果</div>
           </div>
         </div>
       </div>
@@ -1190,7 +1476,10 @@ overview: async () => ({
     return {
       render: () => `
         <div class="flex-between mb-16">
-          <button class="btn btn-primary" onclick="openCredentialModal()">+ 新建凭证</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="openCredentialModal()">+ 新建凭证</button>
+            <button class="btn btn-secondary" onclick="openAIAssistantModal('credential', { mode: 'wizard' })">🤖 AI 辅助</button>
+          </div>
           <button class="btn btn-secondary" onclick="refreshCredentials()">🔄 刷新</button>
         </div>
         <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text-dim)">
@@ -1210,9 +1499,12 @@ overview: async () => ({
         <span style="margin-left:16px"><strong>注意</strong>：数据源 ≠ 连接。数据库连接（MySQL/PostgreSQL 等）请在「连接管理」菜单中管理。
       </div>
       <div class="flex-between mb-16">
-        <button class="btn btn-primary" onclick="openKlineSourceModal()">+ 新建数据源</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="openKlineSourceModal()">+ 新建数据源</button>
+          <button class="btn btn-secondary" onclick="openAIAssistantModal('datasource', { mode: 'wizard' })">🤖 AI 辅助</button>
+        </div>
         <div>
-          <button class="btn btn-secondary" onclick="openApiRefModal()" style="margin-right:8px">📖 API 参考</button>
+          <button class="btn btn-secondary" onclick="openApiRefModal()" style="margin-right:8px">📖 API 模板</button>
           <button class="btn btn-secondary" onclick="refreshKlineSources()">🔄 刷新</button>
         </div>
       </div>
@@ -1238,9 +1530,13 @@ overview: async () => ({
   workflows: async () => ({
     render: () => `
       <div class="flex-between mb-16">
-        <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
-        <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
-        <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
+          <button class="btn btn-secondary" onclick="openAIAssistantModal('workflow', { mode: 'wizard' })">🤖 AI 辅助</button>
+          <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入示例</button>
+          <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
+          <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
+        </div>
       </div>
       <div class="panel">
         <div id="workflows-list"></div>
@@ -1338,6 +1634,20 @@ overview: async () => ({
           <p><strong>5.</strong> 软件内置SDK/API仅为工具自身功能接口，不涉及任何第三方数据源核心逻辑；大模型仅提供脚本生成辅助能力，生成的脚本需用户自行审核合规性，因脚本违规使用产生的法律责任，由用户自行承担。</p>
         </div>
 
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📜 用户许可协议</div>
+        <details style="color:var(--text-dim);line-height:1.9;font-size:13px;background:var(--bg);padding:16px;border-radius:8px;border:1px solid var(--border)">
+          <summary style="cursor:pointer;color:var(--text);font-weight:600">展开查看完整用户许可协议（ETL数据处理工具 用户许可与合规协议）</summary>
+          <div style="margin-top:12px">
+            <p style="margin-bottom:10px"><strong>第一条 软件定位</strong><br>本软件为本地部署型通用数据ETL处理工具，仅提供数据接入、清洗、转换、入库、任务调度、内网私有API调用等技术能力，不生产、不采集、不转发、不对外分发任何证券、期货、金融行情原始数据，不属于金融数据服务、行情授权服务机构。</p>
+            <p style="margin-bottom:10px"><strong>第二条 数据源使用责任</strong><br>1. 本软件支持用户自行配置第三方合规数据源（含Tushare Pro等），由用户自行注册账号、购买会员、填写专属Token/密钥。<br>2. 本软件支持读取用户个人电脑本地已自行下载的通达信客户端数据文件，仅做本地解析加工，不联网抓取官方服务器数据、不破解、不逆向商用接口。<br>3. 所有第三方数据源、本地行情数据的著作权、版权、服务协议合规责任均由用户自行承担，本软件不承担数据源合规、版权纠纷连带责任。</p>
+            <p style="margin-bottom:10px"><strong>第三条 使用限制与禁止行为</strong><br>用户承诺不得利用本软件从事以下行为：<br>1. 将通达信、Tushare及其他数据源原始行情、K线、分时、财务数据通过公网API、接口、文件、数据库等形式二次分发、售卖、共享、公开；<br>2. 绕过软件默认安全限制，私自将内网API暴露至公网，对外提供金融数据查询服务；<br>3. 多用户共用同一个Tushare Token、批量爬取、聚合后对外提供数据服务；<br>4. 未取得金融数据相关资质，利用本工具变相从事经营性行情数据服务；<br>5. 逆向工程、篡改软件授权、绕过功能限制破解商用模块。</p>
+            <p style="margin-bottom:10px"><strong>第四条 软件授权规则</strong><br>1. 本软件分免费版、专业版、企业版，采用激活码/序列号授权方式；<br>2. 免费版永久开放基础ETL能力，无时间限制；<br>3. 专业版、企业版为付费授权，仅限单用户/单内网环境使用，禁止转租、转售、多机构共用授权；<br>4. 授权仅限软件功能解锁，不含任何金融数据授权、行情数据使用权。</p>
+            <p style="margin-bottom:10px"><strong>第五条 隐私与数据安全</strong><br>1. 本软件所有数据处理、文件读取、数据库存储均仅在用户本地设备/内网完成，不会自动上传用户原始行情数据、Token密钥、业务数据至开发者服务器；<br>2. 软件自动留存任务日志、API调用日志，仅用于用户本地审计排查，不上传外泄；<br>3. 用户需自行做好本地数据备份、内网访问权限管控。</p>
+            <p style="margin-bottom:10px"><strong>第六条 免责声明</strong><br>1. 本软件仅为技术工具，不构成任何投资建议、金融咨询服务；<br>2. 用户违规使用本工具进行数据分发、商用行情服务、版权侵权等行为，全部法律责任由用户自行承担；<br>3. 因用户自行配置数据源、私自修改网络监听配置、公网暴露接口造成的版权纠纷、监管处罚、经济损失，开发者不承担任何赔偿及连带责任。</p>
+            <p style="margin-bottom:10px"><strong>第七条 其他</strong><br>本协议自用户安装、使用本软件之日起生效，开发者有权对协议及软件版本进行更新，更新后将在软件内公示。</p>
+          </div>
+        </details>
+
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📋 版本说明</div>
         <div style="color:var(--text-dim);line-height:1.8;font-size:13px">
           <p><strong>免费基础版</strong>：包含基础可视化工作流、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV）、简单数据清洗、定时调度等功能。</p>
@@ -1369,7 +1679,7 @@ df = conn.read_csv("data.csv")
 df = cleaner.drop_duplicates(df)
 LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
 
-          <p style="margin-top:10px"><strong>API 参考：</strong></p>
+          <p style="margin-top:10px"><strong>API 模板：</strong></p>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px"><strong>类名</strong></td><td style="padding:4px 8px"><strong>功能</strong></td></tr>
             <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">DataConnector</td><td style="padding:4px 8px">数据库读取/写入、文件 I/O、HTTP API 调用</td></tr>
@@ -1394,6 +1704,9 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
         <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px">
           配置大模型后，可在凭证测试、数据源配置等场景中获取 AI 辅助排查建议。
         </div>
+        <div id="llm-experience-hint" style="margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.7;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:10px">
+          当前模式：基础助手（本地规则）可直接使用；增强 AI（云端大模型）可按需解锁。
+        </div>
         <div id="llm-settings-form">
           <div class="form-group">
             <label>状态</label>
@@ -1407,6 +1720,8 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
           <div class="form-group">
             <label>模型类型</label>
             <select class="form-control" id="llm-provider" onchange="onLLMProviderChange()">
+              <option value="cloud_demo">云端免费体验模型（推荐）</option>
+              <option value="ollama">Ollama 本地免费模型</option>
               <option value="openai">OpenAI 兼容（GPT 系列）</option>
               <option value="claude">Claude（Anthropic）</option>
               <option value="deepseek">DeepSeek</option>
@@ -1416,17 +1731,28 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
           </div>
           <div class="form-group">
             <label>API 地址（base_url）</label>
-            <input class="form-control" id="llm-base-url" placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1">
+            <input class="form-control" id="llm-base-url" placeholder="https://api.siliconflow.cn/v1" value="https://api.siliconflow.cn/v1">
           </div>
           <div class="form-group">
             <label>API Key</label>
-            <input class="form-control" id="llm-api-key" type="password" placeholder="sk-...">
-            <div class="text-dim mt-4" style="font-size:12px">⚠️ API Key 仅本地存储，不上传任何服务器</div>
+            <input class="form-control" id="llm-api-key" type="password" placeholder="云端免费体验模式可留空（由平台提供）">
+            <div class="text-dim mt-4" style="font-size:12px">⚠️ 云端免费体验模式可不填；若切换到个人云模型，请填写你自己的 API Key。</div>
+            <div class="text-dim mt-4" style="font-size:12px">
+              没有账号？<a id="siliconflow-invite-link" href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer">前往硅基流动官网（登录后使用）</a>
+            </div>
           </div>
           <div class="form-group">
             <label>模型名称</label>
-            <input class="form-control" id="llm-model" placeholder="gpt-4o-mini" value="gpt-4o-mini">
-            <div class="text-dim mt-4" style="font-size:12px">常用：gpt-4o-mini（性价比）、gpt-4o（更强）、deepseek-chat、qwen-plus</div>
+            <input class="form-control" id="llm-model" placeholder="Qwen/Qwen2.5-7B-Instruct" value="Qwen/Qwen2.5-7B-Instruct">
+            <div class="text-dim mt-4" style="font-size:12px">常用：Qwen/Qwen2.5-7B-Instruct（云端体验）、qwen2.5:7b（本地）、gpt-4o-mini、deepseek-chat</div>
+          </div>
+          <div class="form-group">
+            <label>调用模式（全局）</label>
+            <select class="form-control" id="llm-stream-mode">
+              <option value="normal">普通请求（稳定）</option>
+              <option value="sse">SSE 流式（实时反馈）</option>
+            </select>
+            <div class="text-dim mt-4" style="font-size:12px">影响支持流式的 AI 场景（如 API 模板文档解析）。如上游模型不支持流式，会自动降级为普通模式。</div>
           </div>
           <div class="form-group">
             <label>系统提示词（可选）</label>
@@ -1439,6 +1765,13 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
         </div>
         <div id="llm-test-result" style="margin-top:16px"></div>
       </div>
+      <div class="panel" style="max-width:800px;margin:16px auto 0">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="panel-title">📊 AI 助手埋点看板（本地）</div>
+          <button class="btn btn-secondary btn-sm" onclick="loadAssistantMetrics()">刷新统计</button>
+        </div>
+        <div id="assistant-metrics" style="margin-top:12px;color:var(--text-dim);font-size:13px">加载中...</div>
+      </div>
     `
   }),
 };
@@ -1446,56 +1779,63 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
 // ---------- Quick Start Guide ----------
 const QS_STEPS = {
   1: {
-    title: '创建数据连接',
-    desc: '数据连接是数据同步的基础。你需要先告诉系统，从哪里获取数据，或把数据存到哪里。',
+    title: '配置访问凭证',
+    desc: '先完成凭证配置（如 Tushare Token / API Key），后续数据源与测试才能稳定通过。',
     items: [
-      '点击左侧「连接管理」',
-      '点击「+ 新建连接」按钮',
-      '选择连接类型：数据库 (SQLite/MySQL/PostgreSQL/Oracle)、文件 (CSV/JSON/Excel) 或 HTTP 接口',
-      '填写连接名称和配置信息，点击保存',
+      '点击左侧「凭证管理」',
+      '点击「+ 新建凭证」',
+      '选择凭证类型并填写最小必填项（Token 或账号信息）',
+      '点击「测试」确认 success=true 后保存',
     ],
-    tip: '你可以创建多个连接，一个用于读取数据，另一个用于写入目标库。',
-    action: '前往连接管理',
-    actionFn: 'navigate("connections"); closeModal();',
+    tip: '若你是首次使用，建议先配置一个可用凭证，再进入数据源配置。',
+    action: '前往凭证管理',
+    // 新手引导动作元数据：由统一函数执行，避免内联 onclick 字符串解析问题。
+    actionView: 'credentials',
+    actionOpen: 'credential_modal',
   },
   2: {
     title: '添加数据源',
-    desc: '数据源定义了你要拉取的数据内容。目前支持 K 线数据源和通用 HTTP 数据源。',
+    desc: '数据源定义了要拉取的行情/指标数据。建议先完成一次预览，确认字段结构正确。',
     items: [
       '点击左侧「数据源」',
       '点击「+ 新建数据源」',
-      '选择数据类型：K线 / HTTP接口',
-      '配置相关参数（如API地址、查询条件等），保存',
+      '优先选择 HTTP 类型，绑定凭证并补齐 base_url / request_template',
+      '点击「预览」确认返回数据后再保存',
     ],
-    tip: '如果你已有数据连接，也可以直接从连接中读取数据，不一定需要配置数据源。',
+    tip: '建议至少配置一个可复用数据源，后续数据流和工作流都可直接引用。',
     action: '前往数据源',
-    actionFn: 'navigate("kline-sources"); closeModal();',
+    actionView: 'kline-sources',
+    actionOpen: 'datasource_modal',
   },
   3: {
-    title: '创建数据流 (Pipeline)',
-    desc: '数据流是数据处理的管道。它定义了数据的输入、处理逻辑和输出目标。',
+    title: '搭建数据流 (Pipeline)',
+    // 新手主路径以 Pipeline 为核心，ETL 工作流仅作为可选增强能力。
+    desc: '先在数据流中完成“输入-处理-输出”主链路，ETL 工作流可按需再接入。',
     items: [
       '点击左侧「数据流 (Pipeline)」',
-      '点击「+ 新建数据流」',
-      '选择输入数据源和输出连接',
-      '可以添加中间处理步骤：过滤、聚合、清洗等',
+      '点击「+ 新建数据流」并选择输入数据源与输出目标',
+      '先配置最小处理步骤并保存',
+      '手动执行一次，确认任务可跑通',
     ],
-    tip: 'Pipeline 是核心概念，一个 Pipeline = 一个输入 → 处理 → 输出的完整链路。',
+    tip: 'ETL 工作流属于高阶编排能力，不是首跑必选项。',
     action: '前往数据流',
-    actionFn: 'navigate("pipelines"); closeModal();',
+    actionView: 'pipelines',
+    actionOpen: 'pipeline_modal',
   },
   4: {
-    title: '运行同步任务',
-    desc: '数据流创建好后，就可以执行它来同步数据。你也可以设置定时调度。',
+    title: '运行与结果验证',
+    desc: '基于已搭建好的数据流执行任务，先验证运行结果与数据质量，再按需导出。',
     items: [
-      '点击左侧「导入任务」或「数据流」',
-      '找到刚创建的数据流，点击「运行」',
-      '查看任务执行进度和日志',
-      '如需定时执行，在任务设置中选择 Cron 表达式或时间间隔',
+      '进入「导入任务」或数据流运行记录，定位要执行的任务',
+      '点击「运行」后观察任务状态、执行日志与失败重试情况',
+      '抽样核对关键字段和记录数，确认结果符合预期',
+      '需要自动化时配置调度（Cron 或固定间隔）',
+      '如需对外使用，再进入「报告导出」下载结果文件',
     ],
-    tip: '支持多种调度方式：Cron表达式（如每天0点）、固定间隔（如每30分钟）、一次性执行。',
+    tip: '第 3 步负责“搭建”，第 4 步只关注“运行、验证与交付”。',
     action: '前往导入任务',
-    actionFn: 'navigate("tasks"); closeModal();',
+    actionView: 'tasks',
+    actionOpen: '',
   },
 };
 
@@ -1519,17 +1859,34 @@ function qsOpenStep(num) {
       <h3>${step.desc}</h3>
       <ol>${step.items.map(i => `<li>${i}</li>`).join('')}</ol>
       <div class="qs-tip">💡 ${step.tip}</div>
-      <button class="btn btn-primary" onclick="${step.actionFn}">${step.action}</button>
+      <button class="btn btn-primary" onclick="runQuickStartStep(${num})">${step.action}</button>
     </div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
     <button class="btn btn-secondary btn-sm" onclick="dismissQuickStartGuide(); closeModal()">不再显示</button>
   `);
 }
+
+function runQuickStartStep(num) {
+  // 统一执行引导动作，避免在 HTML 属性里拼接复杂脚本导致点击无效。
+  const step = QS_STEPS[num];
+  if (!step || !step.actionView) return;
+  closeModal();
+  navigate(step.actionView);
+  // 等目标视图 DOM 渲染完成后再打开对应“新建”弹窗，避免时序问题。
+  setTimeout(() => {
+    if (step.actionOpen === 'credential_modal') openCredentialModal();
+    if (step.actionOpen === 'datasource_modal') openKlineSourceModal();
+    if (step.actionOpen === 'workflow_modal') openWorkflowModal();
+    if (step.actionOpen === 'pipeline_modal') openPipelineModal();
+  }, 0);
+}
 // ---------- Data functions ----------
-async function loadOverviewData() {
+async function loadOverviewData(opts = {}) {
   try {
-    const data = await api('/api/monitor/summary');
+    // Reuse one silent switch for all overview API requests.
+    const requestOpts = opts.silent ? { silent: true } : {};
+    const data = await api('/api/monitor/summary', requestOpts);
     document.getElementById('overview-stats').innerHTML = `
       <div class="stat-card"><div class="stat-label">连接数</div><div class="stat-value accent">${data.connections}</div></div>
       <div class="stat-card"><div class="stat-label">表结构</div><div class="stat-value">${data.schemas}</div></div>
@@ -1539,10 +1896,10 @@ async function loadOverviewData() {
       <div class="stat-card"><div class="stat-label">导入行数</div><div class="stat-value">${(data.bulk_imports.total_rows_imported || 0).toLocaleString()}</div></div>
     `;
 
-    const imports = await api('/api/bulk-import');
+    const imports = await api('/api/bulk-import', requestOpts);
     renderOverviewList('overview-imports', imports.slice(0, 5), 'bulk-import');
 
-    const tasks = await api('/api/tasks');
+    const tasks = await api('/api/tasks', requestOpts);
     renderOverviewList('overview-tasks', tasks.slice(0, 5), 'tasks');
   } catch(e) { console.error(e); }
 }
@@ -1559,11 +1916,11 @@ function renderOverviewList(elId, items, type) {
   for (const item of items) {
     const progress = type === 'bulk-import'
       ? `${((item.imported_rows||0)/(item.total_rows||1)*100).toFixed(1)}%`
-      : item.status;
+      : labelStatus(item.status);
     const time = item.updated_at ? new Date(item.updated_at).toLocaleString() : '-';
     html += `<tr>
       <td>${item.id.substring(0, 8)}...</td>
-      <td><span class="badge badge-${item.status}">${item.status}</span></td>
+      <td><span class="badge badge-${badgeClassForStatus(item.status)}">${labelStatus(item.status)}</span></td>
       <td>${type === 'bulk-import' ? `<div style="max-width:120px"><div class="progress-bar"><div class="fill" style="width:${progress}"></div></div><span class="text-dim">${progress}</span></div>` : '-'}</td>
       <td class="text-dim">${time}</td>
       <td><button class="btn btn-secondary btn-sm" onclick="navigate('${type}')">查看</button></td>
@@ -1589,7 +1946,7 @@ async function refreshConnections() {
       const cfg = JSON.stringify(c.config).substring(0, 60);
       html += `<tr>
         <td>${c.name}</td>
-        <td><span class="badge badge-pending">${c.type}</span></td>
+        <td><span class="badge badge-pending">${labelConnectionType(c.type)}</span></td>
         <td class="text-dim">${cfg}...</td>
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testConnection('${c.id}')">测试</button>
@@ -1615,7 +1972,7 @@ function openNewConnectionModal() {
         ${['mysql','postgresql','duckdb','clickhouse','csv','excel','json','parquet','folder_watch','http'].map(t =>
           `<div class="conn-type-card" data-type="${t}" onclick="selectConnType(this,'${t}')">
             <div class="type-icon">${typeIcon(t)}</div>
-            <div>${t}</div>
+            <div>${labelConnectionType(t)}</div>
           </div>`
         ).join('')}
       </div>
@@ -1624,6 +1981,7 @@ function openNewConnectionModal() {
     <div id="conn-config-fields"></div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-secondary" onclick="openAIAssistantModal('connection', { mode: 'wizard' })">🤖 AI 辅助</button>
     <button class="btn btn-primary" onclick="saveConnection()">保存</button>
   `);
 }
@@ -1707,7 +2065,24 @@ async function saveConnection() {
 async function testConnection(id) {
   try {
     const res = await api(`/api/connections/${id}/test`, { method: 'POST' });
-    alert(res.success ? '✅ ' + res.message : '❌ ' + res.message);
+    if (res.success) {
+      // 记录连接测试成功事件，用于“失败后恢复率”统计。
+      await trackAssistantEvent('connection_test_result', 'connection', { success: true });
+      alert('✅ ' + res.message);
+      return;
+    }
+    // 记录连接测试失败事件，后续结合排查与复测计算恢复率。
+    await trackAssistantEvent('connection_test_result', 'connection', {
+      success: false,
+      error: String(res.message || '连接测试失败').slice(0, 200),
+    });
+    const askAI = confirm(`❌ ${res.message || '连接测试失败'}\n\n是否打开 AI 交互式排查助手？`);
+    if (askAI) {
+      openAIAssistantModal('connection', { mode: 'troubleshoot' });
+      const errEl = document.getElementById('assistant-last-error');
+      if (errEl) errEl.value = res.message || '';
+      await generateAssistantGuide('connection');
+    }
   } catch(e) { alert('测试失败: ' + e.message); }
 }
 
@@ -1843,6 +2218,19 @@ function openNewSchemaModal() {
 }
 
 let fieldCounter = 0;
+function normalizeSchemaFields(fields = []) {
+  // 统一补齐字段默认值，避免后端校验因缺少长度等参数失败。
+  return (fields || []).map((field) => {
+    const normalized = { ...field };
+    // VARCHAR 在后端模型中需要 length，这里给出默认值保证可用性。
+    if (String(normalized.type || '').toUpperCase() === 'VARCHAR') {
+      const hasValidLength = Number.isFinite(Number(normalized.length)) && Number(normalized.length) > 0;
+      if (!hasValidLength) normalized.length = 255;
+    }
+    return normalized;
+  });
+}
+
 function addSchemaField(name = '', type = 'VARCHAR') {
   fieldCounter++;
   const container = document.getElementById('schema-fields');
@@ -1863,7 +2251,8 @@ async function previewSchemaDDL() {
     const type = document.getElementById(`sf-type-${id}`)?.value;
     if (name && type) fields.push({ name, type, nullable: true });
   });
-  if (!fields.length) { alert('请先添加字段'); return; }
+  const normalizedFields = normalizeSchemaFields(fields);
+  if (!normalizedFields.length) { alert('请先添加字段'); return; }
 
   try {
     const res = await api('/api/schemas/preview-ddl', {
@@ -1871,13 +2260,14 @@ async function previewSchemaDDL() {
       body: JSON.stringify({
         table_name: document.getElementById('schema-table-name').value || 'new_table',
         database_type: document.getElementById('schema-db-type').value,
-        fields, indexes: []
+        fields: normalizedFields, indexes: []
       }),
     });
     const el = document.getElementById('ddl-preview');
     el.style.display = 'block';
+    // 统一使用 pre 文本块渲染 DDL，避免主题差异导致颜色/换行可读性问题。
     if (res.errors) el.innerHTML = `<span class="log-error">错误: ${res.errors.join(', ')}</span>`;
-    else el.innerHTML = `<span class="log-success">✅\n</span><span class="log-line">${res.ddl}</span>`;
+    else el.innerHTML = `<pre style="margin:0;white-space:pre-wrap;color:#d1d5db">${escapeHtml(res.ddl || '')}</pre>`;
   } catch(e) { alert('预览失败: ' + e.message); }
 }
 
@@ -1891,12 +2281,13 @@ async function saveSchema() {
     const type = document.getElementById(`sf-type-${id}`)?.value;
     if (name && type) fields.push({ name, type, nullable: true });
   });
-  if (!tableName || !fields.length) { alert('请填写表名和字段'); return; }
+  const normalizedFields = normalizeSchemaFields(fields);
+  if (!tableName || !normalizedFields.length) { alert('请填写表名和字段'); return; }
 
   try {
     await api('/api/schemas', {
       method: 'POST',
-      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields, indexes: [] }),
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields: normalizedFields, indexes: [] }),
     });
     closeModal();
     await refreshSchemas();
@@ -1930,11 +2321,12 @@ async function doImportSchemaJSON() {
 
   const tableName = data.table_name;
   const dbType = data.database_type || 'mysql';
-  const fields = data.fields.map(f => ({
+  const fields = normalizeSchemaFields(data.fields.map(f => ({
     name: f.name,
     type: f.type || 'VARCHAR',
     nullable: f.nullable !== false,
-  }));
+    length: f.length,
+  })));
   const indexes = data.indexes || [];
 
   try {
@@ -1954,21 +2346,112 @@ async function previewDDL(id) {
       method: 'POST',
       body: JSON.stringify(s.schema_json),
     });
-    openModal('DDL 预览', `<pre class="log-viewer">${res.ddl || res.errors?.join('\n') || '无'}</pre>`, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+    // 在弹窗中显式设置可读文本样式，避免浅色主题下深色背景+深色文字撞色。
+    const ddlText = res.ddl || res.errors?.join('\n') || '无';
+    openModal(
+      'DDL 预览',
+      `<pre class="log-viewer" style="margin:0;color:#d1d5db;white-space:pre-wrap">${escapeHtml(ddlText)}</pre>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`
+    );
   } catch(e) { alert('预览失败: ' + e.message); }
 }
 
 async function applySchema(id) {
-  const connId = prompt('请输入目标连接ID (connections列表中的id):');
-  if (!connId) return;
   try {
-    const s = await api(`/api/schemas/${id}`);
+    // 一次性加载 schema + 连接列表，改为下拉选择，避免手工输入连接 ID 出错。
+    const [s, connections] = await Promise.all([
+      api(`/api/schemas/${id}`),
+      api('/api/connections'),
+    ]);
+    if (!connections || !connections.length) {
+      alert('请先创建连接，再应用表结构');
+      return;
+    }
+    const preferredConn = connections.find(c => c.type === s.database_type) || connections[0];
+    const optionsHtml = connections.map((c) => {
+      const selected = c.id === preferredConn.id ? 'selected' : '';
+      return `<option value="${escapeHtml(c.id)}" ${selected}>${escapeHtml(c.name)} (${escapeHtml(c.type)})</option>`;
+    }).join('');
+    openModal('应用表结构到数据库', `
+      <div class="form-group">
+        <label>表结构</label>
+        <div class="text-dim">表名: ${escapeHtml(s.table_name)} | 类型: ${escapeHtml(s.database_type)}</div>
+      </div>
+      <div class="form-group">
+        <label>目标连接</label>
+        <select class="form-control" id="schema-apply-conn-id">${optionsHtml}</select>
+      </div>
+      <div class="form-group">
+        <label>执行DDL</label>
+        <pre class="log-viewer" style="margin:0;color:#d1d5db;white-space:pre-wrap">${escapeHtml((await api('/api/schemas/preview-ddl', { method: 'POST', body: JSON.stringify(s.schema_json), silent: true })).ddl || '--')}</pre>
+      </div>
+    `, `
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="schema-apply-btn" onclick="confirmApplySchema('${id}')">应用到DB</button>
+    `);
+  } catch(e) { alert('应用失败: ' + e.message); }
+}
+
+async function confirmApplySchema(id) {
+  const connId = document.getElementById('schema-apply-conn-id')?.value;
+  if (!connId) { alert('请选择目标连接'); return; }
+  // 应用前先做表存在性检查，给出“跳过/覆盖”分支，避免直接失败。
+  const s = await api(`/api/schemas/${id}`, { silent: true });
+  const check = await api('/api/schemas/check-table', {
+    method: 'POST',
+    body: JSON.stringify({
+      connection_id: connId,
+      table_name: s.table_name,
+    }),
+    silent: true,
+  });
+  if (check.error) { alert('检查目标表失败: ' + check.error); return; }
+  if (check.exists) {
+    openModal('目标表已存在', `
+      <div class="form-group">
+        <label>检测结果</label>
+        <div class="text-dim">连接中已存在同名表：<strong>${escapeHtml(s.table_name)}</strong></div>
+      </div>
+      <div class="form-group">
+        <label>继续方式</label>
+        <div class="text-dim">可选择“跳过”（不执行建表）或“覆盖”（先删旧表再建新表）。</div>
+      </div>
+    `, `
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-secondary" onclick="executeApplySchema('${id}','${connId}','skip')">跳过</button>
+      <button class="btn btn-danger" onclick="executeApplySchema('${id}','${connId}','overwrite')">覆盖并继续</button>
+    `);
+    return;
+  }
+  await executeApplySchema(id, connId, 'fail');
+}
+
+async function executeApplySchema(id, connId, onExists = 'fail') {
+  const btn = document.getElementById('schema-apply-btn');
+  try {
+    // 在提交期间禁用按钮，防止重复点击触发多次建表。
+    if (btn) { btn.disabled = true; btn.textContent = '应用中...'; }
+    const s = await api(`/api/schemas/${id}`, { silent: true });
     const res = await api('/api/schemas/apply', {
       method: 'POST',
-      body: JSON.stringify({ schema_id: id, connection_id: connId, ...s.schema_json }),
+      body: JSON.stringify({ schema_id: id, connection_id: connId, on_exists: onExists, ...s.schema_json }),
+      loadingMsg: '正在应用表结构到数据库...',
     });
-    alert(res.success ? '✅ 表已创建: ' + res.message : '❌ 失败: ' + res.message);
-  } catch(e) { alert('应用失败: ' + e.message); }
+    closeModal();
+    // 优先展示后端返回的 errors 细节，避免界面只提示“未知错误”。
+    const errMsg = Array.isArray(res.errors) && res.errors.length
+      ? res.errors.join('; ')
+      : (res.message || res.error || '未知错误');
+    if (res.success && res.skipped) {
+      alert('ℹ️ 已跳过: ' + (res.message || '目标表已存在'));
+    } else {
+      alert(res.success ? '✅ 表已创建: ' + res.message : `❌ 失败: ${errMsg}`);
+    }
+  } catch(e) {
+    alert('应用失败: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '应用到DB'; }
+  }
 }
 
 async function deleteSchema(id) {
@@ -1980,9 +2463,11 @@ async function deleteSchema(id) {
 }
 
 // ---------- Bulk Import ----------
-async function refreshBulkImports() {
+async function refreshBulkImports(opts = {}) {
   try {
-    const data = await api('/api/monitor/bulk-imports');
+    // Keep websocket-triggered updates silent to prevent loading flicker.
+    const requestOpts = opts.silent ? { silent: true } : {};
+    const data = await api('/api/monitor/bulk-imports', requestOpts);
     document.getElementById('bulk-stats').innerHTML = `
       <div class="stat-card"><div class="stat-label">总数</div><div class="stat-value">${data.total}</div></div>
       <div class="stat-card"><div class="stat-label">运行中</div><div class="stat-value warning">${data.running}</div></div>
@@ -2017,7 +2502,7 @@ function renderBulkImportTable(el, imports) {
     html += `<tr>
       <td title="${imp.file_path}">${imp.file_path.split(/[/\\]/).pop().substring(0, 30)}</td>
       <td>${imp.target_table}</td>
-      <td><span class="badge badge-${imp.status}">${imp.status}</span></td>
+        <td><span class="badge badge-${badgeClassForStatus(imp.status)}">${labelStatus(imp.status)}</span></td>
       <td style="min-width:120px">
         <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
         <span class="text-dim">${(imp.imported_rows||0).toLocaleString()} / ${(imp.total_rows||0).toLocaleString()} (${pct}%)</span>
@@ -2059,7 +2544,7 @@ async function openBulkImportModal() {
       <div class="form-group">
         <label>目标连接</label>
         <select class="form-control" id="bi-target-conn">
-          ${dbConns.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+          ${dbConns.map(c => `<option value="${c.id}">${c.name} (${labelConnectionType(c.type)})</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -2137,7 +2622,7 @@ function addBIMapping(source = '', target = '') {
   container.innerHTML += `<div class="field-map-row" id="bi-map-${biMappingId}">
     <input class="form-control" id="bi-src-${biMappingId}" value="${source}" placeholder="源字段">
     <input class="form-control" id="bi-tgt-${biMappingId}" value="${target}" placeholder="目标字段">
-    <button class="btn btn-danger btn-sm" onclick="document.getElementById('bi-map-${biMappingId}').remove()">✕</button>
+    <button class="btn btn-danger btn-sm btn-icon" title="删除映射" aria-label="删除映射" onclick="document.getElementById('bi-map-${biMappingId}').remove()">🗑</button>
   </div>`;
 }
 
@@ -2220,9 +2705,11 @@ async function retryImport(id) {
 }
 
 // ---------- Tasks ----------
-async function refreshTasks() {
+async function refreshTasks(opts = {}) {
   try {
-    const data = await api('/api/monitor/tasks');
+    // Keep websocket-triggered updates silent to prevent loading flicker.
+    const requestOpts = opts.silent ? { silent: true } : {};
+    const data = await api('/api/monitor/tasks', requestOpts);
     document.getElementById('task-stats').innerHTML = `
       <div class="stat-card"><div class="stat-label">总数</div><div class="stat-value">${data.total}</div></div>
       <div class="stat-card"><div class="stat-label">运行中</div><div class="stat-value warning">${data.running}</div></div>
@@ -2247,9 +2734,9 @@ function renderTaskTable(el, tasks) {
     const time = t.last_run_at ? new Date(t.last_run_at).toLocaleString() : '-';
     html += `<tr>
       <td>${t.name}</td>
-      <td><span class="badge badge-pending">${t.task_type}</span></td>
+      <td><span class="badge badge-pending">${labelTaskType(t.task_type)}</span></td>
       <td>${t.target_table}</td>
-      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td><span class="badge badge-${badgeClassForStatus(t.status)}">${labelStatus(t.status)}</span></td>
       <td class="text-dim">${time}</td>
       <td class="actions">
         ${t.status !== 'running' ? `<button class="btn btn-success btn-sm" onclick="runTask('${t.id}')">运行</button>` : ''}
@@ -2285,13 +2772,13 @@ async function openNewTaskModal() {
       <div class="form-group">
         <label>源连接</label>
         <select class="form-control" id="task-source">
-          ${connections.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+          ${connections.map(c => `<option value="${c.id}">${c.name} (${labelConnectionType(c.type)})</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label>目标连接</label>
         <select class="form-control" id="task-target">
-          ${connections.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('')}
+          ${connections.map(c => `<option value="${c.id}">${c.name} (${labelConnectionType(c.type)})</option>`).join('')}
         </select>
       </div>
     </div>
@@ -2342,11 +2829,13 @@ async function deleteTask(id) {
 }
 
 // ---------- Monitor ----------
-async function refreshMonitor() {
+async function refreshMonitor(opts = {}) {
   try {
+    // Keep websocket-triggered updates silent to prevent loading flicker.
+    const requestOpts = opts.silent ? { silent: true } : {};
     const [taskData, importData] = await Promise.all([
-      api('/api/monitor/tasks'),
-      api('/api/monitor/bulk-imports'),
+      api('/api/monitor/tasks', requestOpts),
+      api('/api/monitor/bulk-imports', requestOpts),
     ]);
 
     document.getElementById('monitor-stats').innerHTML = `
@@ -2419,8 +2908,8 @@ async function loadReportsView() {
         const result = r.execution?.last_result || {};
         html += `<tr>
           <td>${r.task?.name || r.task_id}</td>
-          <td><span class="badge badge-pending">${r.task?.type || 'N/A'}</span></td>
-          <td><span class="badge badge-${r.status}">${r.status}</span></td>
+          <td><span class="badge badge-pending">${labelTaskType(r.task?.type || '') || 'N/A'}</span></td>
+          <td><span class="badge badge-${badgeClassForStatus(r.status)}">${labelStatus(r.status)}</span></td>
           <td>${result.rows_inserted ?? 'N/A'}</td>
           <td class="text-dim">${r.execution?.last_error || '-'}</td>
           <td>
@@ -2539,10 +3028,9 @@ async function refreshKlineSources() {
     for (const c of list) {
       const cfgStr = JSON.stringify(c.config || {});
       const cfg = cfgStr.length > 60 ? cfgStr.substring(0, 60) + '...' : cfgStr;
-      const typeLabel = {http: 'HTTP REST', ws: 'WebSocket', tdx: 'HTTP(TDX)', akshare: 'HTTP(AK)', tushare: 'HTTP(TS)', mysql: 'MySQL', postgresql: 'PostgreSQL', duckdb: 'DuckDB', clickhouse: 'ClickHouse'}[c.type] || c.type;
       html += `<tr>
         <td>${c.name}</td>
-        <td><span class="badge badge-pending">${typeLabel}</span></td>
+        <td><span class="badge badge-pending">${labelKlineSourceType(c.type)}</span></td>
         <td class="text-dim">${cfg}</td>
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testKlineSource('${c.id}')">测试</button>
@@ -2555,6 +3043,50 @@ async function refreshKlineSources() {
     html += '</tbody></table>';
     el.innerHTML = html;
   } catch(e) { console.error(e); }
+}
+
+// 缓存通达信目录路径，避免每次新建都重复手工输入。
+const TDX_DATA_DIR_CACHE_KEY = 'qs_tdx_data_dir';
+
+function getCachedTdxDataDir() {
+  // 统一读取本地缓存，异常时返回空字符串保证页面可用。
+  try { return localStorage.getItem(TDX_DATA_DIR_CACHE_KEY) || ''; } catch (e) { return ''; }
+}
+
+function cacheTdxDataDir(pathValue) {
+  // 仅缓存非空路径，避免用空值覆盖已有有效目录。
+  if (!pathValue) return;
+  try { localStorage.setItem(TDX_DATA_DIR_CACHE_KEY, pathValue); } catch (e) { /* ignore */ }
+}
+
+function canUseElectronDirectoryPicker() {
+  // 仅在 Electron 桌面端启用原生目录选择器，浏览器环境自动降级为手工输入。
+  return !!(window.electronAPI && typeof window.electronAPI.selectDirectory === 'function');
+}
+
+async function chooseTdxDataDir() {
+  // 调用 Electron 主进程打开目录选择框，成功后自动回填并缓存目录路径。
+  if (!canUseElectronDirectoryPicker()) return;
+  try {
+    const selectedPath = await window.electronAPI.selectDirectory();
+    if (!selectedPath) return;
+    const input = document.getElementById('ks-cfg-data_dir');
+    if (input) input.value = selectedPath;
+    cacheTdxDataDir(selectedPath);
+  } catch (e) {
+    alert('打开目录选择器失败: ' + (e.message || e));
+  }
+}
+
+function initTdxDataDirUI() {
+  // 初始化通达信目录输入框：优先填充缓存路径，并根据运行环境控制选择按钮显隐。
+  const input = document.getElementById('ks-cfg-data_dir');
+  if (input && !input.value) {
+    const cachedPath = getCachedTdxDataDir();
+    if (cachedPath) input.value = cachedPath;
+  }
+  const btn = document.getElementById('ks-cfg-data_dir-picker');
+  if (btn) btn.style.display = canUseElectronDirectoryPicker() ? 'inline-flex' : 'none';
 }
 
 function openKlineSourceModal(editId = null) {
@@ -2571,25 +3103,60 @@ function openKlineSourceModal(editId = null) {
           <div class="icon">🌐</div><div class="label">HTTP REST</div><div class="desc">通用REST API</div>
         </div>
         <div class="kline-type-card" data-type="tdx" onclick="selectKsType(this,'tdx')">
-          <div class="icon">📈</div><div class="label">通达信行情</div><div class="desc">TCP直连 7709</div>
+          <div class="icon">📈</div><div class="label">通达信本地文件</div><div class="desc">本地 .lc/.dat 数据文件</div>
         </div>
         <div class="kline-type-card" data-type="ws" onclick="selectKsType(this,'ws')">
           <div class="icon">⚡</div><div class="label">WebSocket</div><div class="desc">实时数据流</div>
         </div>
       </div>
       <input type="hidden" id="ks-type" value="">
+      <input type="hidden" id="ks-cfg-selected_api" value="">
+      <input type="hidden" id="ks-cfg-preview_mode" value="kline">
     </div>
     <div id="ks-config-fields"></div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-    <button class="btn btn-secondary" id="ks-preview-btn" onclick="previewKlineSourceData()">🔍 预览数据</button>
+    <button class="btn btn-secondary" onclick="openAIAssistantModal('datasource', { mode: 'wizard', currentConfig: getCurrentDatasourceConfig(), sourceId: document.getElementById('ks-edit-id')?.value || '' })">🤖 AI 辅助</button>
     <button class="btn btn-primary" onclick="saveKlineSource()">保存</button>
   `);
   window._ksPreviewDone = false;
   if (editId) {
     loadKlineSourceData(editId);
     window._ksPreviewDone = true;
+  } else {
+    // 新建时默认按 K 线模式预览，避免用户无感知地进入空列表预览。
+    updateDatasourcePreviewUI('kline');
   }
+}
+
+// 代码列表类接口：点击“预览数据”时应直观展示“股票列表”，而不是 K 线样例。
+const API_PREVIEW_MODE_OVERRIDES = {
+  tdx: {
+    local_security_list: 'codes',
+  },
+};
+
+function resolveApiPreviewMode(apiInfo) {
+  // 统一按数据源+接口名决定默认预览模式，未命中时回退为 K 线模式。
+  const src = String(apiInfo?.src || '').toLowerCase();
+  const apiName = String(apiInfo?.apiName || '').trim();
+  if (!src || !apiName) return 'kline';
+  const srcRules = API_PREVIEW_MODE_OVERRIDES[src] || {};
+  return srcRules[apiName] || 'kline';
+}
+
+function updateDatasourcePreviewUI(mode) {
+  // 用按钮文案直接告诉用户“当前会预览什么”，减少误解。
+  const btn = document.getElementById('ks-preview-btn');
+  if (!btn) return;
+  btn.textContent = mode === 'codes' ? '🔍 预览股票列表' : '🔍 预览K线样例';
+}
+
+function setDatasourcePreviewMode(mode) {
+  // 预览模式写入隐藏字段，保存后可在列表页复用同一规则。
+  const previewModeInput = document.getElementById('ks-cfg-preview_mode');
+  if (previewModeInput) previewModeInput.value = mode || 'kline';
+  updateDatasourcePreviewUI(mode || 'kline');
 }
 
 function selectKsType(el, type) {
@@ -2628,6 +3195,7 @@ function selectKsType(el, type) {
         <textarea class="form-control" id="ks-cfg-request_template" rows="3" placeholder='{"start_date": "{start_time}", "end_date": "{end_time}", "codes": "{codes}"}'></textarea>
         <div class="text-dim mt-4" style="font-size:12px">可用变量：{start_time}, {end_time}, {codes}, {interval}</div>
       </div>
+      <div id="ks-api-param-editor"></div>
       <div class="form-row">
         <div class="form-group">
           <label>响应数据路径</label>
@@ -2670,47 +3238,36 @@ function selectKsType(el, type) {
   } else if (type === 'tdx') {
     fields.innerHTML = `
       <div class="form-group">
-        <label>行情服务器</label>
-        <select class="form-control" id="ks-cfg-tdx_server" onchange="onTdxServerSelect(this)">
-          <option value="">— 选择或自定义 —</option>
-          <option value="119.147.212.81:7709">深圳行情 119.147.212.81:7709</option>
-          <option value="114.80.63.12:7709">上海行情 114.80.63.12:7709</option>
-          <option value="218.75.126.9:7709">湖南电信 218.75.126.9:7709</option>
-          <option value="124.74.234.130:7709">上海电信 124.74.234.130:7709</option>
-          <option value="180.153.18.17:7709">上海联通 180.153.18.17:7709</option>
-          <option value="61.152.107.141:7709">上海电信 61.152.107.141:7709</option>
-          <option value="221.231.159.216:7709">上海移动 221.231.159.216:7709</option>
-          <option value="218.9.148.108:7709">黑龙江 218.9.148.108:7709</option>
-          <option value="custom">自定义地址</option>
-        </select>
-        <div class="text-dim" style="font-size:12px;margin-top:4px">通达信行情服务器为公开免费服务，无需注册/凭证</div>
-      </div>
-      <div class="form-group" id="ks-cfg-tdx-custom-group" style="display:none">
-        <label>自定义服务器地址</label>
-        <input class="form-control" id="ks-cfg-tdx_custom" value="" placeholder="IP:端口，如 119.147.212.81:7709">
+        <label>本地数据目录路径</label>
+        <div class="flex" style="gap:8px;align-items:center">
+          <input class="form-control" id="ks-cfg-data_dir" value="" placeholder="C:\\tdx\\vipdoc\\sh 或 /path/to/tdx/vipdoc">
+          <button type="button" class="btn btn-secondary btn-sm" id="ks-cfg-data_dir-picker" onclick="chooseTdxDataDir()" title="选择本地目录">选择文件夹</button>
+        </div>
+        <div class="text-dim" style="font-size:12px;margin-top:4px">请先通过通达信官方客户端下载数据到本地目录。本工具仅读取本地 .lc/.dat 文件，不连接任何远程服务器。</div>
       </div>
       <div class="form-group">
-        <label>股票代码列表（逗号分隔）</label>
+        <label>股票代码（逗号分隔，用于预览）</label>
         <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
-      </div>
-      <div class="form-group">
-        <label>连接超时（秒）</label>
-        <input class="form-control" id="ks-cfg-timeout" value="15" placeholder="15">
-      </div>
-      <div class="text-dim" style="font-size:11px;color:var(--text-dim);margin-top:8px">
-        💡 提示：通达信行情服务器由券商/第三方提供，不保证 100% 可用。如连接失败，请尝试切换其他服务器。
       </div>
 `;
   }
+  // 非 API 模板入口进入时，切换类型后默认恢复为 K 线预览模式。
+  setDatasourcePreviewMode('kline');
+  // Ensure newly-rendered inputs remain editable in Electron/Windows environments.
+  fields.querySelectorAll('input, textarea, select').forEach((node) => {
+    node.disabled = false;
+    node.readOnly = false;
+    node.style.pointerEvents = 'auto';
+  });
+  // Auto-focus first field to make caret behavior explicit after type switch.
+  setTimeout(() => {
+    const firstEditable = fields.querySelector('input, textarea');
+    if (firstEditable) firstEditable.focus();
+  }, 0);
+  // 切换到通达信类型时初始化目录缓存与目录选择按钮状态。
+  if (type === 'tdx') initTdxDataDirUI();
   // Populate credential selector
   loadCredentialSelect();
-}
-
-function onTdxServerSelect(el) {
-  const customGroup = document.getElementById('ks-cfg-tdx-custom-group');
-  if (customGroup) {
-    customGroup.style.display = el.value === 'custom' ? 'block' : 'none';
-  }
 }
 
 async function loadCredentialSelect() {
@@ -2719,7 +3276,7 @@ async function loadCredentialSelect() {
   const creds = await api('/api/credentials/for-select/');
   const currentVal = sel.value;
   sel.innerHTML = '<option value="">— 不使用凭证，手动填写认证信息 —</option>' +
-    creds.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('');
+    creds.map(c => `<option value="${c.id}">${c.name} (${labelCredentialType(c.type)})</option>`).join('');
   if (currentVal) sel.value = currentVal;
 }
 
@@ -2766,6 +3323,8 @@ async function loadKlineSourceData(id) {
     const el = document.querySelector(`.kline-type-card[data-type="${conn.type}"]`);
     if (el) selectKsType(el, conn.type);
     if (conn.config) {
+      // 编辑通达信数据源时更新缓存，后续新建可复用最近一次路径。
+      if (conn.type === 'tdx' && conn.config.data_dir) cacheTdxDataDir(conn.config.data_dir);
       // Set credential_id if present
       if (conn.config.credential_id) {
         const credSel = document.getElementById('ks-cfg-credential_id');
@@ -2775,6 +3334,14 @@ async function loadKlineSourceData(id) {
         const inp = document.getElementById(`ks-cfg-${k}`);
         if (inp) inp.value = typeof v === 'object' ? JSON.stringify(v, null, 2) : v;
       }
+      // 编辑时按保存的预览模式恢复 UI，保证行为可预期。
+      setDatasourcePreviewMode(conn.config.preview_mode || 'kline');
+      // 编辑 HTTP 数据源时，若存在 selected_api，则恢复逐项参数映射编辑器。
+      if (conn.type === 'http' && conn.config.selected_api) {
+        // 支持“内置模板 + 自定义模板”回显编辑器。
+        const selectedApiInfo = findApiTemplateByName(conn.config.selected_api);
+        renderApiParamEditor(selectedApiInfo);
+      }
     }
   } catch(e) { console.error(e); }
 }
@@ -2783,6 +3350,8 @@ async function saveKlineSource() {
   const name = document.getElementById('ks-name').value;
   const type = document.getElementById('ks-type').value;
   if (!name || !type) { alert('请填写名称并选择类型'); return; }
+  // 保存前先把“逐项参数映射”同步到 request_template，避免落库内容滞后。
+  if (type === 'http') syncApiRequestTemplateFromEditor();
   const config = {};
   document.querySelectorAll('[id^="ks-cfg-"]').forEach(inp => {
     const key = inp.id.replace('ks-cfg-', '');
@@ -2795,6 +3364,15 @@ async function saveKlineSource() {
       config[key] = val;
     }
   });
+  if (type === 'http') {
+    // 请求前校验模板结构，避免“请求成功但返回空数据”的静默失败体验。
+    const v = validateHttpRequestTemplateConfig(config.request_template);
+    if (!v.ok) { alert('配置校验失败: ' + v.message); return; }
+  }
+  // 保存通达信数据源时缓存目录路径，减少重复输入。
+  if (type === 'tdx' && typeof config.data_dir === 'string') {
+    cacheTdxDataDir(config.data_dir.trim());
+  }
   const editId = document.getElementById('ks-edit-id').value;
   const btn = document.querySelector('#modal-footer .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
@@ -2810,17 +3388,89 @@ async function saveKlineSource() {
   finally { if (btn) { btn.disabled = false; btn.textContent = '保存'; } }
 }
 
+function _hasTemplatePlaceholders(value) {
+  // 检查是否包含常见占位符；用于在测试/预览前提醒模板仍是占位状态。
+  if (typeof value === 'string') return /\{(codes|start_time|end_time|interval)\}/.test(value);
+  if (Array.isArray(value)) return value.some(v => _hasTemplatePlaceholders(v));
+  if (value && typeof value === 'object') return Object.values(value).some(v => _hasTemplatePlaceholders(v));
+  return false;
+}
+
+function validateHttpRequestTemplateConfig(requestTemplate) {
+  // 校验 request_template 的最小结构约束，优先拦截 params 非对象等高频错误。
+  let tpl = requestTemplate;
+  if (typeof tpl === 'string') {
+    const raw = tpl.trim();
+    if (!raw) return { ok: false, message: 'request_template 不能为空' };
+    if (!raw.startsWith('{')) return { ok: false, message: 'request_template 必须是 JSON 对象' };
+    try {
+      tpl = JSON.parse(raw);
+    } catch (e) {
+      return { ok: false, message: 'request_template 不是合法 JSON' };
+    }
+  }
+  if (!tpl || typeof tpl !== 'object' || Array.isArray(tpl)) {
+    return { ok: false, message: 'request_template 必须是 JSON 对象' };
+  }
+  if ('params' in tpl && (!tpl.params || typeof tpl.params !== 'object' || Array.isArray(tpl.params))) {
+    return { ok: false, message: 'request_template.params 必须是对象，例如 {"ts_code":"{codes}"}，不能是数组' };
+  }
+  if (_hasTemplatePlaceholders(tpl) && ('params' in tpl) && (!tpl.params || Object.keys(tpl.params).length === 0)) {
+    return { ok: false, message: '模板存在占位符，但 params 为空，无法替换成真实请求参数' };
+  }
+  return { ok: true };
+}
+
+async function validateSourceTemplateById(sourceId) {
+  // 列表页“测试/预览”前先读取已保存配置做结构校验，失败时直接提示并阻断请求。
+  const source = await api(`/api/kline-sources/${sourceId}`, { silent: true });
+  if (!source || source.error) return { ok: false, message: source?.error || '读取数据源配置失败' };
+  if (source.type !== 'http') return { ok: true };
+  return validateHttpRequestTemplateConfig(source?.config?.request_template);
+}
+
 async function testKlineSource(id) {
   try {
+    const validateRes = await validateSourceTemplateById(id);
+    if (!validateRes.ok) { alert('配置校验失败: ' + validateRes.message); return; }
     const res = await api(`/api/kline-sources/${id}/test`, { method: 'POST' });
-    alert(res.success ? '✅ ' + res.message : '❌ ' + res.message);
+    if (res.success) {
+      // 记录数据源测试成功事件，便于后续分析问题闭环效率。
+      await trackAssistantEvent('datasource_test_result', 'datasource', { success: true });
+      alert('✅ ' + res.message);
+      return;
+    }
+    // 记录数据源测试失败事件，和排查助手联动计算修复率。
+    await trackAssistantEvent('datasource_test_result', 'datasource', {
+      success: false,
+      error: String(res.message || '数据源测试失败').slice(0, 200),
+    });
+    const askAI = confirm(`❌ ${res.message || '数据源测试失败'}\n\n是否打开 AI 交互式排查助手？`);
+    if (!askAI) return;
+    openAIAssistantModal('datasource', {
+      mode: 'troubleshoot',
+      sourceId: id,
+      currentConfig: { source_id: id },
+      lastError: res.message || '',
+    });
+    await generateAssistantGuide('datasource');
   } catch(e) { alert('测试失败: ' + e.message); }
 }
 
 async function previewSourceById(id) {
   try {
-    const res = await api(`/api/kline-sources/${id}/preview`, { loadingMsg: '正在从数据源拉取样例数据...' });
-    showPreviewModal(res);
+    const validateRes = await validateSourceTemplateById(id);
+    if (!validateRes.ok) { showPreviewModal({ error: '配置校验失败: ' + validateRes.message }); return; }
+    // 先读取数据源配置，按预览模式决定请求“股票列表”还是“K线样例”。
+    const source = await api(`/api/kline-sources/${id}`, { silent: true });
+    const mode = source?.config?.preview_mode || 'kline';
+    if (mode === 'codes') {
+      const res = await api(`/api/kline-sources/${id}/codes`, { loadingMsg: '正在拉取股票列表...' });
+      showCodesPreviewModal(res, source?.name || '');
+    } else {
+      const res = await api(`/api/kline-sources/${id}/preview`, { loadingMsg: '正在从数据源拉取样例数据...' });
+      showPreviewModal(res, { title: 'K线样例预览' });
+    }
   } catch(e) {
     showPreviewModal({ error: e.message });
   }
@@ -2833,16 +3483,29 @@ async function previewKlineSourceData() {
     return;
   }
   try {
-    const res = await api(`/api/kline-sources/${editId}/preview`, { loadingMsg: '正在拉取数据...' });
-    showPreviewModal(res);
+    // 与列表页一致：根据配置的预览模式智能切换预览目标。
+    const mode = document.getElementById('ks-cfg-preview_mode')?.value || 'kline';
+    if (mode === 'codes') {
+      const res = await api(`/api/kline-sources/${editId}/codes`, { loadingMsg: '正在拉取股票列表...' });
+      const sourceName = document.getElementById('ks-name')?.value || '';
+      showCodesPreviewModal(res, sourceName);
+    } else {
+      const res = await api(`/api/kline-sources/${editId}/preview`, { loadingMsg: '正在拉取数据...' });
+      showPreviewModal(res, { title: 'K线样例预览' });
+    }
   } catch(e) {
     showPreviewModal({ error: e.message });
   }
 }
 
-function showPreviewModal(res) {
+let _lastDatasourcePreviewError = '';
+
+function showPreviewModal(res, options = {}) {
+  // 兼容不同预览场景，允许外部覆盖弹窗标题。
+  const title = options.title || '数据预览';
   let html;
   if (res.error) {
+    _lastDatasourcePreviewError = String(res.error || '');
     html = `
       <div style="padding:24px;text-align:center">
         <div style="font-size:48px;margin-bottom:12px">❌</div>
@@ -2854,11 +3517,13 @@ function showPreviewModal(res) {
           <strong>排查建议：</strong><br>
           1. 确认已创建凭证并选择了该凭证<br>
           2. 检查 base_url 是否正确（Tushare 应为 <code>http://api.tushare.pro</code>）<br>
-          3. 点击「📖 API 参考」选择一个接口填充配置<br>
+          3. 点击「📖 API 模板」选择一个模板填充配置<br>
           4. 预览数据前需要先将配置保存
         </div>
+        <div style="margin-top:14px"><button class="btn btn-secondary" onclick="openDatasourceAssistantFromPreview()">🤖 使用 AI 排查</button></div>
       </div>`;
   } else {
+    _lastDatasourcePreviewError = '';
     const rows = (res.data || []).slice(0, 20);
     const columns = rows.length ? Object.keys(rows[0]) : [];
     const types = inferColumnTypes(rows, columns);
@@ -2869,7 +3534,7 @@ function showPreviewModal(res) {
         <div class="text-dim" style="font-size:12px;margin-bottom:8px">📡 请求详情</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
           <div><strong>数据源：</strong>${res.source_name || '-'}</div>
-          <div><strong>类型：</strong>${res.source_type || '-'}</div>
+          <div><strong>类型：</strong>${labelKlineSourceType(res.source_type || '-')}</div>
           <div><strong>请求 URL：</strong><code>${res.request_url || '-'}</code></div>
           <div><strong>HTTP 方法：</strong>${res.request_method || '-'}</div>
           <div><strong>响应状态：</strong>${res.http_status ? `<span style="color:#10b981">HTTP ${res.http_status} ✅</span>` : '<span style="color:#f87171">无响应</span>'}</div>
@@ -2914,9 +3579,50 @@ function showPreviewModal(res) {
       ${tableHTML}`;
   }
 
-  openModal('数据预览', html, `
+  openModal(title, html, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
   `);
+}
+
+function showCodesPreviewModal(res, sourceName = '') {
+  // 股票列表预览：统一展示 count 与代码列表，用户一眼看懂当前接口语义。
+  const rawCodes = Array.isArray(res?.codes) ? res.codes : [];
+  const rows = rawCodes.map((item) => {
+    if (item && typeof item === 'object') return item;
+    return { code: String(item || '') };
+  });
+  const columns = rows.length ? Object.keys(rows[0]) : ['code'];
+  const summary = `${sourceName || '当前数据源'} 返回 ${res?.count ?? rows.length} 条代码`;
+  let body = `
+    <div class="text-dim" style="font-size:12px;margin-bottom:10px">${summary}</div>
+  `;
+  if (!rows.length) {
+    body += `<div style="text-align:center;padding:24px;color:var(--text-dim)">未返回股票列表，请检查数据源接口或权限配置</div>`;
+  } else {
+    body += `
+      <div class="preview-table-wrap" style="border:1px solid var(--border);border-radius:6px;background:var(--bg);max-height:420px;overflow:auto">
+        <table class="data-table">
+          <thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${rows.slice(0, 200).map(row => `<tr>${columns.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="text-dim mt-4" style="font-size:12px">为保证页面流畅，最多展示前 200 条。</div>
+    `;
+  }
+  openModal('股票列表预览', body, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+  `);
+}
+
+async function openDatasourceAssistantFromPreview() {
+  // 预览失败场景直接跳转 AI 排障，减少用户重复输入上下文。
+  openAIAssistantModal('datasource', {
+    mode: 'troubleshoot',
+    sourceId: document.getElementById('ks-edit-id')?.value || '',
+    currentConfig: getCurrentDatasourceConfig(),
+    lastError: _lastDatasourcePreviewError || '',
+  });
+  await generateAssistantGuide('datasource');
 }
 
 function inferColumnTypes(rows, columns) {
@@ -2945,11 +3651,10 @@ async function refreshCredentials() {
       <th>名称</th><th>类型</th><th>创建时间</th><th>操作</th>
     </tr></thead><tbody>`;
     for (const c of list) {
-      const typeLabel = {tushare_token:'Tushare Token',http_bearer:'HTTP Bearer',basic_auth:'Basic Auth',apikey:'API Key'}[c.type] || c.type;
       const created = new Date(c.created_at).toLocaleString('zh-CN');
       html += `<tr>
         <td>${c.name}</td>
-        <td><span class="badge badge-pending">${typeLabel}</span></td>
+        <td><span class="badge badge-pending">${labelCredentialType(c.type)}</span></td>
         <td class="text-dim">${created}</td>
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testCredential('${c.id}')">🔗 测试</button>
@@ -2989,6 +3694,7 @@ async function openCredentialModal(editId = null) {
     <div id="cred-config-fields"></div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-secondary" onclick="openAIAssistantModal('credential', { mode: 'wizard' })">🤖 AI 辅助</button>
     <button class="btn btn-primary" onclick="saveCredential()">保存</button>
   `);
 
@@ -3086,40 +3792,87 @@ async function testCredential(id) {
   try {
     const res = await api(`/api/credentials/${id}/test`, { method: 'POST', loadingMsg: '正在测试连通性...' });
     if (res.success) {
+      // 记录凭证测试成功事件，用于“失败后恢复率”统计。
+      await trackAssistantEvent('credential_test_result', 'credential', { success: true });
       alert('✅ ' + res.message);
     } else {
-      const err = res.message || '未知错误';
-      const advice = `${err}\n\n排查步骤：\n1. 确认 base_url 正确\n2. 确认 Token/密钥 有效且未过期\n3. 检查网络是否能访问该地址`;
-      const askAI = confirm(`${advice}\n\n是否使用 AI 辅助排查？`);
-      if (askAI) {
-        const llm = await api('/api/llm/', { silent: true });
-        if (!llm || !llm.length || !llm[0].api_key) {
-          alert('请先配置 AI 设置（侧边栏 → AI 设置 → 填入 API Key）');
-          navigate('llm-settings');
-          return;
-        }
-        const resp = await api('/api/llm/troubleshoot', {
-          method: 'POST',
-          body: JSON.stringify({
-            error: err,
-            context: `凭证类型：${id}\n这是凭证连通性测试失败。`,
-            config_id: llm[0].id
-          }),
-          loadingMsg: 'AI 分析中...'
-        });
-        if (resp.error) {
-          alert('❌ AI 排查失败：' + resp.error);
-        } else {
-          alert('🤖 AI 排查建议：\n\n' + resp.advice);
-        }
-      }
+      // 记录凭证测试失败事件，后续可关联 AI 排查转化效果。
+      await trackAssistantEvent('credential_test_result', 'credential', {
+        success: false,
+        error: String(res.message || '未知错误').slice(0, 200),
+      });
+      const askAI = confirm(`❌ ${res.message || '未知错误'}\n\n是否打开 AI 交互式排查助手？`);
+      if (!askAI) return;
+      openAIAssistantModal('credential', { mode: 'troubleshoot' });
+      const errEl = document.getElementById('assistant-last-error');
+      if (errEl) errEl.value = res.message || '';
+      await generateAssistantGuide('credential');
     }
   } catch(e) { alert('测试失败: ' + e.message); }
 }
 
 
-// ============ API Reference Modal (按数据源 + 分类搜索) ============
+// ============ API 模板中心（按数据源 + 分类搜索） ============
+const CUSTOM_API_TEMPLATES_KEY = 'qs_custom_api_templates_v1';
+
+function getCustomApiTemplates() {
+  // 从本地存储加载“用户自定义 API 模板”，失败时返回空数组。
+  try {
+    const raw = localStorage.getItem(CUSTOM_API_TEMPLATES_KEY) || '[]';
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => ({
+        src: String(item?.src || 'tushare'),
+        cat: String(item?.cat || 'market'),
+        apiName: String(item?.apiName || '').trim(),
+        desc: String(item?.desc || '自定义模板'),
+        params: String(item?.params || ''),
+        fields: String(item?.fields || ''),
+        reqExample: String(item?.reqExample || '{}'),
+        baseUrl: String(item?.baseUrl || ''),
+        method: String(item?.method || 'POST').toUpperCase(),
+        isCustom: true,
+      }))
+      .filter((item) => item.apiName);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCustomApiTemplates(templates) {
+  // 统一保存自定义模板，避免出现 localStorage 写入格式不一致。
+  const safeList = Array.isArray(templates) ? templates : [];
+  localStorage.setItem(CUSTOM_API_TEMPLATES_KEY, JSON.stringify(safeList));
+}
+
+function getAllApiTemplates() {
+  // 运行时合并“内置模板 + 自定义模板”，供卡片渲染和“使用接口”复用。
+  return [...allApis, ...getCustomApiTemplates()];
+}
+
+function getSourceTabMap() {
+  // 自定义模板数量变化时动态刷新 tab，确保“自定义”分组实时可见。
+  const customApis = getCustomApiTemplates();
+  const map = {
+    all: { label: '全部', apis: getAllApiTemplates() },
+    tushare: { label: '🔵 Tushare', apis: tushareApis },
+    akshare: { label: '🟢 AkShare', apis: akshareApis },
+    tdx: { label: '🟠 通达信', apis: tdxApis },
+  };
+  if (customApis.length) {
+    map.custom = { label: `🧩 自定义(${customApis.length})`, apis: customApis };
+  }
+  return map;
+}
+
+function findApiTemplateByName(apiName) {
+  // 全局按 apiName 查模板（包含自定义），用于“编辑回显/使用接口/参数映射”。
+  return getAllApiTemplates().find((a) => a.apiName === apiName);
+}
+
 function openApiRefModal() {
+  const sourceTabMap = getSourceTabMap();
   const srcTabsHTML = Object.entries(sourceTabMap).map(([key, val], i) =>
     `<span class="api-ref-tab ${i === 0 ? 'active' : ''}" onclick="selectApiRefTab(this,'${key}')">${val.label}</span>`
   ).join('');
@@ -3130,9 +3883,14 @@ function openApiRefModal() {
 
   const cardsHTML = renderApiCards('all', 'market');
 
-  openModal('📖 API 接口参考', `
+  openModal('📖 API 模板中心', `
+    <div class="compliance-notice" style="background:rgba(239,68,68,0.1);border:1px solid var(--danger);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text);line-height:1.6">
+      ⚠️ <strong>合规提示</strong>：本接口仅限用户本机/内部局域网系统自用，禁止暴露公网、禁止对外分发金融行情数据，违规使用责任自负。
+    </div>
     <div class="api-ref-toolbar">
-      <input class="form-control api-ref-search" style="max-width:300px" placeholder="搜索接口名或说明..." oninput="filterApiRef(this.value)">
+      <input class="form-control api-ref-search" style="max-width:260px" placeholder="搜索模板名或说明..." oninput="filterApiRef(this.value)">
+      <button class="btn btn-secondary btn-sm" onclick="openCustomApiTemplateModal()">+ 自定义模板</button>
+      <button class="btn btn-secondary btn-sm" onclick="openApiTemplateAIImportModal()">🤖 AI 解析文档</button>
       <div class="api-ref-tabs" id="api-ref-src-tabs">${srcTabsHTML}</div>
       <div class="api-ref-subtabs" id="api-ref-cat-tabs">${catTabsHTML}</div>
     </div>
@@ -3141,10 +3899,11 @@ function openApiRefModal() {
 }
 
 function renderApiCards(srcFilter, catFilter) {
-  const apis = (srcFilter === 'all' ? allApis : (sourceTabMap[srcFilter]?.apis || []))
+  const sourceTabMap = getSourceTabMap();
+  const apis = (srcFilter === 'all' ? getAllApiTemplates() : (sourceTabMap[srcFilter]?.apis || []))
     .filter(api => catFilter === 'market' || api.cat === catFilter);
   return apis.map(api => `
-    <div class="api-ref-card" data-src="${api.src}" data-cat="${api.cat}" data-name="${api.apiName}" data-desc="${api.desc}" onclick="useApi('${api.apiName}')">
+    <div class="api-ref-card" data-src="${api.src}" data-cat="${api.cat}" data-name="${api.apiName}" data-desc="${api.desc}" onclick="useApi(decodeURIComponent('${encodeURIComponent(api.apiName)}'))">
       <div class="api-ref-src-badge">${srcLabels[api.src] || api.src}</div>
       <div class="api-ref-header">
         <span class="api-ref-name">${api.apiName}</span>
@@ -3152,7 +3911,9 @@ function renderApiCards(srcFilter, catFilter) {
       </div>
       <div class="api-ref-params">参数：${api.params}</div>
       <div class="api-ref-fields">返回：${api.fields}</div>
-      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();useApi('${api.apiName}')">使用此接口</button>
+      <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();useApi(decodeURIComponent('${encodeURIComponent(api.apiName)}'))">使用此接口</button>
+      ${api.isCustom ? `<button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="event.stopPropagation();openCustomApiTemplateModal(decodeURIComponent('${encodeURIComponent(api.apiName)}'))">编辑模板</button>` : ''}
+      ${api.isCustom ? `<button class="btn btn-danger btn-sm" style="margin-left:6px" onclick="event.stopPropagation();deleteCustomApiTemplate(decodeURIComponent('${encodeURIComponent(api.apiName)}'))">删除</button>` : ''}
     </div>
   `).join('');
 }
@@ -3188,14 +3949,334 @@ function filterApiRef(query) {
   });
 }
 
+function openCustomApiTemplateModal(editApiName = '', prefill = null) {
+  // 打开“自定义 API 模板”弹窗：支持新增、编辑和 AI 回填后二次确认。
+  const customApis = getCustomApiTemplates();
+  const editing = editApiName ? customApis.find((a) => a.apiName === editApiName) : null;
+  const seed = prefill || editing || {};
+  const src = String(seed.src || 'tushare');
+  const cat = String(seed.cat || 'market');
+  const apiName = String(seed.apiName || '');
+  const desc = String(seed.desc || '自定义模板');
+  const params = String(seed.params || 'ts_code, start_date, end_date');
+  const fields = String(seed.fields || 'ts_code,trade_time,open,high,low,close,vol,amount');
+  const baseUrl = String(seed.baseUrl || '');
+  const method = String(seed.method || 'POST').toUpperCase();
+  const reqExample = String(seed.reqExample || '{}');
+
+  openModal(editing ? '编辑自定义 API 模板' : '新建自定义 API 模板', `
+    <input type="hidden" id="api-tpl-original-name" value="${escapeHtml(editApiName || '')}">
+    <div class="form-row">
+      <div class="form-group">
+        <label>数据源类型</label>
+        <select class="form-control" id="api-tpl-src">
+          <option value="tushare" ${src === 'tushare' ? 'selected' : ''}>Tushare</option>
+          <option value="akshare" ${src === 'akshare' ? 'selected' : ''}>AkShare</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>分类</label>
+        <select class="form-control" id="api-tpl-cat">
+          <option value="market" ${cat === 'market' ? 'selected' : ''}>行情</option>
+          <option value="finance" ${cat === 'finance' ? 'selected' : ''}>财务</option>
+          <option value="fund" ${cat === 'fund' ? 'selected' : ''}>基金</option>
+          <option value="index" ${cat === 'index' ? 'selected' : ''}>指数</option>
+          <option value="flow" ${cat === 'flow' ? 'selected' : ''}>资金</option>
+          <option value="sector" ${cat === 'sector' ? 'selected' : ''}>板块</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>api_name</label>
+        <input class="form-control" id="api-tpl-name" value="${escapeHtml(apiName)}" placeholder="例如 stk_mins_custom">
+      </div>
+      <div class="form-group">
+        <label>描述</label>
+        <input class="form-control" id="api-tpl-desc" value="${escapeHtml(desc)}" placeholder="例如 自定义历史分钟线">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>base_url（可选）</label>
+        <input class="form-control" id="api-tpl-base-url" value="${escapeHtml(baseUrl)}" placeholder="例如 http://tushare.xyz">
+      </div>
+      <div class="form-group">
+        <label>method</label>
+        <select class="form-control" id="api-tpl-method">
+          <option value="POST" ${method === 'POST' ? 'selected' : ''}>POST</option>
+          <option value="GET" ${method === 'GET' ? 'selected' : ''}>GET</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>参数（逗号分隔）</label>
+      <input class="form-control" id="api-tpl-params" value="${escapeHtml(params)}" placeholder="例如 ts_code, freq, limit, start_date, end_date">
+    </div>
+    <div class="form-group">
+      <label>返回字段（逗号分隔）</label>
+      <input class="form-control" id="api-tpl-fields" value="${escapeHtml(fields)}" placeholder="例如 ts_code,trade_time,open,high,low,close,vol,amount">
+    </div>
+    <div class="form-group">
+      <label>请求模板 reqExample（JSON）</label>
+      <textarea class="form-control" id="api-tpl-req-example" rows="8" placeholder='{"api_name":"xxx","token":"YOUR_TOKEN","params":{}}'>${escapeHtml(reqExample)}</textarea>
+      <div class="text-dim mt-4" style="font-size:12px">保存后会在“API 模板中心”显示，可直接点击“使用此接口”自动填充到数据源。</div>
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    ${editing ? `<button class="btn btn-danger" onclick="deleteCustomApiTemplate('${escapeHtml(editApiName)}', true)">删除</button>` : ''}
+    <button class="btn btn-primary" onclick="saveCustomApiTemplateFromModal()">保存模板</button>
+  `);
+}
+
+function saveCustomApiTemplateFromModal() {
+  // 保存自定义模板到本地存储，并立即刷新模板中心视图。
+  const originalName = String(document.getElementById('api-tpl-original-name')?.value || '').trim();
+  const src = String(document.getElementById('api-tpl-src')?.value || 'tushare').trim();
+  const cat = String(document.getElementById('api-tpl-cat')?.value || 'market').trim();
+  const apiName = String(document.getElementById('api-tpl-name')?.value || '').trim();
+  const desc = String(document.getElementById('api-tpl-desc')?.value || '').trim();
+  const params = String(document.getElementById('api-tpl-params')?.value || '').trim();
+  const fields = String(document.getElementById('api-tpl-fields')?.value || '').trim();
+  const baseUrl = String(document.getElementById('api-tpl-base-url')?.value || '').trim();
+  const method = String(document.getElementById('api-tpl-method')?.value || 'POST').toUpperCase();
+  const reqExampleRaw = String(document.getElementById('api-tpl-req-example')?.value || '{}').trim();
+
+  if (!apiName) { alert('请填写 api_name'); return; }
+  if (!desc) { alert('请填写描述'); return; }
+  if (!params) { alert('请填写参数列表'); return; }
+  let reqExample = '{}';
+  try {
+    // 保存前统一校验并格式化 reqExample，避免后续渲染时 JSON 解析失败。
+    reqExample = JSON.stringify(JSON.parse(reqExampleRaw), null, 2);
+  } catch (e) {
+    alert('reqExample 不是合法 JSON');
+    return;
+  }
+
+  const builtInConflict = allApis.some((a) => a.apiName === apiName && apiName !== originalName);
+  if (builtInConflict) {
+    alert(`api_name "${apiName}" 与内置模板重复，请改一个名称`);
+    return;
+  }
+  const customApis = getCustomApiTemplates();
+  const duplicate = customApis.some((a) => a.apiName === apiName && a.apiName !== originalName);
+  if (duplicate) {
+    alert(`api_name "${apiName}" 已存在，请改一个名称`);
+    return;
+  }
+
+  const next = customApis.filter((a) => a.apiName !== originalName);
+  next.push({ src, cat, apiName, desc, params, fields, reqExample, baseUrl, method, isCustom: true });
+  saveCustomApiTemplates(next);
+  closeModal();
+  // 保存后立刻回到模板中心，用户可直接点击“使用此接口”。
+  setTimeout(() => openApiRefModal(), 50);
+}
+
+function deleteCustomApiTemplate(apiName, closeThenReopen = false) {
+  // 删除单个自定义模板，并按需刷新模板中心列表。
+  if (!apiName) return;
+  if (!confirm(`确定删除自定义模板 ${apiName} ?`)) return;
+  const next = getCustomApiTemplates().filter((a) => a.apiName !== apiName);
+  saveCustomApiTemplates(next);
+  if (closeThenReopen) closeModal();
+  setTimeout(() => openApiRefModal(), 50);
+}
+
+function openApiTemplateAIImportModal() {
+  // 通过“文档链接 + LLM”自动抽取 API 模板草稿，再交给用户二次确认。
+  openModal('AI 解析文档生成模板', `
+    <div class="form-group">
+      <label>接口文档链接</label>
+      <input class="form-control" id="api-ai-doc-url" placeholder="https://example.com/api-doc">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>来源提示</label>
+        <select class="form-control" id="api-ai-source-hint">
+          <option value="tushare">Tushare</option>
+          <option value="akshare">AkShare</option>
+          <option value="custom">自定义/未知</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>默认分类</label>
+        <select class="form-control" id="api-ai-cat-hint">
+          <option value="market">行情</option>
+          <option value="finance">财务</option>
+          <option value="fund">基金</option>
+          <option value="index">指数</option>
+          <option value="flow">资金</option>
+          <option value="sector">板块</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-dim" style="font-size:12px;line-height:1.6">
+      说明：系统会先抓取网页正文，再让大模型抽取出可落库的模板 JSON。抽取结果会先进入编辑弹窗，由你确认后再保存。
+    </div>
+    <div id="api-ai-status" class="log-viewer mt-8" style="display:none;max-height:120px"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="stopApiTemplateSSE();closeModal()">取消</button>
+    <button class="btn btn-primary" id="api-ai-parse-btn" onclick="generateApiTemplateByDocUrl()">开始解析</button>
+  `);
+}
+
+function stopApiTemplateSSE() {
+  // 关闭仍在进行中的 SSE 会话，避免弹窗关闭后继续回写 UI。
+  if (_apiTemplateSSE) {
+    try { _apiTemplateSSE.close(); } catch (e) {}
+    _apiTemplateSSE = null;
+  }
+}
+
+function runApiTemplateSSE(docUrl, sourceHint, catHint, statusEl) {
+  // SSE 解析：实时接收 progress/delta/final/error 事件。
+  return new Promise((resolve, reject) => {
+    stopApiTemplateSSE();
+    const sseUrl = `/api/llm/api-template-from-url/stream?doc_url=${encodeURIComponent(docUrl)}&source_hint=${encodeURIComponent(sourceHint)}&cat_hint=${encodeURIComponent(catHint)}`;
+    const source = new EventSource(sseUrl);
+    _apiTemplateSSE = source;
+
+    source.addEventListener('progress', (evt) => {
+      try {
+        const data = JSON.parse(evt.data || '{}');
+        if (statusEl) statusEl.innerHTML = `<span class="log-line">⏳ ${escapeHtml(String(data.message || '处理中...'))}</span>`;
+      } catch (e) {}
+    });
+
+    source.addEventListener('delta', (evt) => {
+      // 这里只展示“正在流式接收”状态，避免大段模型输出淹没关键信息。
+      if (statusEl) statusEl.innerHTML = '<span class="log-line">⏳ 正在流式接收模型输出...</span>';
+    });
+
+    source.addEventListener('final', (evt) => {
+      try {
+        const data = JSON.parse(evt.data || '{}');
+        source.close();
+        _apiTemplateSSE = null;
+        resolve(data);
+      } catch (e) {
+        source.close();
+        _apiTemplateSSE = null;
+        reject(new Error('SSE final 数据解析失败'));
+      }
+    });
+
+    source.addEventListener('error', (evt) => {
+      // 后端业务错误也通过 error 事件下发，这里统一解析 message 字段。
+      try {
+        const data = JSON.parse(evt.data || '{}');
+        if (data?.message) {
+          source.close();
+          _apiTemplateSSE = null;
+          reject(new Error(String(data.message)));
+          return;
+        }
+      } catch (e) {}
+      source.close();
+      _apiTemplateSSE = null;
+      reject(new Error('SSE 连接异常，请稍后重试'));
+    });
+  });
+}
+
+async function generateApiTemplateByDocUrl() {
+  // 调用后端 LLM 抽取接口，从文档链接生成模板草稿并回填到“自定义模板”弹窗。
+  const docUrl = String(document.getElementById('api-ai-doc-url')?.value || '').trim();
+  const sourceHint = String(document.getElementById('api-ai-source-hint')?.value || 'tushare').trim();
+  const catHint = String(document.getElementById('api-ai-cat-hint')?.value || 'market').trim();
+  if (!docUrl) { alert('请先填写文档链接'); return; }
+  const btn = document.getElementById('api-ai-parse-btn');
+  const statusEl = document.getElementById('api-ai-status');
+  const streamMode = getCurrentLLMStreamMode();
+  let progressTimer = null;
+  const progressSteps = [
+    '正在抓取网页文档...',
+    '正在清洗正文内容...',
+    '正在调用大模型抽取模板...',
+    '正在校验模板字段结构...',
+  ];
+  let stepIdx = 0;
+  if (btn) {
+    // 防止重复点击触发并发解析请求。
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '解析中...';
+  }
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<span class="log-line">⏳ ${progressSteps[0]}</span>`;
+    progressTimer = setInterval(() => {
+      stepIdx = (stepIdx + 1) % progressSteps.length;
+      statusEl.innerHTML = `<span class="log-line">⏳ ${progressSteps[stepIdx]}</span>`;
+    }, 1500);
+  }
+  try {
+    // 全局开关控制调用模式：SSE 模式优先实时反馈，普通模式走原有 POST 接口。
+    const res = streamMode === 'sse'
+      ? await runApiTemplateSSE(docUrl, sourceHint, catHint, statusEl)
+      : await api('/api/llm/api-template-from-url', {
+          method: 'POST',
+          body: JSON.stringify({ doc_url: docUrl, source_hint: sourceHint, cat_hint: catHint }),
+          // 使用弹窗内状态提示，避免被弹窗遮罩层盖住看不到全局 loading。
+          silent: true,
+        });
+    if (res?.error) {
+      if (statusEl) statusEl.innerHTML = `<span class="log-danger">❌ 解析失败：${escapeHtml(res.error)}</span>`;
+      alert('解析失败: ' + res.error);
+      return;
+    }
+    const tpl = res?.template || null;
+    if (!tpl || !tpl.apiName) {
+      if (statusEl) statusEl.innerHTML = '<span class="log-danger">❌ 解析结果缺少 api_name，请手动补充</span>';
+      alert('解析结果缺少 api_name，请手动补充');
+      return;
+    }
+    if (statusEl) statusEl.innerHTML = '<span class="log-success">✅ 解析完成，正在打开模板编辑器...</span>';
+    closeModal();
+    // 解析完成后打开编辑弹窗，用户可人工修订后再保存，避免误入库。
+    setTimeout(() => openCustomApiTemplateModal('', tpl), 80);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span class="log-danger">❌ 解析失败：${escapeHtml(String(e.message || e))}</span>`;
+    alert('解析失败: ' + (e.message || e));
+  } finally {
+    stopApiTemplateSSE();
+    if (progressTimer) clearInterval(progressTimer);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '开始解析';
+    }
+  }
+}
+
 // API reference data — organized by source (NOT generic — each API belongs to a specific data source)
 // Source badges: 🔵=Tushare | 🟢=AkShare | 🟠=通达信(TDX)
 
 const tushareApis = [
   // 行情 market
+  { src: 'tushare', cat: 'market', apiName: 'trade_cal', desc: '交易日历(HTTP通用)',
+    params: 'exchange, start_date, end_date, is_open', fields: 'exchange,cal_date,is_open,pretrade_date',
+    reqExample: '{"api_name":"trade_cal","token":"YOUR_TOKEN","params":{"exchange":"","start_date":"{start_time}","end_date":"{end_time}","is_open":"0"},"fields":"exchange,cal_date,is_open,pretrade_date"}' },
+  { src: 'tushare', cat: 'market', apiName: 'trade_cal_sdk', desc: '交易日历(SDK模式)',
+    params: 'exchange, start_date, end_date, is_open', fields: 'exchange,cal_date,is_open,pretrade_date',
+    // SDK 模式通过 request_template.call_mode=sdk 触发后端 tushare 包调用。
+    reqExample: '{"api_name":"trade_cal","token":"YOUR_TOKEN","call_mode":"sdk","params":{"exchange":"","start_date":"{start_time}","end_date":"{end_time}","is_open":"0"},"fields":"exchange,cal_date,is_open,pretrade_date"}' },
   { src: 'tushare', cat: 'market', apiName: 'daily', desc: '日线行情',
     params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
     reqExample: '{"api_name":"daily","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101","end_date":"20240110"},"fields":"ts_code,trade_date,open,high,low,close,vol,amount"}' },
+  { src: 'tushare', cat: 'market', apiName: 'daily_sdk', desc: '日线行情(SDK模式)',
+    params: 'ts_code, start_date, end_date, trade_date', fields: 'ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount',
+    // SDK 模式通过 request_template.call_mode=sdk 触发后端 tushare 包调用。
+    reqExample: '{"api_name":"daily","token":"YOUR_TOKEN","call_mode":"sdk","params":{"ts_code":"{codes}","start_date":"{start_time}","end_date":"{end_time}"},"fields":"ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount"}' },
+  // 分钟线（历史分时）使用 pro_bar，支持 freq=1min/5min/15min/30min/60min。
+  { src: 'tushare', cat: 'market', apiName: 'pro_bar', desc: '历史分钟线',
+    params: 'ts_code, start_date, end_date, freq, asset, adj', fields: 'ts_code,trade_time,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"pro_bar","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101 09:30:00","end_date":"20240110 15:00:00","freq":"1min","asset":"E","adj":"qfq"},"fields":"ts_code,trade_time,open,high,low,close,vol,amount"}' },
+  // 自定义历史分钟线接口：适配用户提供的 stk_mins + 独立域名（如 tushare.xyz）。
+  { src: 'tushare', cat: 'market', apiName: 'stk_mins', desc: '自定义历史分钟线(stk_mins)',
+    params: 'ts_code, freq, limit, start_date, end_date', fields: 'ts_code,trade_time,open,high,low,close,vol,amount',
+    reqExample: '{"api_name":"stk_mins","token":"YOUR_TOKEN","params":{"ts_code":"600000.SH","freq":"1min","limit":"241","start_date":"2026-01-01 09:00:00","end_date":"2027-12-31 15:00:00"},"fields":"ts_code,trade_time,open,high,low,close,vol,amount"}' },
   { src: 'tushare', cat: 'market', apiName: 'weekly', desc: '周线行情',
     params: 'ts_code, start_date, end_date', fields: 'ts_code,trade_date,open,high,low,close,vol,amount',
     reqExample: '{"api_name":"weekly","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20240101","end_date":"20240601"},"fields":"ts_code,trade_date,open,high,low,close,vol,amount"}' },
@@ -3214,9 +4295,10 @@ const tushareApis = [
   { src: 'tushare', cat: 'finance', apiName: 'fina_indicator', desc: '财务指标',
     params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,end_date,eps,roe,debt_to_assets',
     reqExample: '{"api_name":"fina_indicator","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20240601"},"fields":"ts_code,ann_date,end_date,eps,roe"}' },
-  { src: 'tushare', cat: 'finance', apiName: 'income', desc: '利润表',
-    params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,f_ann_date,end_date,revenue,profit',
-    reqExample: '{"api_name":"income","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20230601"},"fields":"ts_code,ann_date,revenue,profit"}' },
+  { src: 'tushare', cat: 'finance', apiName: 'income', desc: '利润表(单股,2000积分)',
+    params: 'ts_code(必填), ann_date, f_ann_date, start_date, end_date, period, report_type, comp_type',
+    fields: 'ts_code,ann_date,f_ann_date,end_date,report_type,comp_type,basic_eps,total_revenue,revenue,total_profit,n_income,n_income_attr_p',
+    reqExample: '{"api_name":"income","token":"YOUR_TOKEN","params":{"ts_code":"000001.SZ","start_date":"20230101","end_date":"20241231","period":"20231231","report_type":"1","comp_type":"1"},"fields":"ts_code,ann_date,f_ann_date,end_date,report_type,comp_type,basic_eps,total_revenue,revenue,total_profit,n_income,n_income_attr_p"}' },
   { src: 'tushare', cat: 'finance', apiName: 'balance', desc: '资产负债表',
     params: 'ts_code, start_date, end_date', fields: 'ts_code,ann_date,f_ann_date,end_date,total_share,assets' },
   { src: 'tushare', cat: 'finance', apiName: 'cashflow', desc: '现金流量表',
@@ -3284,24 +4366,13 @@ const akshareApis = [
 ];
 
 const tdxApis = [
-  // 通达信 HTTP 接口 — 常见接口路径
-  { src: 'tdx', cat: 'market', apiName: 'get_security_bars', desc: 'K线(单只股票)',
-    params: 'category(0日线/1周线/2月线), code, count, start', fields: 'datetime,open,high,low,close,amount,vol',
-    reqExample: '{"category":0,"market":0,"code":"000001","count":10,"start":0}' },
-  { src: 'tdx', cat: 'market', apiName: 'get_minute_time_data', desc: '分时数据',
-    params: 'market, code', fields: 'time,open,high,low,close,amount,vol' },
-  { src: 'tdx', cat: 'market', apiName: 'get_history_minute_time_data', desc: '历史分时数据',
-    params: 'market, code, date', fields: 'time,open,high,low,close,amount,vol' },
-  { src: 'tdx', cat: 'market', apiName: 'get_security_list', desc: '股票列表',
-    params: 'market(0沪/1深), start, end', fields: 'code,name,open,high,low,close,vol' },
-  { src: 'tdx', cat: 'market', apiName: 'get_index_bars', desc: '指数K线',
-    params: 'category, code, count, start', fields: 'datetime,open,high,low,close,amount,vol' },
-  { src: 'tdx', cat: 'flow', apiName: 'get_transaction_data', desc: '分笔成交',
-    params: 'market, code, start, count', fields: 'time,price,volume,type' },
-  { src: 'tdx', cat: 'flow', apiName: 'get_history_transaction_data', desc: '历史分笔',
-    params: 'market, code, start, count, date', fields: 'time,price,volume,type' },
-  { src: 'tdx', cat: 'finance', apiName: 'get_finance_info', desc: '财务信息',
-    params: 'market, code', fields: '总股本,流通股本,市盈率,市净率,总市值,流通市值' },
+  // 通达信仅支持本地目录模式：读取用户本机已下载的数据文件，不调用远程接口。
+  { src: 'tdx', cat: 'market', apiName: 'local_day_kline', desc: '本地日线K线(.day/.lc)',
+    params: 'data_dir(本地目录), preview_codes(股票代码), interval(建议D)', fields: 'datetime,open,high,low,close,amount,volume' },
+  { src: 'tdx', cat: 'market', apiName: 'local_minute_kline', desc: '本地分钟K线(.1min/.5min/.15min/.30min，当前interval未强约束)',
+    params: 'data_dir(本地目录), preview_codes(股票代码), interval(1min/5min/15min/30min；当前仅占位提示)', fields: 'datetime,open,high,low,close,amount,volume' },
+  { src: 'tdx', cat: 'market', apiName: 'local_security_list', desc: '本地代码列表扫描',
+    params: 'data_dir(本地目录)', fields: 'code,name,market,file_count' },
 ];
 
 // All APIs merged for "全部" tab
@@ -3310,28 +4381,201 @@ const allApis = [...tushareApis, ...akshareApis, ...tdxApis];
 const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信' };
 const catLabels = { market:'行情', finance:'财务', fund:'基金', index:'指数', flow:'资金', sector:'板块' };
 
-// Group APIs by source for the tab bar
-const sourceTabMap = {
-  all:     { label: '全部',   apis: allApis },
-  tushare: { label: '🔵 Tushare', apis: tushareApis },
-  akshare: { label: '🟢 AkShare', apis: akshareApis },
-  tdx:     { label: '🟠 通达信',  apis: tdxApis },
+// 分组标签由 getSourceTabMap() 动态生成：支持运行时注入“自定义模板”分组。
+
+// 官方接口参数常见占位提示：引导用户按文档逐项映射到请求体。
+const API_PARAM_PLACEHOLDERS = {
+  ts_code: '例如 000001.SZ；批量可写 {codes}',
+  symbol: '例如 000001；批量可写 {codes}',
+  code: '例如 000001；批量可写 {codes}',
+  start_date: '例如 20240101；或写 {start_time}',
+  end_date: '例如 20240110；或写 {end_time}',
+  freq: '例如 1min / 5min / 15min / 30min / 60min / D',
+  limit: '例如 241（单次返回条数上限）',
+  asset: '例如 E(股票) / I(指数) / FT(期货) / FD(基金)',
+  trade_date: '例如 20240110',
+  period: '例如 daily / weekly / monthly',
+  interval: '例如 1min / 5min / 15min / 30min / D',
+  adjust: '例如 qfq / hfq /',
+  adj: '例如 qfq / hfq / None',
+  market: '例如 sh / sz / 0 / 1',
+  exchange: '例如 SSE / SZSE',
+  is_open: '例如 0(休市) / 1(开市)',
+  list_status: '例如 L(上市)/D(退市)/P(暂停)',
 };
 
+function defaultParamValueByName(paramName) {
+  // 仅提供最小必要默认值，避免误导用户输入无关字段。
+  const key = String(paramName || '').trim();
+  if (!key) return '';
+  if (['ts_code', 'symbol', 'code'].includes(key)) return '{codes}';
+  if (['start_date', 'start_time'].includes(key)) return '{start_time}';
+  if (['end_date', 'end_time'].includes(key)) return '{end_time}';
+  if (key === 'freq') return '{interval}';
+  if (key === 'limit') return '241';
+  if (key === 'asset') return 'E';
+  if (key === 'adj') return 'qfq';
+  if (['period', 'interval'].includes(key)) return '{interval}';
+  return '';
+}
+
+function parseApiParamKeys(paramsText) {
+  // 从“a, b(xxx), c”格式提取参数名，用于构建逐项参数编辑器。
+  return String(paramsText || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => part.replace(/\(.*\)/g, '').trim())
+    .filter(Boolean);
+}
+
+function parseApiReqExample(apiInfo) {
+  // 统一解析 reqExample，失败时返回空对象，避免中断表单渲染。
+  if (!apiInfo?.reqExample) return {};
+  try { return JSON.parse(apiInfo.reqExample); } catch (e) { return {}; }
+}
+
+function buildApiParamDefs(apiInfo) {
+  // 将接口文档参数转成“键 + 默认值 + placeholder”定义，供逐项映射填写。
+  const defs = [];
+  const keys = parseApiParamKeys(apiInfo?.params);
+  const reqExample = parseApiReqExample(apiInfo);
+  const src = String(apiInfo?.src || '');
+  keys.forEach((key) => {
+    let defaultValue = '';
+    if (src === 'tushare' && reqExample?.params && reqExample.params[key] !== undefined) {
+      defaultValue = String(reqExample.params[key]);
+    } else if (src === 'akshare' && reqExample[key] !== undefined) {
+      defaultValue = String(reqExample[key]);
+    } else {
+      defaultValue = defaultParamValueByName(key);
+    }
+    defs.push({
+      key,
+      defaultValue,
+      placeholder: API_PARAM_PLACEHOLDERS[key] || `请按 ${apiInfo?.apiName || '接口'} 官方文档填写`,
+    });
+  });
+  return defs;
+}
+
+function parseRequestTemplateObject(templateValue) {
+  // request_template 可能是对象或 JSON 字符串，统一转为对象结构便于回填参数值。
+  if (!templateValue) return null;
+  if (typeof templateValue === 'object') return templateValue;
+  const raw = String(templateValue || '').trim();
+  if (!raw || !raw.startsWith('{')) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
+function renderApiParamEditor(apiInfo) {
+  // 仅 Tushare/AkShare 需要“逐项参数映射”编辑器，通达信保持本地目录模式。
+  const editor = document.getElementById('ks-api-param-editor');
+  if (!editor) return;
+  const src = String(apiInfo?.src || '');
+  if (!apiInfo || !['tushare', 'akshare'].includes(src)) {
+    editor.innerHTML = '';
+    return;
+  }
+  const defs = buildApiParamDefs(apiInfo);
+  if (!defs.length) {
+    editor.innerHTML = `
+      <div class="form-group">
+        <label>接口参数映射（按官方文档）</label>
+        <div class="text-dim" style="font-size:12px">当前接口未预置参数，请直接编辑请求体模板。</div>
+      </div>
+    `;
+    return;
+  }
+  const templateObj = parseRequestTemplateObject(document.getElementById('ks-cfg-request_template')?.value || '');
+  editor.innerHTML = `
+    <div class="form-group">
+      <label>接口参数映射（按官方文档逐项填写）</label>
+      <div class="text-dim" style="font-size:12px;margin-bottom:6px">填写后会自动同步到“请求体模板”。支持占位变量：{start_time}/{end_time}/{codes}/{interval}</div>
+      ${defs.map((def) => {
+        let value = def.defaultValue;
+        if (templateObj) {
+          // 读取现有模板值：Tushare 从 params 取值，AkShare 从顶层取值。
+          const fromTemplate = src === 'tushare'
+            ? templateObj?.params?.[def.key]
+            : templateObj?.[def.key];
+          if (fromTemplate !== undefined && fromTemplate !== null) value = String(fromTemplate);
+        }
+        return `
+          <div class="form-row">
+            <div class="form-group">
+              <label>${escapeHtml(def.key)}</label>
+              <input class="form-control ks-api-param-input" data-param-key="${escapeHtml(def.key)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(def.placeholder)}" oninput="syncApiRequestTemplateFromEditor()">
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function syncApiRequestTemplateFromEditor() {
+  // 参数映射输入发生变化时，实时重建 request_template，保证保存与测试行为一致。
+  const selectedApi = document.getElementById('ks-cfg-selected_api')?.value || '';
+  if (!selectedApi) return;
+  const apiInfo = findApiTemplateByName(selectedApi);
+  if (!apiInfo) return;
+  const src = String(apiInfo.src || '');
+  if (!['tushare', 'akshare'].includes(src)) return;
+  const reqTemplateEl = document.getElementById('ks-cfg-request_template');
+  if (!reqTemplateEl) return;
+
+  const values = {};
+  document.querySelectorAll('.ks-api-param-input').forEach((input) => {
+    const key = String(input.dataset.paramKey || '').trim();
+    if (!key) return;
+    values[key] = String(input.value || '').trim();
+  });
+
+  let templateObj = {};
+  if (src === 'tushare') {
+    // SDK 模板统一映射回真实 Tushare 接口名：xxx_sdk -> xxx。
+    const normalizedApiName = String(apiInfo.apiName || '').endsWith('_sdk')
+      ? String(apiInfo.apiName || '').slice(0, -4)
+      : String(apiInfo.apiName || '');
+    // 支持模板级 SDK 模式透传，确保“使用此接口”后保存的请求体仍保留 call_mode。
+    const reqExample = parseApiReqExample(apiInfo);
+    const callMode = String(apiInfo?.callMode || reqExample?.call_mode || '').trim().toLowerCase();
+    templateObj = { api_name: normalizedApiName, token: '{YOUR_TOKEN}', params: {}, fields: apiInfo.fields || '' };
+    if (callMode === 'sdk') templateObj.call_mode = 'sdk';
+    Object.entries(values).forEach(([key, value]) => {
+      if (value) templateObj.params[key] = value;
+    });
+  } else if (src === 'akshare') {
+    templateObj = { func: apiInfo.apiName };
+    Object.entries(values).forEach(([key, value]) => {
+      if (value) templateObj[key] = value;
+    });
+  }
+  reqTemplateEl.value = JSON.stringify(templateObj, null, 2);
+}
+
 function useApi(apiName) {
-  const apiInfo = allApis.find(a => a.apiName === apiName);
+  const apiInfo = findApiTemplateByName(apiName);
   const src = apiInfo ? apiInfo.src : 'tushare';
   const label = catLabels[apiInfo?.cat] || '行情';
   closeModal();
   setTimeout(() => {
     openKlineSourceModal();
     setTimeout(() => {
-      const httpCard = document.querySelector('.kline-type-card[data-type="http"]');
-      if (httpCard) selectKsType(httpCard, 'http');
+      // Select the correct type card based on src
+      const typeMap = { tushare: 'http', akshare: 'http', tdx: 'tdx' };
+      const cardType = typeMap[src] || 'http';
+      const typeCard = document.querySelector(`.kline-type-card[data-type="${cardType}"]`);
+      if (typeCard) selectKsType(typeCard, cardType);
       setTimeout(() => {
         // Set source name
         const nameEl = document.getElementById('ks-name');
         if (nameEl && !nameEl.value) nameEl.value = `${src.toUpperCase()}-${apiInfo?.desc || apiName}`;
+        // 记录当前选择的 API，后续预览模式、保存配置和列表页都可复用。
+        const selectedApiInput = document.getElementById('ks-cfg-selected_api');
+        if (selectedApiInput) selectedApiInput.value = apiName;
+        setDatasourcePreviewMode(resolveApiPreviewMode(apiInfo));
         fillApiTemplate(apiName, apiInfo, src);
       }, 80);
     }, 80);
@@ -3341,37 +4585,75 @@ function useApi(apiName) {
 function fillApiTemplate(apiName, apiInfo, src) {
   const baseUrl = document.getElementById('ks-cfg-base_url');
   const method = document.getElementById('ks-cfg-method');
+  const selectedApiInput = document.getElementById('ks-cfg-selected_api');
+  const previewCodes = document.getElementById('ks-cfg-preview_codes');
+  if (selectedApiInput) selectedApiInput.value = apiName;
   if (src === 'tushare') {
-    if (baseUrl) baseUrl.value = 'http://api.tushare.pro';
-    if (method) method.value = 'POST';
-    const tmpl = { api_name: apiName, token: '{YOUR_TOKEN}', params: { ts_code: '{codes}', start_date: '{start_time}', end_date: '{end_time}' }, fields: apiInfo ? apiInfo.fields : '' };
-    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
+    // SDK 模板统一映射回真实 Tushare 接口名：xxx_sdk -> xxx。
+    const normalizedApiName = String(apiName || '').endsWith('_sdk') ? String(apiName || '').slice(0, -4) : String(apiName || '');
+    const reqExample = parseApiReqExample(apiInfo);
+    const callMode = String(apiInfo?.callMode || reqExample?.call_mode || '').trim().toLowerCase();
+    // 支持模板内覆写 baseUrl/method；未配置时沿用默认逻辑。
+    if (baseUrl) baseUrl.value = apiInfo?.baseUrl || (apiName === 'stk_mins' ? 'http://tushare.xyz' : (callMode === 'sdk' ? '' : 'http://api.tushare.pro'));
+    if (method) method.value = apiInfo?.method || 'POST';
+    // 优先使用模板内 reqExample，保证“使用此接口”与模板内容一致。
+    const tmpl = (reqExample && typeof reqExample === 'object' && Object.keys(reqExample).length)
+      ? { ...reqExample }
+      : { api_name: normalizedApiName, token: '{YOUR_TOKEN}', params: { ts_code: '{codes}', start_date: '{start_time}', end_date: '{end_time}' }, fields: apiInfo ? apiInfo.fields : '' };
+    if (!tmpl.api_name) tmpl.api_name = normalizedApiName;
+    // 若模板被手工改成 *_sdk，也在回填时做兜底纠正。
+    if (String(tmpl.api_name).toLowerCase().endsWith('_sdk')) tmpl.api_name = String(tmpl.api_name).slice(0, -4);
+    if (!tmpl.token) tmpl.token = '{YOUR_TOKEN}';
+    if (!tmpl.params || typeof tmpl.params !== 'object') tmpl.params = {};
+    if (callMode === 'sdk') tmpl.call_mode = 'sdk';
     const requestTemplate = document.getElementById('ks-cfg-request_template');
     if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
+    // 先渲染映射编辑器，再通过同步函数生成最终请求体模板。
+    renderApiParamEditor(apiInfo);
+    syncApiRequestTemplateFromEditor();
+    if (callMode === 'sdk') {
+      // SDK 模式提示：主要依赖后端 tushare 包与 token，不依赖 HTTP base_url。
+      addLog('Tushare SDK 模式已启用：将优先使用后端 tushare 包调用。base_url 可留空，确保 token 可用。', 'info');
+    }
+    // 预览阶段使用可直接命中的测试代码；任务执行阶段仍使用 request_template 占位符。
+    if (previewCodes) previewCodes.value = '000001.SZ';
     const respPath = document.getElementById('ks-cfg-response_data_path');
     if (respPath) respPath.value = 'data.items';
     const colMapping = document.getElementById('ks-cfg-column_mapping');
     if (colMapping) colMapping.value = JSON.stringify({ trade_date: 'datetime', open: 'open', high: 'high', low: 'low', close: 'close', vol: 'vol', amount: 'amount' }, null, 2);
   } else if (src === 'akshare') {
-    if (baseUrl) baseUrl.value = 'https://api.akshare.online';
-    if (method) method.value = 'POST';
+    // AkShare 改为本地 Python 直连模式：base_url 非必填，仅作为兼容字段保留。
+    if (baseUrl) {
+      baseUrl.value = apiInfo?.baseUrl || '';
+      // 显式提示该字段可留空，避免用户继续按 HTTP 网关模式配置。
+      baseUrl.placeholder = '本地 AkShare 直连模式可留空';
+    }
+    if (method) method.value = apiInfo?.method || 'POST';
     const tmpl = { func: apiName };
-    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
     const requestTemplate = document.getElementById('ks-cfg-request_template');
     if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
+    // 先渲染映射编辑器，再通过同步函数生成最终请求体模板。
+    renderApiParamEditor(apiInfo);
+    syncApiRequestTemplateFromEditor();
+    // 主动提示当前模式已切换为本地直连，减少用户配置心智负担。
+    addLog('AkShare 提示：当前为本地 Python 直连模式，确保后端环境已安装 akshare 包即可', 'info');
+    // AkShare 预览默认使用纯 6 位代码，减少首测失败概率。
+    if (previewCodes) previewCodes.value = '000001';
     const respPath = document.getElementById('ks-cfg-response_data_path');
     if (respPath) respPath.value = 'result';
   } else if (src === 'tdx') {
-    if (baseUrl) baseUrl.value = 'http://127.0.0.1:8888';
-    if (method) method.value = 'POST';
-    const tmpl = { code: '{codes}', count: 10, start: 0 };
-    if (apiInfo?.reqExample) { try { Object.assign(tmpl, JSON.parse(apiInfo.reqExample)); } catch(e) {} }
-    const requestTemplate = document.getElementById('ks-cfg-request_template');
-    if (requestTemplate) requestTemplate.value = JSON.stringify(tmpl, null, 2);
-    const respPath = document.getElementById('ks-cfg-response_data_path');
-    if (respPath) respPath.value = 'data';
-    const colMapping = document.getElementById('ks-cfg-column_mapping');
-    if (colMapping) colMapping.value = JSON.stringify({ datetime: 'datetime', open: 'open', high: 'high', low: 'low', close: 'close', vol: 'vol', amount: 'amount' }, null, 2);
+    // 通达信模式只允许本地目录读取，不存在远程请求体参数映射。
+    renderApiParamEditor(null);
+    // 通达信本地目录模式仅需要预览代码，无需 HTTP 请求体字段。
+    const codesEl = document.getElementById('ks-cfg-preview_codes');
+    if (codesEl) codesEl.value = '000001';
+    // Show API reference info for user
+    if (apiName === 'local_minute_kline') {
+      // 真实能力提示：当前 interval 字段仅做占位展示，后端尚未按粒度强制过滤。
+      addLog('通达信 local_minute_kline：当前版本 interval 仅占位提示，暂未实现按 5min/30min 强制筛选。请选择本地目录后点击"测试连接"验证。', 'warning');
+    } else {
+      addLog(`通达信 ${apiName}：请选择本地数据目录后点击"测试连接"验证`, 'info');
+    }
   }
 }
 
@@ -3386,10 +4668,12 @@ async function deleteKlineSource(id) {
 // ---------- 数据流 (Pipeline) ----------
 async function refreshPipelines() {
   try {
-    const [pipelines, runs] = await Promise.all([
+    const [pipelines, runsResp] = await Promise.all([
       api('/api/pipelines/'),
-      api('/api/pipelines/runs?limit=20'),
+      api('/api/pipelines/runs/all?limit=20'),
     ]);
+    // 对运行记录做数组兜底，避免后端异常结构导致整页不渲染。
+    const runs = Array.isArray(runsResp) ? runsResp : [];
     document.getElementById('pipeline-stats').innerHTML = `
       <div class="stat-card"><div class="stat-label">数据流数</div><div class="stat-value accent">${pipelines.length}</div></div>
       <div class="stat-card"><div class="stat-label">执行次数</div><div class="stat-value">${runs.length}</div></div>
@@ -3414,11 +4698,12 @@ async function refreshPipelines() {
         <td>${p.name}</td>
         <td>${srcCount}</td>
         <td class="text-dim">${tgtName}</td>
-        <td><span class="badge badge-${p.status || 'pending'}">${p.status || 'pending'}</span></td>
+        <td><span class="badge badge-${badgeClassForStatus(p.status || 'pending')}">${labelStatus(p.status || 'pending')}</span></td>
         <td class="text-dim">${p.cron_expression || '-'}</td>
         <td class="text-dim">${time}</td>
         <td class="actions">
           <button class="btn btn-success btn-sm" onclick="runPipeline('${p.id}')">执行</button>
+          <button class="btn btn-secondary btn-sm" onclick="previewPipeline('${p.id}')">预览</button>
           <button class="btn btn-secondary btn-sm" onclick="openPipelineModal('${p.id}')">编辑</button>
           <button class="btn btn-secondary btn-sm" onclick="showPipelineRuns('${p.id}')">记录</button>
           <button class="btn btn-danger btn-sm" onclick="deletePipeline('${p.id}')">删除</button>
@@ -3432,25 +4717,204 @@ async function refreshPipelines() {
 
 let _pipelineModalData = null;
 let plSourceIdx = 0;
+let _pipelineSourceFields = [];
+let _pipelineTargetFields = [];
+
+function ensurePipelineModalInputsEditable() {
+  // 仅修复数据流弹窗内控件，避免影响其他需要只读的弹窗字段。
+  const root = document.getElementById('modal-body');
+  if (!root) return;
+  root.querySelectorAll('[id^="pl-"], #pl-sources-list input, #pl-sources-list select').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    // 在部分 Electron/Windows 环境中，动态渲染后控件可能残留不可编辑状态，这里统一恢复。
+    if ('disabled' in node) node.disabled = false;
+    if ('readOnly' in node) node.readOnly = false;
+    node.style.pointerEvents = 'auto';
+  });
+}
+
+function renderPipelineSourceFieldOptions() {
+  // 将候选源字段写入 datalist，映射行的“源字段”输入框可直接下拉选择。
+  const listEl = document.getElementById('pl-source-field-options');
+  if (!listEl) return;
+  listEl.innerHTML = _pipelineSourceFields
+    .map(f => `<option value="${escapeHtml(f)}"></option>`)
+    .join('');
+}
+
+function renderPipelineTargetFieldOptions() {
+  // 将候选目标字段写入 datalist，映射行的“目标字段”输入框可直接下拉选择。
+  const listEl = document.getElementById('pl-target-field-options');
+  if (!listEl) return;
+  listEl.innerHTML = _pipelineTargetFields
+    .map(f => `<option value="${escapeHtml(f)}"></option>`)
+    .join('');
+}
+
+async function refreshPipelineSourceFieldOptions() {
+  // 汇总当前已选数据源的预览字段，形成映射下拉候选。
+  const sourceIds = Array.from(document.querySelectorAll('[id^="pl-src-conn-"]'))
+    .map(el => el.value)
+    .filter(Boolean);
+  const uniqSourceIds = Array.from(new Set(sourceIds));
+  if (!uniqSourceIds.length) {
+    _pipelineSourceFields = [];
+    renderPipelineSourceFieldOptions();
+    return;
+  }
+
+  const columnsList = await Promise.all(uniqSourceIds.map(async (sourceId) => {
+    try {
+      // 先读取数据源配置，根据预览模式决定取字段来源，避免“代码列表”模式混入 K 线字段。
+      const sourceRes = await api(`/api/kline-sources/${sourceId}`, { silent: true });
+      const previewMode = String(sourceRes?.config?.preview_mode || 'kline').toLowerCase();
+      const columnMapping = sourceRes?.config?.column_mapping;
+      const mappedSourceKeys = columnMapping && typeof columnMapping === 'object'
+        ? Object.keys(columnMapping)
+        : [];
+
+      if (previewMode === 'codes') {
+        // 代码列表模式：字段候选来自 /codes 返回结构，不再读取 /preview 的 K 线列。
+        const codesRes = await api(`/api/kline-sources/${sourceId}/codes`, { silent: true });
+        const codes = Array.isArray(codesRes?.codes) ? codesRes.codes : [];
+        const codeFields = new Set();
+        for (const item of codes) {
+          if (item && typeof item === 'object' && !Array.isArray(item)) {
+            Object.keys(item).forEach((k) => codeFields.add(k));
+          } else if (typeof item === 'string') {
+            codeFields.add('code');
+          }
+        }
+        if (codes.length && codeFields.size === 0) {
+          codeFields.add('code');
+        }
+        return Array.from(new Set([...Array.from(codeFields), ...mappedSourceKeys]));
+      }
+
+      // K 线模式：沿用原有预览列 + 数据样例首行 key 聚合方式。
+      const previewRes = await api(`/api/kline-sources/${sourceId}/preview`, { silent: true });
+      const previewColumns = Array.isArray(previewRes?.columns) ? previewRes.columns : [];
+      const previewDataRows = Array.isArray(previewRes?.data) ? previewRes.data : [];
+      const previewDataKeys = previewDataRows.length && previewDataRows[0] && typeof previewDataRows[0] === 'object'
+        ? Object.keys(previewDataRows[0])
+        : [];
+      return Array.from(new Set([...previewColumns, ...previewDataKeys, ...mappedSourceKeys]));
+    } catch (e) {
+      console.warn('加载数据源字段失败:', sourceId, e.message);
+      return [];
+    }
+  }));
+  _pipelineSourceFields = Array.from(
+    new Set(columnsList.flat().map(v => String(v || '').trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+  renderPipelineSourceFieldOptions();
+}
+
+async function onPipelineSourceChanged() {
+  // 数据源发生变化后立即刷新字段候选，确保映射下拉项与实际数据源一致。
+  await refreshPipelineSourceFieldOptions();
+}
+
+function removePipelineSource(idx) {
+  // 删除数据源块后同步刷新字段候选，避免保留已删除来源的字段。
+  document.getElementById(`pl-src-${idx}`)?.remove();
+  refreshPipelineSourceFieldOptions();
+}
+
+async function refreshPipelineTargetTables() {
+  // 目标连接变化时拉取目标库表名，供“目标表名”输入框下拉建议使用。
+  const targetConnId = document.getElementById('pl-target-conn')?.value;
+  const tableInput = document.getElementById('pl-target-table');
+  const tableOptions = document.getElementById('pl-target-table-options');
+  const tableHint = document.getElementById('pl-target-table-hint');
+  const initialTable = String(document.getElementById('pl-target-table-initial')?.value || '').trim();
+  if (!tableInput || !tableOptions) return;
+  if (!targetConnId) {
+    // 未选连接时清空建议，但保留用户可能已输入的目标表文本。
+    tableOptions.innerHTML = '';
+    if (tableHint) tableHint.textContent = '请先选择目标连接';
+    _pipelineTargetFields = [];
+    renderPipelineTargetFieldOptions();
+    return;
+  }
+  try {
+    const res = await api(`/api/connections/${targetConnId}/tables`, { silent: true });
+    const tables = Array.isArray(res?.tables) ? res.tables : [];
+    const normalizedTables = Array.from(
+      new Set(tables.map(v => String(v || '').trim()).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+    const currentValue = String(tableInput.value || '').trim();
+    const preferredTable = currentValue || initialTable;
+    tableOptions.innerHTML = normalizedTables
+      .map(t => `<option value="${escapeHtml(t)}"></option>`)
+      .join('');
+    // 若当前为空且库里有表，默认填第一张，保证目标字段候选可自动加载。
+    if (!tableInput.value && normalizedTables.length) {
+      tableInput.value = preferredTable || normalizedTables[0];
+    } else if (preferredTable && !tableInput.value) {
+      tableInput.value = preferredTable;
+    }
+    if (tableHint) {
+      tableHint.textContent = normalizedTables.length
+        ? `已加载 ${normalizedTables.length} 张表，可直接输入新表名`
+        : '未读取到现有表，可直接输入新表名';
+    }
+    // 目标连接/表变化后同步刷新“目标字段”候选。
+    await refreshPipelineTargetFieldOptions();
+  } catch (e) {
+    console.warn('加载目标表列表失败:', e.message);
+    tableOptions.innerHTML = '';
+    if (tableHint) tableHint.textContent = '读取目标表失败，可直接输入新表名';
+    _pipelineTargetFields = [];
+    renderPipelineTargetFieldOptions();
+  }
+}
+
+async function refreshPipelineTargetFieldOptions() {
+  // 基于“目标连接 + 目标表名”拉取字段，供映射目标字段下拉候选使用。
+  const targetConnId = document.getElementById('pl-target-conn')?.value;
+  const targetTable = String(document.getElementById('pl-target-table')?.value || '').trim();
+  if (!targetConnId || !targetTable) {
+    _pipelineTargetFields = [];
+    renderPipelineTargetFieldOptions();
+    return;
+  }
+  try {
+    const res = await api(
+      `/api/connections/${targetConnId}/columns?table=${encodeURIComponent(targetTable)}`,
+      { silent: true }
+    );
+    const columns = Array.isArray(res?.columns) ? res.columns : [];
+    _pipelineTargetFields = Array.from(
+      new Set(columns.map(v => String(v || '').trim()).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+    renderPipelineTargetFieldOptions();
+  } catch (e) {
+    console.warn('加载目标字段失败:', e.message);
+    _pipelineTargetFields = [];
+    renderPipelineTargetFieldOptions();
+  }
+}
+
 function addPipelineSource(cfg = null) {
   plSourceIdx++;
   const idx = plSourceIdx;
   const params = cfg?.params || {};
   const sources = _pipelineModalData?.sources || [];
   const sourceOptions = sources.map(s =>
-    `<option value="${s.id}" ${cfg?.connection_id === s.id ? 'selected' : ''}>${s.name} (${s.type})</option>`
+    `<option value="${s.id}" ${cfg?.connection_id === s.id ? 'selected' : ''}>${s.name} (${labelKlineSourceType(s.type)})</option>`
   ).join('') || '<option value="">无可用数据源</option>';
   const container = document.getElementById('pl-sources-list');
   container.innerHTML += `
     <div class="panel" style="padding:12px;margin-bottom:8px;border:1px dashed var(--border)" id="pl-src-${idx}">
       <div class="flex-between">
         <span style="font-weight:600;font-size:13px">数据源 #${idx}</span>
-        <button class="btn btn-danger btn-sm" onclick="document.getElementById('pl-src-${idx}').remove()">删除</button>
+        <button class="btn btn-danger btn-sm" onclick="removePipelineSource(${idx})">删除</button>
       </div>
       <div class="form-row" style="margin-top:8px">
         <div class="form-group">
           <label>数据源连接</label>
-          <select class="form-control" id="pl-src-conn-${idx}">${sourceOptions}</select>
+          <select class="form-control" id="pl-src-conn-${idx}" onchange="onPipelineSourceChanged()">${sourceOptions}</select>
         </div>
         <div class="form-group">
           <label>周期</label>
@@ -3475,6 +4939,10 @@ function addPipelineSource(cfg = null) {
         </div>
       </div>
     </div>`;
+  // 新增数据源块后立即刷新候选字段，保证映射下拉可见最新来源字段。
+  // 同时恢复新增字段可编辑状态，规避动态插入节点后不可输入的问题。
+  ensurePipelineModalInputsEditable();
+  refreshPipelineSourceFieldOptions();
 }
 
 async function openPipelineModal(editId = null) {
@@ -3513,18 +4981,24 @@ async function openPipelineModal(editId = null) {
     <div class="form-row">
       <div class="form-group">
         <label>目标数据库连接</label>
-        <select class="form-control" id="pl-target-conn">
+        <select class="form-control" id="pl-target-conn" onchange="refreshPipelineTargetTables()">
           <option value="">请选择</option>
-          ${dbConns.map(c => `<option value="${c.id}" ${pjson.target?.connection_id === c.id ? 'selected' : ''}>${c.name} (${c.type})</option>`).join('')}
+          ${dbConns.map(c => `<option value="${c.id}" ${pjson.target?.connection_id === c.id ? 'selected' : ''}>${c.name} (${labelConnectionType(c.type)})</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label>目标表名</label>
-        <input class="form-control" id="pl-target-table" value="${pjson.target?.table || 'dat_kline'}" placeholder="dat_kline">
+        <input type="hidden" id="pl-target-table-initial" value="${pjson.target?.table || ''}">
+        <!-- 目标表支持“输入 + 下拉建议”：即使拉不到表清单，用户也可继续手工输入。 -->
+        <input class="form-control" id="pl-target-table" list="pl-target-table-options" value="${pjson.target?.table || ''}" placeholder="请输入或选择目标表" oninput="refreshPipelineTargetFieldOptions()">
+        <datalist id="pl-target-table-options"></datalist>
+        <div id="pl-target-table-hint" class="text-dim" style="font-size:12px;margin-top:4px">请选择目标连接后加载表列表</div>
       </div>
     </div>
 
     <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">字段映射（可选）</div>
+    <datalist id="pl-source-field-options"></datalist>
+    <datalist id="pl-target-field-options"></datalist>
     <div id="pl-field-mappings"></div>
     <button class="btn btn-secondary btn-sm mt-8" onclick="addPlMapping()">+ 添加映射</button>
 
@@ -3549,6 +5023,8 @@ async function openPipelineModal(editId = null) {
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
     <button class="btn btn-primary" onclick="savePipeline()">保存</button>
   `);
+  // 弹窗刚渲染时先做一次输入状态兜底，避免首个字段无法编辑。
+  ensurePipelineModalInputsEditable();
 
   plSourceIdx = 0;
   if (pjson.sources && pjson.sources.length) {
@@ -3559,23 +5035,26 @@ async function openPipelineModal(editId = null) {
   const mappings = pjson.field_mappings || [];
   if (mappings.length) {
     for (const m of mappings) addPlMapping(m.source_field, m.target_field);
-  } else {
-    addPlMapping('code', 'stock_code'); addPlMapping('dt', 'trade_time');
-    addPlMapping('open', 'open_price'); addPlMapping('high', 'high_price');
-    addPlMapping('low', 'low_price'); addPlMapping('close', 'close_price');
-    addPlMapping('vol', 'volume'); addPlMapping('amount', 'amount');
   }
+  // 模态框初始化后同步刷新目标表、源字段和目标字段候选。
+  await refreshPipelineTargetTables();
+  await refreshPipelineSourceFieldOptions();
+  await refreshPipelineTargetFieldOptions();
 }
 
 let plMapId = 0;
 function addPlMapping(src = '', tgt = '') {
   plMapId++;
   const c = document.getElementById('pl-field-mappings');
-  c.innerHTML += `<div class="field-map-row" id="pl-map-${plMapId}">
-    <input class="form-control" id="pl-src-f-${plMapId}" value="${src}" placeholder="源字段">
-    <input class="form-control" id="pl-tgt-f-${plMapId}" value="${tgt}" placeholder="目标字段">
-    <button class="btn btn-danger btn-sm" onclick="document.getElementById('pl-map-${plMapId}').remove()">✕</button>
-  </div>`;
+  if (!c) return;
+  // 使用 append 方式新增行，避免 innerHTML 重建节点导致已填写映射被清空。
+  c.insertAdjacentHTML('beforeend', `<div class="field-map-row" id="pl-map-${plMapId}">
+    <input class="form-control" id="pl-src-f-${plMapId}" list="pl-source-field-options" value="${src}" placeholder="源字段">
+    <input class="form-control" id="pl-tgt-f-${plMapId}" list="pl-target-field-options" value="${tgt}" placeholder="目标字段">
+    <button class="btn btn-danger btn-sm btn-icon" title="删除映射" aria-label="删除映射" onclick="document.getElementById('pl-map-${plMapId}').remove()">🗑</button>
+  </div>`);
+  // 新增映射行后同步恢复输入状态，确保可立即输入。
+  ensurePipelineModalInputsEditable();
 }
 
 async function savePipeline() {
@@ -3648,10 +5127,194 @@ async function savePipeline() {
 
 async function runPipeline(id) {
   try {
-    const res = await api(`/api/pipelines/${id}/run`, { method: 'POST' });
-    alert('数据流已启动: ' + res.message);
+    // 先获取数据流详情，供阻断项修复弹窗生成上下文 SQL（如目标表名）。
+    const pipelineDetail = await api(`/api/pipelines/${id}`, { silent: true });
+    // 执行前先调用预检查接口，提前暴露配置问题，避免运行后才发现失败。
+    const precheck = await api(`/api/pipelines/${id}/precheck`, { method: 'POST', silent: true });
+    if (precheck.error) {
+      showPipelinePrecheckGuideModal(id, {
+        ok: false,
+        errors: [String(precheck.error || '执行前检查失败')],
+        warnings: [],
+      }, pipelineDetail);
+      return;
+    }
+    if (Array.isArray(precheck.errors) && precheck.errors.length) {
+      showPipelinePrecheckGuideModal(id, precheck, pipelineDetail);
+      return;
+    }
+
+    let forceRun = false;
+    if (Array.isArray(precheck.warnings) && precheck.warnings.length) {
+      // 有风险提示时要求用户二次确认，符合“先检查再决定是否继续执行”的交互预期。
+      const ok = confirm(`执行前检查发现风险提示:\n- ${precheck.warnings.join('\n- ')}\n\n是否仍继续执行？`);
+      if (!ok) return;
+      forceRun = true;
+    }
+
+    const runUrl = forceRun ? `/api/pipelines/${id}/run?force=true` : `/api/pipelines/${id}/run`;
+    const res = await api(runUrl, { method: 'POST' });
+    if (res.need_confirm && res.precheck?.warnings?.length) {
+      const ok = confirm(`运行前风险提示:\n- ${res.precheck.warnings.join('\n- ')}\n\n是否强制执行？`);
+      if (!ok) return;
+      const forced = await api(`/api/pipelines/${id}/run?force=true`, { method: 'POST' });
+      alert('数据流已启动: ' + forced.message);
+      setTimeout(refreshPipelines, 2000);
+      return;
+    }
+    if (res.error) {
+      const mergedErrors = [String(res.error || '执行失败')]
+        .concat(Array.isArray(res.precheck?.errors) ? res.precheck.errors : []);
+      showPipelinePrecheckGuideModal(id, {
+        ok: false,
+        errors: mergedErrors,
+        warnings: Array.isArray(res.precheck?.warnings) ? res.precheck.warnings : [],
+      }, pipelineDetail);
+      return;
+    }
+    alert('数据流已启动: ' + (res.message || '已加入后台执行队列'));
     setTimeout(refreshPipelines, 2000);
   } catch(e) { alert('执行失败: ' + e.message); }
+}
+
+function buildPipelineFixSql(errors = [], pipeline = null) {
+  // 根据阻断错误自动生成“可直接执行”的修复 SQL，减少用户查资料成本。
+  const targetTable = String(pipeline?.pipeline_json?.target?.table || '').trim() || '<目标表名>';
+  const sqlBlocks = [];
+  for (const msg of (errors || [])) {
+    const text = String(msg || '');
+    const uniqueMatch = text.match(/PostgreSQL\s*缺少唯一约束:\s*\(([^)]+)\)/i);
+    if (uniqueMatch) {
+      const cols = uniqueMatch[1]
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+      if (cols.length) {
+        const constraint = `${targetTable}_${cols.join('_')}_uniq`.replace(/[^a-zA-Z0-9_]/g, '_');
+        const dedupeWhere = cols.map(c => `a.${c} = b.${c}`).join(' AND ');
+        const sql = [
+          `-- 1) 先去重（若无重复可跳过）`,
+          `DELETE FROM ${targetTable} a`,
+          `USING ${targetTable} b`,
+          `WHERE a.ctid < b.ctid`,
+          `  AND ${dedupeWhere};`,
+          ``,
+          `-- 2) 补唯一约束（与 ON CONFLICT 键一致）`,
+          `ALTER TABLE ${targetTable}`,
+          `ADD CONSTRAINT ${constraint} UNIQUE (${cols.join(', ')});`,
+        ].join('\n');
+        sqlBlocks.push(sql);
+      }
+    }
+  }
+  // 去重，避免同类错误生成重复 SQL。
+  return Array.from(new Set(sqlBlocks));
+}
+
+function copyPipelineFixSql() {
+  // 复制修复 SQL 到剪贴板，失败时回退到 execCommand。
+  const el = document.getElementById('pipeline-fix-sql');
+  const text = el ? String(el.value || '').trim() : '';
+  if (!text) {
+    alert('暂无可复制 SQL');
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => alert('已复制 SQL 到剪贴板'),
+      () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('已复制 SQL 到剪贴板');
+      }
+    );
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  alert('已复制 SQL 到剪贴板');
+}
+
+function showPipelinePrecheckGuideModal(pipelineId, precheck = {}, pipeline = null) {
+  // 阻断项修复引导弹窗：展示错误清单 + 可执行 SQL + 复制按钮 + 重新检查入口。
+  const errors = Array.isArray(precheck.errors) ? precheck.errors : [];
+  const warnings = Array.isArray(precheck.warnings) ? precheck.warnings : [];
+  const sqlBlocks = buildPipelineFixSql(errors, pipeline);
+  const errorHtml = errors.length
+    ? `<ul style="margin:6px 0 0 18px">${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`
+    : '<div class="text-dim">无阻断项</div>';
+  const warningHtml = warnings.length
+    ? `<ul style="margin:6px 0 0 18px">${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>`
+    : '<div class="text-dim">无风险提示</div>';
+  const sqlText = sqlBlocks.join('\n\n');
+  const sqlHtml = sqlText
+    ? `<textarea id="pipeline-fix-sql" class="form-control" rows="12" readonly style="font-family:monospace">${escapeHtml(sqlText)}</textarea>`
+    : `<div class="text-dim">当前错误暂无自动 SQL 建议，请按错误提示修复后再试。</div>`;
+
+  openModal('执行前检查未通过', `
+    <div class="panel-title" style="margin-bottom:8px;color:var(--danger)">阻断项（必须修复）</div>
+    ${errorHtml}
+    <div class="panel-title" style="margin:14px 0 8px">风险提示</div>
+    ${warningHtml}
+    <div class="panel-title" style="margin:14px 0 8px">修复 SQL（可执行）</div>
+    ${sqlHtml}
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+    <button class="btn btn-secondary" onclick="copyPipelineFixSql()">复制 SQL</button>
+    <button class="btn btn-primary" onclick="closeModal(); runPipeline('${pipelineId}')">我已修复，重新检查</button>
+  `);
+}
+
+async function previewPipeline(id) {
+  try {
+    // 调用后端“只预览不落库”接口，查看数据源到工作流后的样例结果。
+    const res = await api(`/api/pipelines/${id}/preview`, { method: 'POST', loadingMsg: '正在预览数据流...' });
+    if (res.error) { alert('预览失败: ' + res.error); return; }
+    const cols = res.columns || [];
+    const rows = res.preview || [];
+    const srcRows = (res.sources || []).map(s =>
+      `<tr>
+        <td>${s.index ?? '-'}</td>
+        <td>${s.connection_id || '-'}</td>
+        <td>${labelStatus(s.status || '-')}</td>
+        <td>${s.rows_read ?? '-'}</td>
+        <td>${s.rows_after_transform ?? '-'}</td>
+        <td>${s.message || '-'}</td>
+      </tr>`
+    ).join('');
+    openModal(`数据流预览 - ${res.pipeline_name || id}`, `
+      <div class="text-dim mb-8">加工后总行数: ${res.rows ?? 0}</div>
+      <div class="text-dim mb-16">列: ${cols.join(', ') || '-'}</div>
+      <div style="margin-bottom:12px">
+        <div class="panel-title" style="margin-bottom:6px">数据源处理明细</div>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>数据源连接</th><th>状态</th><th>读取</th><th>加工后</th><th>备注</th></tr></thead>
+          <tbody>${srcRows || '<tr><td colspan="6" class="text-dim">无明细</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="overflow:auto;max-height:360px">
+        <table class="data-table">
+          <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(row => `<tr>${cols.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${res.workflow_timings ? `<div class="text-dim mt-8">工作流节点耗时: ${JSON.stringify(res.workflow_timings)}</div>` : ''}
+    `, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  } catch(e) { alert('预览失败: ' + e.message); }
 }
 
 async function showPipelineRuns(id) {
@@ -3662,7 +5325,7 @@ async function showPipelineRuns(id) {
     for (const r of records) {
       html += `<tr>
         <td>${new Date(r.started_at).toLocaleString()}</td>
-        <td><span class="badge badge-${r.status}">${r.status}</span></td>
+        <td><span class="badge badge-${badgeClassForStatus(r.status)}">${labelStatus(r.status)}</span></td>
         <td>${r.rows_read ?? '-'}</td><td>${r.rows_written ?? '-'}</td>
         <td>${r.duration ? r.duration + 's' : '-'}</td>
         <td class="text-dim">${r.error_message || '-'}</td>
@@ -3696,24 +5359,43 @@ function onLLMProviderChange() {
   const provider = document.getElementById('llm-provider')?.value;
   const baseUrl = document.getElementById('llm-base-url');
   const model = document.getElementById('llm-model');
+  const apiKeyInput = document.getElementById('llm-api-key');
   const presets = {
+    cloud_demo: { url: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen2.5-7B-Instruct' },
+    ollama: { url: 'http://127.0.0.1:11434/v1', model: 'qwen2.5:7b' },
     openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
     claude: { url: 'https://api.anthropic.com/v1', model: 'claude-3-haiku-20240307' },
     deepseek: { url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
     qwen: { url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
     custom: { url: '', model: '' },
   };
-  const p = presets[provider] || presets.openai;
-  if (baseUrl) baseUrl.value = baseUrl.value || p.url;
-  if (model) model.value = model.value || p.model;
+  const p = presets[provider] || presets.cloud_demo;
+  // 切换 provider 时直接覆盖预设，避免保留上一个服务商参数导致连通失败。
+  if (baseUrl) baseUrl.value = p.url;
+  if (model) model.value = p.model;
+  // 体验模式和本地模型允许空 key，其他云模型默认要求 key。
+  if (apiKeyInput) {
+    if (provider === 'cloud_demo' || provider === 'ollama') {
+      apiKeyInput.placeholder = '可留空';
+    } else {
+      apiKeyInput.placeholder = '必填：你的 API Key';
+    }
+  }
+}
+
+function getCurrentLLMStreamMode() {
+  // 优先读取“AI 设置”页面当前值；若页面未打开则回退到已加载的全局配置。
+  const mode = String(document.getElementById('llm-stream-mode')?.value || _llmStreamMode || 'normal').toLowerCase();
+  return mode === 'sse' ? 'sse' : 'normal';
 }
 
 async function saveLLMSettings() {
   const enabled = document.getElementById('llm-enabled')?.checked ? 1 : 0;
-  const provider = document.getElementById('llm-provider')?.value || 'openai';
-  const base_url = document.getElementById('llm-base-url')?.value || '';
+  const provider = document.getElementById('llm-provider')?.value || 'cloud_demo';
+  const base_url = document.getElementById('llm-base-url')?.value || 'https://api.siliconflow.cn/v1';
   const api_key = document.getElementById('llm-api-key')?.value || '';
-  const model = document.getElementById('llm-model')?.value || 'gpt-4o-mini';
+  const model = document.getElementById('llm-model')?.value || 'Qwen/Qwen2.5-7B-Instruct';
+  const stream_mode = getCurrentLLMStreamMode();
   const system_prompt = document.getElementById('llm-system-prompt')?.value || '';
 
   try {
@@ -3721,20 +5403,34 @@ async function saveLLMSettings() {
     if (existing && existing.length > 0) {
       await api(`/api/llm/${existing[0].id}`, {
         method: 'PUT',
-        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, enabled })
+        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, stream_mode, enabled })
       });
     } else {
       await api('/api/llm/', {
         method: 'POST',
-        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, enabled })
+        body: JSON.stringify({ name: 'default', provider, base_url, api_key, model, system_prompt, stream_mode, enabled })
       });
     }
+    // 保存成功后同步全局模式，供其他页面即刻复用。
+    _llmStreamMode = stream_mode;
     alert('✅ 配置已保存');
   } catch(e) { alert('保存失败: ' + e.message); }
 }
 
 async function loadLLMSettings() {
   try {
+    // 加载公共引导配置（邀请链接与体验额度说明）。
+    const pub = await api('/api/llm/public-config', { silent: true });
+    const hintEl = document.getElementById('llm-experience-hint');
+    // 安全要求：不在界面动态展示带邀请码参数的跳转链接。
+    // 用显式状态告诉用户：没配置云端体验也不影响基础助手使用。
+    if (hintEl) {
+      if (pub?.cloud_demo_ready) {
+        hintEl.innerHTML = `当前模式：基础助手 + 增强 AI 可用。云端体验每设备最多 ${pub.cloud_demo_max_calls ?? 10} 次。`;
+      } else {
+        hintEl.innerHTML = `当前模式：基础助手可直接使用。增强 AI 暂未启用，可点击下方链接领取免费额度后解锁。`;
+      }
+    }
     const list = await api('/api/llm/', { silent: true });
     if (list && list.length > 0) {
       const cfg = list[0];
@@ -3744,9 +5440,12 @@ async function loadLLMSettings() {
       inp('llm-base-url', 'base_url');
       inp('llm-api-key', 'api_key');
       inp('llm-model', 'model');
+      inp('llm-stream-mode', 'stream_mode');
       inp('llm-system-prompt', 'system_prompt');
       const enEl = document.getElementById('llm-enabled');
       if (enEl) enEl.checked = cfg.enabled === 1;
+      // 加载时缓存全局模式，供非“AI设置页”的功能也可读取配置。
+      _llmStreamMode = String(cfg.stream_mode || 'normal').toLowerCase() === 'sse' ? 'sse' : 'normal';
     }
   } catch(e) { /* ignore */ }
 }
@@ -3754,11 +5453,12 @@ async function loadLLMSettings() {
 async function testLLM() {
   const el = document.getElementById('llm-test-result');
   if (el) el.innerHTML = '<span class="text-dim">正在连接测试...</span>';
-  const provider = document.getElementById('llm-provider')?.value || 'openai';
+  const provider = document.getElementById('llm-provider')?.value || 'cloud_demo';
   const base_url = document.getElementById('llm-base-url')?.value || '';
   const api_key = document.getElementById('llm-api-key')?.value || '';
-  const model = document.getElementById('llm-model')?.value || 'gpt-4o-mini';
-  if (!api_key) { if (el) el.innerHTML = '❌ 请先填入 API Key'; return; }
+  const model = document.getElementById('llm-model')?.value || 'Qwen/Qwen2.5-7B-Instruct';
+  // 云端体验模式和本地模型都可不填 key，其它云模型仍强制要求。
+  if (provider !== 'ollama' && provider !== 'cloud_demo' && !api_key) { if (el) el.innerHTML = '❌ 请先填入 API Key'; return; }
   if (!base_url) { if (el) el.innerHTML = '❌ 请先填入 base_url'; return; }
   try {
     const resp = await api('/api/llm/chat', {
@@ -3771,9 +5471,19 @@ async function testLLM() {
       loadingMsg: '连接测试中...'
     });
     if (resp.error) {
-      if (el) el.innerHTML = `<div style="color:#ef4444;background:rgba(239,68,68,0.08);padding:12px;border-radius:6px;font-size:13px">❌ 测试失败：${resp.error}</div>`;
+      // 体验通道未就绪时给“降级可用”提示，避免用户误以为产品不可用。
+      const isDemoNotReady = String(resp.error || '').includes('未配置云端免费体验通道');
+      if (isDemoNotReady) {
+        if (el) el.innerHTML = `<div style="color:#f59e0b;background:rgba(245,158,11,0.08);padding:12px;border-radius:6px;font-size:13px">⚠️ 当前为基础助手模式（可正常使用）。如需增强 AI，请在本页领取免费额度并填写 API Key。</div>`;
+      } else {
+        if (el) el.innerHTML = `<div style="color:#ef4444;background:rgba(239,68,68,0.08);padding:12px;border-radius:6px;font-size:13px">❌ 测试失败：${resp.error}</div>`;
+      }
     } else {
-      if (el) el.innerHTML = `<div style="color:#10b981;background:rgba(16,185,129,0.08);padding:12px;border-radius:6px;font-size:13px">✅ 连接成功！模型回复：${resp.content?.substring(0, 200)}</div>`;
+      // 体验通道返回剩余次数，帮助用户理解免费额度。
+      const remainText = (typeof resp.remaining_calls === 'number' && resp.remaining_calls >= 0)
+        ? `（体验剩余 ${resp.remaining_calls} 次）`
+        : '';
+      if (el) el.innerHTML = `<div style="color:#10b981;background:rgba(16,185,129,0.08);padding:12px;border-radius:6px;font-size:13px">✅ 连接成功${remainText}！模型回复：${resp.content?.substring(0, 200)}</div>`;
     }
   } catch(e) {
     if (el) el.innerHTML = `❌ 测试失败：${e.message}`;
@@ -3782,7 +5492,146 @@ async function testLLM() {
 
 async function navigateToLLMSettings() {
   navigate('llm-settings');
-  setTimeout(loadLLMSettings, 50);
+  setTimeout(() => {
+    // 进入 AI 设置页后同时加载模型配置和助手埋点统计。
+    loadLLMSettings();
+    loadAssistantMetrics();
+  }, 50);
+}
+
+async function loadAssistantMetrics() {
+  // 统计助手核心漏斗 + 7天趋势 + 失败后恢复率（连接/凭证/数据源测试场景）。
+  const host = document.getElementById('assistant-metrics');
+  if (!host) return;
+  host.innerHTML = '<span class="text-dim">统计加载中...</span>';
+  try {
+    const raw = await api('/api/llm/assistant-events?limit=500', { silent: true });
+    // 兼容后端异常对象/包装对象返回，避免直接展开时报不可迭代错误。
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.error) {
+      throw new Error(raw.error);
+    }
+    const events = Array.isArray(raw)
+      ? raw
+      : (Array.isArray(raw?.items) ? raw.items : []);
+    const counters = { opened: 0, generated: 0, applied: 0 };
+    const byScene = {};
+    const trend = {};
+    const sortedEvents = [...events]
+      .filter(e => !!e.created_at)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const failureQueue = { credential: [], connection: [], datasource: [] };
+    let recoveredCount = 0;
+    let failureCount = 0;
+
+    const dayKey = (iso) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return 'unknown';
+      return d.toISOString().slice(0, 10);
+    };
+
+    // 生成近7天日期索引，确保趋势展示稳定不缺天。
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      trend[d.toISOString().slice(0, 10)] = { opened: 0, generated: 0, applied: 0 };
+    }
+
+    for (const evt of sortedEvents) {
+      const scene = evt.scene || 'unknown';
+      if (!byScene[scene]) byScene[scene] = { opened: 0, generated: 0, applied: 0 };
+      const dKey = dayKey(evt.created_at);
+      if (evt.event_name === 'assistant_opened') {
+        counters.opened += 1;
+        byScene[scene].opened += 1;
+        if (trend[dKey]) trend[dKey].opened += 1;
+      }
+      if (evt.event_name === 'assistant_guidance_generated') {
+        counters.generated += 1;
+        byScene[scene].generated += 1;
+        if (trend[dKey]) trend[dKey].generated += 1;
+      }
+      if (evt.event_name === 'assistant_action_applied') {
+        counters.applied += 1;
+        byScene[scene].applied += 1;
+        if (trend[dKey]) trend[dKey].applied += 1;
+      }
+
+      // 失败后恢复率逻辑：失败测试 -> 打开 troubleshoot -> 后续测试成功。
+      if (
+        (evt.event_name === 'credential_test_result' ||
+          evt.event_name === 'connection_test_result' ||
+          evt.event_name === 'datasource_test_result') &&
+        evt.payload
+      ) {
+        // 仅统计受支持场景，避免未知 scene 破坏口径。
+        const sceneMap = { credential: 'credential', connection: 'connection', datasource: 'datasource' };
+        const testScene = sceneMap[evt.scene];
+        if (!testScene) continue;
+        if (evt.payload.success === false) {
+          failureCount += 1;
+          failureQueue[testScene].push({ failedAt: evt.created_at, usedTroubleshoot: false });
+        }
+        if (evt.payload.success === true && failureQueue[testScene].length) {
+          // 命中一次恢复后，消费最早失败记录，避免重复计数。
+          const firstFailure = failureQueue[testScene].shift();
+          if (firstFailure?.usedTroubleshoot) recoveredCount += 1;
+        }
+      }
+
+      if (
+        evt.event_name === 'assistant_opened' &&
+        evt.payload?.mode === 'troubleshoot' &&
+        (scene === 'credential' || scene === 'connection' || scene === 'datasource')
+      ) {
+        const queue = failureQueue[scene];
+        if (queue && queue.length) {
+          queue[queue.length - 1].usedTroubleshoot = true;
+        }
+      }
+    }
+    const genRate = counters.opened ? ((counters.generated / counters.opened) * 100).toFixed(1) : '0.0';
+    const applyRate = counters.generated ? ((counters.applied / counters.generated) * 100).toFixed(1) : '0.0';
+    const recoveryRate = failureCount ? ((recoveredCount / failureCount) * 100).toFixed(1) : '0.0';
+    const sceneRows = Object.entries(byScene).map(([scene, data]) => `
+      <tr>
+        <td>${scene}</td>
+        <td>${data.opened}</td>
+        <td>${data.generated}</td>
+        <td>${data.applied}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" class="text-dim">暂无场景数据</td></tr>';
+    const trendRows = Object.entries(trend).map(([date, data]) => `
+      <tr>
+        <td>${date}</td>
+        <td>${data.opened}</td>
+        <td>${data.generated}</td>
+        <td>${data.applied}</td>
+      </tr>
+    `).join('');
+    host.innerHTML = `
+      <div class="stats-grid" style="margin-bottom:12px">
+        <div class="stat-card"><div class="stat-label">助手打开</div><div class="stat-value accent">${counters.opened}</div></div>
+        <div class="stat-card"><div class="stat-label">建议生成</div><div class="stat-value success">${counters.generated}</div></div>
+        <div class="stat-card"><div class="stat-label">动作应用</div><div class="stat-value warning">${counters.applied}</div></div>
+        <div class="stat-card"><div class="stat-label">生成率 / 采用率</div><div class="stat-value" style="font-size:18px">${genRate}% / ${applyRate}%</div></div>
+        <div class="stat-card"><div class="stat-label">失败后恢复率</div><div class="stat-value success" style="font-size:18px">${recoveryRate}%</div></div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>场景</th><th>打开</th><th>生成</th><th>应用</th></tr></thead>
+        <tbody>${sceneRows}</tbody>
+      </table>
+      <div style="margin-top:12px">
+        <div class="panel-title" style="font-size:13px;margin-bottom:8px">近7天趋势（助手漏斗）</div>
+        <table class="data-table">
+          <thead><tr><th>日期</th><th>打开</th><th>生成</th><th>应用</th></tr></thead>
+          <tbody>${trendRows}</tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    host.innerHTML = `<div style="color:var(--danger)">统计加载失败：${escapeHtml(e.message)}</div>`;
+  }
 }
 
 async function loadLicenseInfo() {
@@ -4113,6 +5962,18 @@ async function clearAiConfig() {
 }
 
 // ---------- 工作流 ----------
+async function seedDemoWorkflow() {
+  try {
+    const res = await api('/api/workflows/seed-demo', { method: 'POST' });
+    if (res.message && res.message.includes('已存在')) {
+      alert(res.message);
+    } else {
+      alert('✅ ' + res.message);
+    }
+    refreshWorkflows();
+  } catch(e) { alert('创建失败: ' + e.message); }
+}
+
 async function refreshWorkflows() {
   try {
     const list = await api('/api/workflows/');
@@ -4282,317 +6143,16 @@ async function doImportWorkflow() {
 }
 
 function openWorkflowModal(editId = null) {
-  openModal(editId ? '编辑工作流' : '新建工作流', `
-    <input type="hidden" id="wf-edit-id" value="${editId || ''}">
-    <div class="form-group"><label>工作流名称</label><input class="form-control" id="wf-name" placeholder="1min转30min"></div>
-    <div class="form-group"><label>描述</label><input class="form-control" id="wf-desc" placeholder="将1分钟K线重采样为30分钟"></div>
-    <div id="wf-canvas-area"></div>
-  `, `
-    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-    <button class="btn btn-primary" onclick="saveWorkflow()">保存</button>
-  `);
-
-  const wfName = document.getElementById('wf-name');
-  const wfDesc = document.getElementById('wf-desc');
-
-  if (editId) {
-    loadWorkflowForEdit(editId, (name, desc, json) => {
-      wfName.value = name;
-      wfDesc.value = desc || '';
-      initWfEditor(json);
-    });
-  } else {
-    initWfEditor(null);
-  }
-}
-
-const wfNodeCategories = {
-  '指标计算': [
-    { type: 'resample', label: '周期重采样', icon: '📊' },
-    { type: 'ma', label: '移动平均', icon: '📈' },
-    { type: 'macd', label: 'MACD', icon: '📉' },
-    { type: 'rsi', label: 'RSI', icon: '🔢' },
-    { type: 'boll', label: '布林带', icon: '🎯' },
-  ],
-  '数据处理': [
-    { type: 'filter', label: '过滤行', icon: '🔍' },
-    { type: 'sort', label: '排序', icon: '↕️' },
-    { type: 'group_by', label: '分组聚合', icon: '📋' },
-    { type: 'column_rename', label: '列重命名', icon: '✏️' },
-    { type: 'expression', label: '表达式计算', icon: '🔢' },
-    { type: 'condition', label: '条件分支', icon: '🔀' },
-    { type: 'custom_python', label: '自定义脚本', icon: '🐍' },
-  ],
-};
-
-function initWfEditor(existingJson) {
-  const area = document.getElementById('wf-canvas-area');
-  let paletteHtml = '';
-  for (const [cat, nodes] of Object.entries(wfNodeCategories)) {
-    paletteHtml += `<div class="wf-palette-section">${cat}</div>`;
-    for (const n of nodes) {
-      paletteHtml += `<div class="wf-palette-node" data-type="${n.type}" onclick="addWfNode('${n.type}')">
-        <span>${n.icon}</span><span>${n.label}</span>
-      </div>`;
-    }
-  }
-  area.innerHTML = `<div class="wf-editor">
-    <div class="wf-palette">${paletteHtml}</div>
-    <div class="wf-canvas" id="wf-canvas"></div>
-    <div class="wf-props" id="wf-props"><h3>节点属性</h3><div id="wf-props-content">选择节点查看属性</div></div>
-  </div>`;
-  window._wfNodes = [];
-  window._wfNodesData = {};
-  window._wfSelectedId = null;
-
-  if (existingJson && existingJson.nodes) {
-    for (const node of existingJson.nodes) {
-      addWfNode(node.type, node);
-    }
-  }
-}
-
-function addWfNode(type, data = null) {
-  const id = 'wf_' + Math.random().toString(36).slice(2, 8);
-  const meta = findNodeMeta(type);
-  const label = meta ? meta.label : type;
-  const icon = meta ? meta.icon : '⬡';
-  const canvas = document.getElementById('wf-canvas');
-  if (!canvas) return;
-  let x = 60, y = 60;
-  const existing = canvas.querySelectorAll('.wf-node');
-  if (existing.length) {
-    const last = existing[existing.length - 1];
-    x = parseInt(last.style.left) + 210;
-    y = parseInt(last.style.top);
-    if (x > 500) { x = 60; y += 100; }
-  }
-  const colorMap = {
-    kline_resample: '#6366f1', kline_ma: '#22c55e', kline_macd: '#f59e0b',
-    kline_rsi: '#38bdf8', kline_boll: '#ec4899',
-    filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e',
-    column_rename: '#f59e0b', expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
-  };
-  const color = colorMap[type] || '#6366f1';
-  const defaultParams = getDefaultNodeParams(type);
-  const nodeData = data || { id, type, parameters: defaultParams };
-  // Migrate params -> parameters for backwards compat
-  if (nodeData.params && !nodeData.parameters) {
-    nodeData.parameters = nodeData.params;
-    delete nodeData.params;
-  }
-  nodeData.id = id; nodeData.type = type;
-
-  const el = document.createElement('div');
-  el.className = 'wf-node'; el.id = id;
-  el.style.left = x + 'px'; el.style.top = y + 'px';
-  el.innerHTML = `
-    <div class="wf-node-header" style="background:${color}20;border-left:3px solid ${color}">
-      <span>${icon}</span><span>${label}</span>
-    </div>
-    <div class="wf-node-body">参数: ${JSON.stringify(nodeData.parameters || {}).substring(0, 30)}...</div>
-    <div class="wf-node-port input" title="输入"></div>
-    <div class="wf-node-port output" title="输出"></div>
-  `;
-  el.addEventListener('click', () => selectWfNode(id));
-  el.addEventListener('mousedown', (e) => dragWfNode(e, el));
-  canvas.appendChild(el);
-  window._wfNodes.push(id);
-  window._wfNodesData[id] = nodeData;
-  selectWfNode(id);
-}
-
-function findNodeMeta(type) {
-  for (const nodes of Object.values(wfNodeCategories)) {
-    for (const n of nodes) if (n.type === type) return n;
-  }
-  return null;
-}
-
-function getDefaultNodeParams(type) {
-  return {
-    resample: { rule: '30min', time_column: 'dt', group_column: '' },
-    ma: { windows: '5,10,20', source_column: 'close', use_ema: false },
-    macd: { fast: 12, slow: 26, signal: 9, source_column: 'close' },
-    rsi: { window: 14, source_column: 'close' },
-    boll: { window: 20, std_mult: 2, source_column: 'close' },
-    filter: { column: 'close', operator: '>', value: '0', mode: 'keep' },
-    sort: { by: 'dt', ascending: 'true' },
-    group_by: { columns: 'code', aggregations: 'close=last,vol=sum' },
-    column_rename: { renames: 'code=stock_code,dt=trade_time' },
-    expression: { target_column: 'new_col', expression: "df['open'] + df['close']" },
-    condition: { condition: "df['close'] > 0", branch: 'true' },
-    custom_python: { code: 'def process(df):\n    return df' },
-  }[type] || {};
-}
-
-let wfDraggingNode = null, wfDragOffset = { x: 0, y: 0 };
-function dragWfNode(e, el) {
-  if (e.target.classList.contains('wf-node-port')) return;
-  wfDraggingNode = el;
-  wfDragOffset = { x: e.clientX - el.offsetLeft, y: e.clientY - el.offsetTop };
-  document.addEventListener('mousemove', onWfDrag);
-  document.addEventListener('mouseup', stopWfDrag);
-}
-function onWfDrag(e) {
-  if (!wfDraggingNode) return;
-  const canvas = document.getElementById('wf-canvas');
-  const rect = canvas.getBoundingClientRect();
-  wfDraggingNode.style.left = Math.max(0, e.clientX - rect.left - wfDragOffset.x + canvas.scrollLeft) + 'px';
-  wfDraggingNode.style.top = Math.max(0, e.clientY - rect.top - wfDragOffset.y + canvas.scrollTop) + 'px';
-}
-function stopWfDrag() {
-  document.removeEventListener('mousemove', onWfDrag);
-  document.removeEventListener('mouseup', stopWfDrag);
-  wfDraggingNode = null;
-}
-
-function selectWfNode(id) {
-  document.querySelectorAll('.wf-node').forEach(n => n.classList.remove('selected'));
-  const el = document.getElementById(id);
-  if (el) el.classList.add('selected');
-  window._wfSelectedId = id;
-  renderWfProps(id);
-}
-
-function renderWfProps(id) {
-  const data = window._wfNodesData[id];
-  if (!data) return;
-  const meta = findNodeMeta(data.type);
-  const html = `
-    <h3>${meta ? meta.label : data.type}</h3>
-    <div class="form-group"><label>节点类型</label><input class="form-control" value="${data.type}" readonly></div>
-    ${renderPropsFields(data.type, data.parameters || {})}
-    <button class="btn btn-danger btn-sm mt-16" onclick="removeWfNode('${id}')">删除节点</button>
-  `;
-  document.getElementById('wf-props-content').innerHTML = html;
-}
-
-function renderPropsFields(type, params) {
-  const fields = {
-    resample: [
-      { id: 'rule', label: '目标周期', type: 'select', opts: ['5min','15min','30min','60min','D','W','M'] },
-      { id: 'time_column', label: '时间字段', type: 'text' },
-      { id: 'group_column', label: '分组字段', type: 'text' },
-    ],
-    ma: [
-      { id: 'windows', label: '窗口（逗号分隔）', type: 'text' },
-      { id: 'source_column', label: '源字段', type: 'text' },
-      { id: 'use_ema', label: '使用 EMA', type: 'checkbox' },
-    ],
-    macd: [
-      { id: 'fast', label: '快线周期', type: 'text' },
-      { id: 'slow', label: '慢线周期', type: 'text' },
-      { id: 'signal', label: '信号线周期', type: 'text' },
-      { id: 'source_column', label: '源字段', type: 'text' },
-    ],
-    rsi: [
-      { id: 'window', label: '窗口', type: 'text' },
-      { id: 'source_column', label: '源字段', type: 'text' },
-    ],
-    boll: [
-      { id: 'window', label: '窗口', type: 'text' },
-      { id: 'std_mult', label: '标准差倍数', type: 'text' },
-      { id: 'source_column', label: '源字段', type: 'text' },
-    ],
-    filter: [
-      { id: 'column', label: '字段', type: 'text' },
-      { id: 'operator', label: '操作符', type: 'select', opts: ['>','<','>=','<=','==','!=','is_not_null','is_null'] },
-      { id: 'value', label: '值', type: 'text' },
-      { id: 'mode', label: '模式', type: 'select', opts: ['keep','drop'] },
-    ],
-    sort: [
-      { id: 'by', label: '排序字段', type: 'text' },
-      { id: 'ascending', label: '升序', type: 'checkbox' },
-    ],
-    group_by: [
-      { id: 'columns', label: '分组字段', type: 'text' },
-      { id: 'aggregations', label: '聚合规则', type: 'text' },
-    ],
-    column_rename: [
-      { id: 'renames', label: '映射(old=new)', type: 'text' },
-    ],
-    expression: [
-      { id: 'target_column', label: '目标列名', type: 'text' },
-      { id: 'expression', label: '表达式', type: 'textarea' },
-    ],
-    condition: [
-      { id: 'condition', label: '条件', type: 'text' },
-      { id: 'branch', label: '分支', type: 'select', opts: ['true','false'] },
-    ],
-    custom_python: [
-      { id: 'code', label: 'Python代码', type: 'textarea' },
-    ],
-  };
-  const flds = fields[type] || [];
-  let html = '';
-  for (const f of flds) {
-    const val = params[f.id] || '';
-    if (f.type === 'select') {
-      html += `<div class="form-group"><label>${f.label}</label><select class="form-control" id="wp-${f.id}" onchange="updateWfParam('${f.id}', this.value)">${f.opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
-    } else if (f.type === 'textarea') {
-      html += `<div class="form-group"><label>${f.label}</label><textarea class="form-control" id="wp-${f.id}" onchange="updateWfParam('${f.id}', this.value)">${val}</textarea></div>`;
-    } else if (f.type === 'checkbox') {
-      html += `<div class="form-group"><label>${f.label}</label><input type="checkbox" id="wp-${f.id}" ${val === 'true' || val === true ? 'checked' : ''} onchange="updateWfParam('${f.id}', this.checked)"></div>`;
-    } else {
-      html += `<div class="form-group"><label>${f.label}</label><input class="form-control" id="wp-${f.id}" value="${val}" onchange="updateWfParam('${f.id}', this.value)"></div>`;
-    }
-  }
-  return html;
-}
-
-function updateWfParam(key, val) {
-  const id = window._wfSelectedId;
-  if (!id) return;
-  const data = window._wfNodesData[id];
-  data.parameters = data.parameters || {};
-  data.parameters[key] = val;
-  const el = document.getElementById(id);
-  if (el) {
-    el.querySelector('.wf-node-body').textContent = '参数: ' + JSON.stringify(data.parameters).substring(0, 30) + '...';
-  }
-}
-
-function removeWfNode(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-  delete window._wfNodesData[id];
-  window._wfNodes = window._wfNodes.filter(n => n !== id);
-  document.getElementById('wf-props-content').innerHTML = '<div class="text-dim">选择节点查看属性</div>';
-}
-
-async function loadWorkflowForEdit(id, cb) {
-  const wf = await api(`/api/workflows/${id}`);
-  cb(wf.name, wf.description, wf.workflow_json);
-}
-
-async function saveWorkflow() {
-  const name = document.getElementById('wf-name').value;
-  const desc = document.getElementById('wf-desc').value;
-  if (!name) { alert('请输入工作流名称'); return; }
-  const nodes = [];
-  for (const id of window._wfNodes || []) {
-    const data = window._wfNodesData[id];
-    if (data) nodes.push({ id: data.id, type: data.type, parameters: data.parameters || {} });
-  }
-  const editId = document.getElementById('wf-edit-id').value;
-  const btn = document.querySelector('#modal-footer .btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
-  try {
-    if (editId) {
-      await api(`/api/workflows/${editId}`, { method: 'PUT', body: JSON.stringify({ name, description: desc, workflow_json: { nodes } }) });
-    } else {
-      await api('/api/workflows/', { method: 'POST', body: JSON.stringify({ name, description: desc, workflow_json: { nodes } }) });
-    }
-    closeModal();
-    refreshWorkflows();
-  } catch(e) { alert('保存失败: ' + e.message); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = '保存'; } }
+  // Open the standalone Drawflow-based editor in a new tab
+  const url = '/static/workflow-editor.html' + (editId ? '?id=' + editId : '');
+  window.open(url, '_blank');
+  // Refresh list when the child tab closes (best-effort)
 }
 
 async function previewWorkflow(id) {
   try {
-    const res = await api(`/api/workflows/${id}/preview`);
+    // 后端预览接口仅支持 POST，显式指定方法避免触发 405 Method Not Allowed。
+    const res = await api(`/api/workflows/${id}/preview`, { method: 'POST' });
     if (res.error) { alert('预览失败: ' + res.error); return; }
     openModal('工作流预览', `
       <div class="text-dim mb-16">输出行数: ${res.rows} | 列: ${(res.columns || []).join(', ')}</div>

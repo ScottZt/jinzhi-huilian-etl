@@ -1,144 +1,224 @@
-"""通用 HTTP 数据源适配器 — 合规设计：工具不内置任何第三方 SDK/密钥/协议。"""
-import pandas as pd
+"""AkShare 直连接口适配器：通过本地 Python akshare 包直接调用，不依赖 AKTools HTTP 网关。"""
+import json
+import re
+import time
 from datetime import datetime
 from typing import Tuple
-import json
+
+import pandas as pd
 
 from app.adapters.source_adapters.kline_base import KLineSourceAdapter, normalize_config
 
 
-class HttpAdapter(KLineSourceAdapter):
-    """通用 HTTP/REST API 适配器。用户自行配置 base_url、headers、请求模板。
+def _format_template_value(value, **kwargs):
+    """递归替换模板变量，兼容 str/dict/list 结构。"""
+    if isinstance(value, str):
+        try:
+            return value.format(**kwargs)
+        except Exception:
+            return value
+    if isinstance(value, dict):
+        return {k: _format_template_value(v, **kwargs) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_format_template_value(v, **kwargs) for v in value]
+    return value
 
-    合规说明：工具不内置任何第三方数据源连接方案，大模型仅生成代码模板，
-    数据源相关的接口、Token、密钥均需用户自行填写。
-    """
+
+def _has_unresolved_placeholders(value) -> bool:
+    """检测替换后是否仍残留关键占位符。"""
+    pattern = re.compile(r"\{(codes|start_time|end_time|interval)\}")
+    if isinstance(value, str):
+        return bool(pattern.search(value))
+    if isinstance(value, dict):
+        return any(_has_unresolved_placeholders(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_has_unresolved_placeholders(v) for v in value)
+    return False
+
+
+def _parse_request_template(config: dict) -> dict:
+    """统一把 request_template 解析为 dict，避免字符串模板导致调用失败。"""
+    req_tmpl = config.get("request_template", {})
+    if isinstance(req_tmpl, str):
+        raw = req_tmpl.strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return req_tmpl if isinstance(req_tmpl, dict) else {}
+
+
+def _normalize_interval(interval: str) -> str:
+    """把调度粒度映射到 AkShare 常用 period 值。"""
+    val = str(interval or "").strip().lower()
+    if val in {"d", "1d", "day", "daily"}:
+        return "daily"
+    if val in {"w", "1w", "week", "weekly"}:
+        return "weekly"
+    if val in {"m", "1m", "month", "monthly"}:
+        return "monthly"
+    return "daily"
+
+
+def _normalize_akshare_df(df: pd.DataFrame) -> pd.DataFrame:
+    """将 AkShare 常见中英文字段归一到系统通用字段。"""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    result = df.copy()
+    # 常见字段统一：保证后续流程能稳定识别时间和 OHLCV。
+    rename_map = {
+        "日期": "datetime",
+        "交易日期": "datetime",
+        "trade_date": "datetime",
+        "date": "datetime",
+        "开盘": "open",
+        "最高": "high",
+        "最低": "low",
+        "收盘": "close",
+        "成交量": "vol",
+        "volume": "vol",
+        "成交额": "amount",
+        "股票代码": "code",
+        "代码": "code",
+        "symbol": "code",
+        "ts_code": "code",
+    }
+    result = result.rename(columns={k: v for k, v in rename_map.items() if k in result.columns})
+    if "datetime" in result.columns:
+        result["datetime"] = pd.to_datetime(result["datetime"], errors="coerce")
+    return result
+
+
+class HttpAdapter(KLineSourceAdapter):
+    """兼容历史命名的 AkShare 适配器（类名保留 HttpAdapter，内部改为本地 SDK 直连）。"""
+
+    def _build_call(self, config: dict, codes: list, start_time: datetime, end_time: datetime, interval: str) -> tuple:
+        """构建 AkShare 函数名和参数，支持模板占位符替换。"""
+        req_tmpl = _parse_request_template(config)
+        func_name = str(req_tmpl.get("func", "")).strip()
+        if not func_name:
+            raise RuntimeError("AkShare request_template.func 不能为空")
+
+        date_format = config.get("date_format", "%Y%m%d")
+        start_str = start_time.strftime(date_format)
+        end_str = end_time.strftime(date_format)
+        # 对 AkShare 默认使用单代码替换；批量场景由上层循环拆分。
+        code_value = str(codes[0]) if codes else "000001"
+        period_value = _normalize_interval(interval)
+        payload = _format_template_value(
+            req_tmpl,
+            start_time=start_str,
+            end_time=end_str,
+            codes=code_value,
+            interval=period_value,
+        )
+        if _has_unresolved_placeholders(payload):
+            raise RuntimeError(
+                "AkShare 模板变量未正确替换，请确认使用 {codes}/{start_time}/{end_time}/{interval}"
+            )
+        if not isinstance(payload, dict):
+            raise RuntimeError("AkShare request_template 必须是 JSON 对象")
+        # 仅透传模板中已有参数，避免给不支持 period 的函数误传参。
+        kwargs = {k: v for k, v in payload.items() if k != "func" and v not in (None, "")}
+        return func_name, kwargs
+
+    def _call_akshare(self, func_name: str, kwargs: dict) -> pd.DataFrame:
+        """调用指定 AkShare 函数并将返回值归一为 DataFrame。"""
+        try:
+            import akshare as ak
+        except Exception as e:
+            raise RuntimeError(f"akshare 库不可用: {e}") from e
+        func = getattr(ak, func_name, None)
+        if not callable(func):
+            raise RuntimeError(f"AkShare 不存在函数: {func_name}")
+        # 针对上游偶发断连做轻量重试，避免一次网络抖动就判定失败。
+        last_error = None
+        for idx in range(3):
+            try:
+                data = func(**kwargs)
+                if isinstance(data, pd.DataFrame):
+                    return data
+                if isinstance(data, list):
+                    return pd.DataFrame(data)
+                if isinstance(data, dict):
+                    return pd.DataFrame([data])
+                return pd.DataFrame()
+            except Exception as e:
+                last_error = e
+                if idx < 2:
+                    time.sleep(0.6 * (idx + 1))
+                    continue
+                raise RuntimeError(f"AkShare 调用失败: {e}") from e
+        raise RuntimeError(f"AkShare 调用失败: {last_error}")
 
     def check_connectivity(self, config: dict) -> Tuple[bool, str]:
+        """测试 AkShare 连通性：优先验证当前模板函数可调用。"""
         config = normalize_config(config)
         try:
-            import requests
-        except Exception:
-            return False, "requests 库不可用"
-
-        base_url = config.get("base_url", "").strip()
-        if not base_url:
-            return False, "base_url 未配置"
-
-        test_path = config.get("test_path", "")
-        url = base_url.rstrip("/") + "/" + test_path.lstrip("/") if test_path else base_url
-        headers = config.get("headers", {})
-        timeout = int(config.get("timeout", 10))
-
-        try:
-            resp = requests.head(url, headers=headers, timeout=timeout)
-            if resp.status_code < 500:
-                return True, f"HTTP 连接成功 ({resp.status_code})"
-            return False, f"服务器错误 ({resp.status_code})"
-        except requests.exceptions.Timeout:
-            return False, "连接超时，请检查 URL 和网络"
-        except requests.exceptions.ConnectionError:
-            return False, "连接失败，请检查 URL 是否正确"
+            # 优先按当前模板函数做一次最小调用，确保“函数+参数”都可用。
+            now = datetime.now()
+            func_name, kwargs = self._build_call(
+                config=config,
+                codes=["000001"],
+                # 连通性探测使用近 30 天窗口，减少历史全量查询导致的偶发失败。
+                start_time=now - pd.Timedelta(days=30),
+                end_time=now,
+                interval="daily",
+            )
+            df = self._call_akshare(func_name, kwargs)
+            return True, f"AkShare 本地直连成功: func={func_name}, rows={len(df)}"
         except Exception as e:
-            return False, str(e)
+            return False, f"AkShare 本地直连失败: {e}"
 
     def fetch_kline(self, config: dict, codes: list, start_time: datetime,
                     end_time: datetime, interval: str = "1min") -> pd.DataFrame:
+        """拉取 AkShare 数据并标准化字段，供预览与流水线复用。"""
         config = normalize_config(config)
-        try:
-            import requests
-        except Exception:
-            raise RuntimeError("requests 库不可用")
+        target_codes = [str(c).strip() for c in (codes or []) if str(c).strip()]
+        if not target_codes:
+            target_codes = ["000001"]
 
-        base_url = config.get("base_url", "")
-        method = config.get("method", "POST").upper()
-        headers = config.get("headers", {})
-        timeout = int(config.get("timeout", 30))
+        merged = []
+        for code in target_codes:
+            # 按代码拆分调用，兼容仅支持单标的参数的 AkShare 接口。
+            func_name, kwargs = self._build_call(config, [code], start_time, end_time, interval)
+            df = self._call_akshare(func_name, kwargs)
+            if df is None or df.empty:
+                continue
+            # 若接口返回中缺少代码列，则补齐当前请求代码，方便后续分组处理。
+            if "代码" not in df.columns and "股票代码" not in df.columns and "code" not in df.columns:
+                df["code"] = code
+            merged.append(df)
 
-        req_tmpl = config.get("request_template", "{}")
-        start_str = start_time.strftime(config.get("date_format", "%Y%m%d"))
-        end_str = end_time.strftime(config.get("date_format", "%Y%m%d"))
-        codes_str = ",".join(codes) if codes else ""
+        if not merged:
+            return pd.DataFrame()
+        result = pd.concat(merged, ignore_index=True)
+        result = _normalize_akshare_df(result)
 
-        try:
-            req_body = req_tmpl.format(
-                start_time=start_str,
-                end_time=end_str,
-                codes=codes_str,
-                interval=interval,
-            )
-            req_body = json.loads(req_body) if req_body.startswith("{") else req_body
-        except Exception:
-            req_body = req_tmpl
-
-        url = base_url.rstrip("/")
-        if method == "GET":
-            resp = requests.get(url, headers=headers, params=req_body if isinstance(req_body, dict) else None,
-                              timeout=timeout)
-        else:
-            resp = requests.post(url, headers=headers, json=req_body, timeout=timeout)
-
-        resp.raise_for_status()
-        data = resp.json()
-
-        data_path = config.get("response_data_path", "")
-        if data_path:
-            for key in data_path.split("."):
-                if key:
-                    data = data.get(key, []) if isinstance(data, dict) else []
-        if not isinstance(data, list):
-            data = data.get("data", data.get("result", [])) if isinstance(data, dict) else []
-            if not isinstance(data, list):
-                return pd.DataFrame()
-
+        # 保留用户自定义列映射能力，便于兼容历史配置。
         col_map_raw = config.get("column_mapping", "{}")
         try:
             col_map = json.loads(col_map_raw) if isinstance(col_map_raw, str) else col_map_raw
         except Exception:
             col_map = {}
-
-        if not data:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(data)
-
-        if col_map:
-            df = df.rename(columns=col_map)
-
-        dt_col = config.get("datetime_column", "datetime")
-        if dt_col in df.columns:
-            df[dt_col] = pd.to_datetime(df[dt_col], errors="coerce")
-
-        return df
+        if isinstance(col_map, dict) and col_map:
+            result = result.rename(columns=col_map)
+        return result
 
     def list_codes(self, config: dict) -> list:
-        config = normalize_config(config)
+        """获取股票代码列表，优先使用 AkShare 实时行情接口。"""
+        _ = normalize_config(config)
         try:
-            import requests
+            import akshare as ak
+            df = ak.stock_zh_a_spot_em()
+            if df is None or df.empty:
+                return []
+            for col in ("代码", "股票代码", "code", "symbol", "ts_code"):
+                if col in df.columns:
+                    return [str(v).strip() for v in df[col].tolist() if str(v).strip()]
+            return []
         except Exception:
             return []
-
-        base_url = config.get("base_url", "")
-        list_path = config.get("list_codes_path", "")
-        if not base_url or not list_path:
-            return []
-
-        url = base_url.rstrip("/") + "/" + list_path.lstrip("/")
-        headers = config.get("headers", {})
-
-        try:
-            resp = requests.get(url, headers=headers, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            code_path = config.get("codes_path", "data")
-            for key in code_path.split("."):
-                if key:
-                    data = data.get(key, []) if isinstance(data, dict) else []
-            if isinstance(data, list) and len(data) > 0:
-                if isinstance(data[0], dict):
-                    code_field = config.get("code_field", "code")
-                    return [str(item.get(code_field, "")) for item in data if item.get(code_field)]
-                return [str(item) for item in data]
-        except Exception:
-            pass
-        return []

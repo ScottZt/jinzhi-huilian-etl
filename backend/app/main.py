@@ -32,6 +32,7 @@ from app.api import license; logger.info(f"[BOOT] app.api.license loaded (t={_t(
 from app.api import ai_script; logger.info(f"[BOOT] app.api.ai_script loaded (t={_t():.1f}s)")
 from app.api import llm; logger.info(f"[BOOT] app.api.llm loaded (t={_t():.1f}s)")
 from app.core.websocket_manager import get_ws_manager; logger.info(f"[BOOT] websocket_manager loaded (t={_t():.1f}s)")
+from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_repo.init_db loaded (t={_t():.1f}s)")
 logger.info(f"[BOOT] All imports done")
 
 
@@ -48,7 +49,8 @@ def _resource_path(relative: str) -> str:
     return str(base / relative)
 
 
-DEFAULT_PORT = int(os.environ.get("JINZHIHUI_PORT", "8080"))
+# Prefer unified env naming for port, keep legacy env naming fallback.
+DEFAULT_PORT = int(os.environ.get("JINZHIHUILIAN_PORT", os.environ.get("JINZHIHUI_PORT", "8080")))
 MAX_PORT = DEFAULT_PORT + 19
 
 # Note: init_db(), init_scheduler() and port scanning are handled by tray_app.py
@@ -69,6 +71,9 @@ async def _periodic_broadcast():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _broadcast_task
+    # Ensure schema exists for Electron/dev startup path (which bypasses tray_app init flow).
+    init_db()
+    _init_audit_db()
     _broadcast_task = asyncio.create_task(_periodic_broadcast())
     yield
     if _broadcast_task:
@@ -83,11 +88,19 @@ app = FastAPI(title="金智汇联ETL", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1", "http://localhost"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
 )
+
+# API 限流中间件（100 次/分钟/IP）
+from app.middleware import RateLimiterMiddleware
+app.add_middleware(RateLimiterMiddleware, max_requests=100, window_seconds=60)
+
+# API 审计日志中间件
+from app.middleware.api_audit import ApiAuditMiddleware, _init_audit_db
+app.add_middleware(ApiAuditMiddleware)
 
 app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
 app.include_router(schemas.router, prefix="/api/schemas", tags=["schemas"])

@@ -22,10 +22,13 @@ def _get_key_dir() -> Path:
     global KEY_DIR
     if KEY_DIR is not None:
         return KEY_DIR
-    if os.environ.get("JINZHIHUI_DATA_DIR"):
+    # Prefer unified env naming, fallback to legacy env naming for compatibility.
+    if os.environ.get("JINZHIHUILIAN_DATA_DIR"):
+        KEY_DIR = Path(os.environ["JINZHIHUILIAN_DATA_DIR"])
+    elif os.environ.get("JINZHIHUI_DATA_DIR"):
         KEY_DIR = Path(os.environ["JINZHIHUI_DATA_DIR"])
     elif os.environ.get("APPDATA"):
-        KEY_DIR = Path(os.environ["APPDATA"]) / "JinZhiHuiETL"
+        KEY_DIR = Path(os.environ["APPDATA"]) / "jinzhihuilian"
     else:
         KEY_DIR = Path(__file__).resolve().parent.parent.parent.parent / "shared"
     KEY_DIR.mkdir(parents=True, exist_ok=True)

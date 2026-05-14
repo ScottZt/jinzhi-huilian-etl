@@ -146,6 +146,7 @@ class ConnectionManager:
             pass
 
     def get_tables(self, conn_config: ConnectionConfig) -> list:
+        # 按连接类型统一分发“列出表名”能力，供前端做目标表下拉。
         db_type = conn_config.type
         cfg = conn_config.config
         try:
@@ -160,6 +161,26 @@ class ConnectionManager:
             return []
         except Exception as e:
             raise RuntimeError(f"Failed to list tables: {e}")
+
+    def get_table_columns(self, conn_config: ConnectionConfig, table_name: str) -> list:
+        # 按连接类型统一分发“读取表字段”能力，供字段映射目标字段候选使用。
+        db_type = conn_config.type
+        cfg = conn_config.config
+        normalized_table = str(table_name or "").strip()
+        if not normalized_table:
+            return []
+        try:
+            if db_type == ConnectionType.MYSQL:
+                return self._mysql_table_columns(cfg, normalized_table)
+            elif db_type == ConnectionType.POSTGRESQL:
+                return self._postgresql_table_columns(cfg, normalized_table)
+            elif db_type == ConnectionType.DUCKDB:
+                return self._duckdb_table_columns(cfg, normalized_table)
+            elif db_type == ConnectionType.CLICKHOUSE:
+                return self._clickhouse_table_columns(cfg, normalized_table)
+            return []
+        except Exception as e:
+            raise RuntimeError(f"Failed to list columns for table '{normalized_table}': {e}")
 
     def _mysql_tables(self, cfg: Dict[str, Any]) -> list:
         with pymysql.connect(
@@ -201,6 +222,82 @@ class ConnectionManager:
         )
         result = client.execute(
             f"SHOW TABLES FROM {cfg.get('database', 'default')}"
+        )
+        return [row[0] for row in result]
+
+    def _mysql_table_columns(self, cfg: Dict[str, Any], table_name: str) -> list:
+        # 通过 information_schema + 参数化查询字段，避免拼接 SQL 标识符导致注入风险。
+        with pymysql.connect(
+            host=cfg.get("host", "localhost"), port=int(cfg.get("port", 3306)),
+            user=cfg.get("user"), password=cfg.get("password"), database=cfg.get("database"),
+        ) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                ORDER BY ORDINAL_POSITION
+                """,
+                (cfg.get("database"), table_name),
+            )
+            return [row[0] for row in cursor.fetchall()]
+
+    def _postgresql_table_columns(self, cfg: Dict[str, Any], table_name: str) -> list:
+        # PostgreSQL 默认读取 public schema 下的字段顺序。
+        conn = psycopg2.connect(
+            host=cfg.get("host", "localhost"), port=int(cfg.get("port", 5432)),
+            user=cfg.get("user"), password=cfg.get("password"), database=cfg.get("database"),
+        )
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s
+            ORDER BY ordinal_position
+            """,
+            (table_name,),
+        )
+        columns = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return columns
+
+    def _duckdb_table_columns(self, cfg: Dict[str, Any], table_name: str) -> list:
+        # DuckDB 通过 information_schema 查询，兼容本地文件库场景。
+        db_path = cfg.get("db_path", ":memory:")
+        conn = duckdb.connect(db_path, read_only=False)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = ?
+            ORDER BY ordinal_position
+            """,
+            [table_name],
+        )
+        columns = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return columns
+
+    def _clickhouse_table_columns(self, cfg: Dict[str, Any], table_name: str) -> list:
+        # ClickHouse 从 system.columns 读取字段定义，按 position 返回原始顺序。
+        db_name = cfg.get("database", "default")
+        client = clickhouse_driver.Client(
+            host=cfg.get("host", "localhost"), port=int(cfg.get("port", 9000)),
+            user=cfg.get("user", "default"), password=cfg.get("password", ""),
+            database=db_name,
+        )
+        result = client.execute(
+            """
+            SELECT name
+            FROM system.columns
+            WHERE database = %(database)s AND table = %(table)s
+            ORDER BY position
+            """,
+            {"database": db_name, "table": table_name},
         )
         return [row[0] for row in result]
 

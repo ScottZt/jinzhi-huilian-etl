@@ -143,8 +143,8 @@ class KLineSyncEngine:
         config = conn_data.get("config", {})
 
         if conn_type == "tdx":
-            from app.adapters.source_adapters.tdx_adapter import HttpAdapter
-            adapter = HttpAdapter()
+            from app.adapters.source_adapters.tdx_adapter import TdxAdapter
+            adapter = TdxAdapter()
         elif conn_type == "akshare":
             from app.adapters.source_adapters.akshare_adapter import HttpAdapter
             adapter = HttpAdapter()
@@ -241,6 +241,7 @@ class KLineSyncEngine:
         columns = df.columns.tolist()
         placeholders = ", ".join(["%s"] * len(columns))
         total = 0
+        errors: List[str] = []
 
         if target_type == "duckdb":
             import duckdb
@@ -250,7 +251,7 @@ class KLineSyncEngine:
                 conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
                 total = len(df)
             except Exception as e:
-                print(f"DuckDB insert error: {e}")
+                errors.append(f"DuckDB insert error: {e}")
             conn.close()
 
         elif target_type == "postgresql":
@@ -278,7 +279,7 @@ class KLineSyncEngine:
                     conn.commit()
                     total += len(values)
                 except Exception as e:
-                    print(f"PostgreSQL insert error: {e}")
+                    errors.append(f"PostgreSQL insert error: {e}")
                     conn.rollback()
             cursor.close()
             conn.close()
@@ -302,7 +303,7 @@ class KLineSyncEngine:
                     conn.commit()
                     total += len(values)
                 except Exception as e:
-                    print(f"MySQL insert error: {e}")
+                    errors.append(f"MySQL insert error: {e}")
                     conn.rollback()
             cursor.close()
             conn.close()
@@ -321,9 +322,12 @@ class KLineSyncEngine:
                     client.execute(f"INSERT INTO {table}", records)
                     total += len(records)
                 except Exception as e:
-                    print(f"ClickHouse insert error: {e}")
+                    errors.append(f"ClickHouse insert error: {e}")
             client.disconnect()
 
+        # 写入阶段存在数据库错误时直接抛出，避免上层误判为“执行成功但0写入”。
+        if errors:
+            raise RuntimeError(errors[0])
         return total
 
     @staticmethod

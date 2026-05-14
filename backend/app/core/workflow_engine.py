@@ -34,8 +34,14 @@ class WorkflowEngine:
     def register_all(self):
         """注册所有内置节点。"""
         from app.nodes import register_all_nodes, discover_custom_plugins
+        from app.nodes import NodeRegistry
         register_all_nodes()
         discover_custom_plugins()
+        # 将 NodeRegistry 中的节点同步到执行引擎，避免“已发现但不可执行”。
+        self._node_registry = {
+            node_type: NodeRegistry.get(node_type)
+            for node_type in NodeRegistry.list_types()
+        }
 
     def execute(self, workflow_json: dict, initial_df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         """
@@ -63,7 +69,10 @@ class WorkflowEngine:
             if not node_class:
                 raise ValueError(f"未知节点类型: {node_type}")
 
-            input_df = self._collect_inputs(node_def, node_outputs)
+            input_df = self._collect_inputs(node_id, node_def, node_outputs, connections)
+            # 无上游时回退到初始数据，保证首节点可消费外部输入样本。
+            if input_df.empty and not node_def.get("inputs"):
+                input_df = initial_df
             t0 = time.time()
             node_instance = node_class()
             output_df = node_instance.process(input_df, params)
@@ -113,8 +122,24 @@ class WorkflowEngine:
             result.extend(missing)
         return result
 
-    def _collect_inputs(self, node_def: dict, node_outputs: dict) -> pd.DataFrame:
+    def _collect_inputs(self, node_id: str, node_def: dict, node_outputs: dict, connections: dict) -> pd.DataFrame:
         inputs = node_def.get("inputs", [])
+        # 兼容仅提供 connections 的工作流定义，自动推导上游节点。
+        if not inputs:
+            inferred_inputs = []
+            for src_id, targets in connections.items():
+                target_ids = []
+                if isinstance(targets, list):
+                    for t in targets:
+                        target_ids.append(t.get("node", t.get("id", "")) if isinstance(t, dict) else str(t))
+                elif isinstance(targets, dict):
+                    for values in targets.values():
+                        if isinstance(values, list):
+                            for t in values:
+                                target_ids.append(t.get("node", t.get("id", "")) if isinstance(t, dict) else str(t))
+                if node_id in target_ids:
+                    inferred_inputs.append({"node": src_id})
+            inputs = inferred_inputs
         if not inputs:
             return pd.DataFrame()
         frames = []
@@ -130,13 +155,22 @@ class WorkflowEngine:
 
     def _get_final_output(self, node_outputs: dict, connections: dict) -> pd.DataFrame:
         all_ids = set(node_outputs.keys())
-        sink_ids = set(all_ids)
+        # 终点节点定义为“没有任何出边的节点”。
+        source_with_outputs = set()
         for src_id, targets in connections.items():
+            has_targets = False
             if isinstance(targets, list):
                 for t in targets:
                     tgt = t.get("node", t.get("id", "")) if isinstance(t, dict) else str(t)
-                    if tgt in sink_ids:
-                        sink_ids.discard(tgt)
+                    if tgt:
+                        has_targets = True
+            elif isinstance(targets, dict):
+                for values in targets.values():
+                    if isinstance(values, list) and values:
+                        has_targets = True
+            if has_targets:
+                source_with_outputs.add(src_id)
+        sink_ids = all_ids - source_with_outputs
 
         if sink_ids:
             for sid in sink_ids:

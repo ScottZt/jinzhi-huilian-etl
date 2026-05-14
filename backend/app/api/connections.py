@@ -77,3 +77,49 @@ async def test_connection(conn_id: str):
     config = ConnectionConfig(id=data["id"], name=data["name"], type=data["type"], config=data["config"])
     success, msg, _ = conn_mgr.check_connection(config)
     return {"success": success, "message": msg}
+
+
+@router.get("/{conn_id}/tables")
+async def list_connection_tables(conn_id: str):
+    """按连接列出目标库中的表名，供前端下拉选择目标表使用。"""
+    data = sqlite_repo.get_connection(conn_id)
+    if not data:
+        return {"error": "Connection not found", "tables": []}
+
+    config = ConnectionConfig(
+        id=data["id"],
+        name=data["name"],
+        type=data["type"],
+        config=data["config"],
+    )
+    try:
+        # 统一复用连接管理器的跨库表枚举能力。
+        tables = conn_mgr.get_tables(config)
+        return {"tables": tables, "count": len(tables)}
+    except Exception as e:
+        return {"error": str(e), "tables": []}
+
+
+@router.get("/{conn_id}/columns")
+async def list_connection_table_columns(conn_id: str, table: str = ""):
+    """按连接+表名读取字段列表，供前端字段映射候选下拉使用。"""
+    data = sqlite_repo.get_connection(conn_id)
+    if not data:
+        return {"error": "Connection not found", "columns": []}
+
+    normalized_table = str(table or "").strip()
+    if not normalized_table:
+        return {"columns": [], "count": 0}
+
+    config = ConnectionConfig(
+        id=data["id"],
+        name=data["name"],
+        type=data["type"],
+        config=data["config"],
+    )
+    try:
+        # 统一复用连接管理器的跨库字段枚举能力。
+        columns = conn_mgr.get_table_columns(config, normalized_table)
+        return {"columns": columns, "count": len(columns)}
+    except Exception as e:
+        return {"error": str(e), "columns": []}

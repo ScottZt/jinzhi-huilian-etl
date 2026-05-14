@@ -30,7 +30,9 @@
       "Bash(grep -n '      </div>\\\\n    \\\\`' \"D:/02.kdcz/quantsync-etl/backend/app/static/index.html\")",
       "Bash(python3)",
       "Bash(curl -s http://127.0.0.1:8899)",
-      "Bash(pyinstaller build.spec)"
+      "Bash(pyinstaller build.spec)",
+      "Bash(rm -rf *)",
+      "Read(//d/d/02.kdcz/quantsync-etl/frontend/**)"
     ]
   }
 }

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作流编辑器 - 金智汇连ETL</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow@0.0.59/dist/drawflow.min.css">
+  <style>
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --card-hover: #22263a;
+      --border: #2d3348; --text: #e2e8f0; --text-dim: #8892a4;
+      --accent: #6366f1; --accent-hover: #818cf8;
+      --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+    }
+    [data-theme="light"] {
+      --bg: #f5f7fa; --card: #ffffff; --card-hover: #f0f2f5;
+      --border: #e2e6ee; --text: #1e293b; --text-dim: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; background: var(--card); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; height: 48px; z-index: 10;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { font-size: 15px; font-weight: 600; color: var(--accent); }
+    .topbar input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; color: var(--text); font-size: 13px; width: 180px;
+    }
+    .topbar input:focus { outline: none; border-color: var(--accent); }
+    .topbar-actions { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; font-size: 12px; background: var(--bg); color: var(--text);
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn:hover { background: var(--card-hover); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: rgba(99,102,241,0.1); color: var(--accent); border-color: var(--accent); }
+    .btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border-color: var(--danger); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* Main layout */
+    .editor-wrap { display: flex; flex: 1; overflow: hidden; }
+
+    /* Palette */
+    .palette {
+      width: 200px; background: var(--card); border-right: 1px solid var(--border);
+      overflow-y: auto; padding: 10px; flex-shrink: 0;
+    }
+    .palette-section { margin-bottom: 14px; }
+    .palette-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-dim); margin-bottom: 6px;
+    }
+    .palette-item {
+      padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
+      cursor: grab; font-size: 12px; margin-bottom: 4px;
+      background: var(--bg); display: flex; align-items: center; gap: 6px;
+      transition: all 0.1s; user-select: none;
+    }
+    .palette-item:hover { border-color: var(--accent); background: var(--card-hover); }
+    .palette-item:active { cursor: grabbing; }
+    .palette-item .icon { font-size: 14px; }
+
+    /* Canvas area */
+    .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+    #drawflow { width: 100%; height: 100%; }
+
+    /* Drawflow overrides */
+    /* Canvas background — match theme */
+    .drawflow {
+      background: var(--bg) !important;
+      background-image: radial-gradient(circle, var(--border) 1px, transparent 1px) !important;
+      background-size: 24px 24px;
+    }
+    .drawflow svg.drawflow-renderer { background: transparent !important; }
+
+    .drawflow .drawflow-node {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0; min-width: 180px; width: 200px;
+      color: var(--text);
+    }
+    .drawflow .drawflow-node.selected {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+      background: var(--card) !important;
+    }
+    .drawflow .drawflow-node:hover { border-color: var(--accent-hover); }
+    .drawflow .drawflow-node .title {
+      background: rgba(99,102,241,0.12); border-left: 3px solid var(--accent);
+      padding: 6px 10px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600;
+      cursor: move; color: var(--text);
+    }
+    .drawflow .drawflow-node .content { padding: 8px 10px; font-size: 11px; color: var(--text-dim); }
+    .drawflow .drawflow-node .output_1 {
+      position: absolute; right: -5px; top: 50%; transform: translateY(-50%);
+    }
+    .drawflow .drawflow-node .input_1 {
+      position: absolute; left: -5px; top: 50%; transform: translateY(-50%);
+    }
+    .drawflow .connection .point { stroke: var(--accent); }
+    .drawflow .connection .point.selected, .drawflow .connection .point:hover {
+      fill: var(--danger);
+    }
+    .drawflow .main-path { stroke: var(--accent); stroke-width: 2px; }
+
+    .drawflow .drawflow-delete {
+      background: var(--danger); color: #fff;
+    }
+
+    /* Properties panel */
+    .props-panel {
+      width: 280px; background: var(--card); border-left: 1px solid var(--border);
+      overflow-y: auto; padding: 16px; flex-shrink: 0; display: flex; flex-direction: column;
+    }
+    .props-panel h3 { font-size: 14px; margin-bottom: 12px; }
+    .props-placeholder { color: var(--text-dim); font-size: 12px; text-align: center; margin-top: 60px; }
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+    .form-control {
+      width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 12px; font-family: inherit;
+    }
+    .form-control:focus { outline: none; border-color: var(--accent); }
+    textarea.form-control { font-family: 'Cascadia Code', monospace; min-height: 60px; resize: vertical; }
+    select.form-control { appearance: auto; }
+    .form-check { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .mt-8 { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      padding: 8px 20px; border-radius: 8px; font-size: 13px; z-index: 100;
+      color: #fff; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+
+    /* Assistant modal */
+    .assistant-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 120;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .assistant-modal {
+      width: min(760px, 96vw); max-height: 86vh; overflow: auto;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    }
+    .assistant-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .assistant-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+    .assistant-body { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .assistant-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>金智汇连ETL</h1>
+      <span style="color:var(--text-dim);font-size:12px">/</span>
+      <input id="wf-name-input" placeholder="工作流名称" value="未命名工作流">
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="editor.zoomOut()">−</button>
+      <button class="btn" onclick="editor.zoomReset()">1:1</button>
+      <button class="btn" onclick="editor.zoomIn()">+</button>
+      <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
+      <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
+      <button class="btn btn-primary" onclick="saveWorkflow()">保存工作流</button>
+      <button class="btn" onclick="window.close()">关闭</button>
+    </div>
+  </div>
+
+  <div class="editor-wrap">
+    <div class="palette" id="palette">
+      <div class="text-dim" style="font-size:12px">加载中...</div>
+    </div>
+    <div class="canvas-wrap">
+      <div id="drawflow"></div>
+    </div>
+    <div class="props-panel" id="props-panel">
+      <div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="assistant-overlay" id="assistant-overlay">
+    <div class="assistant-modal">
+      <div class="assistant-head">
+        <div class="assistant-title">🤖 工作流 AI 交互式助手</div>
+        <button class="btn btn-sm" onclick="closeWorkflowAssistant()">关闭</button>
+      </div>
+      <div class="assistant-body">
+        <div class="form-group">
+          <label>辅助模式</label>
+          <select id="assistant-mode" class="form-control">
+            <option value="wizard">新手引导</option>
+            <option value="troubleshoot">故障排查</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>你的目标</label>
+          <textarea id="assistant-goal" class="form-control" rows="3" placeholder="例如：把分钟线转换为日线并计算 MA5/MA10"></textarea>
+        </div>
+        <div class="form-group">
+          <label>最近错误信息（可选）</label>
+          <textarea id="assistant-last-error" class="form-control" rows="2" placeholder="粘贴报错后可获得更精准建议"></textarea>
+        </div>
+        <div id="assistant-result" style="font-size:12px;color:var(--text-dim)"></div>
+      </div>
+      <div class="assistant-actions">
+        <button class="btn btn-secondary" onclick="applyWorkflowAssistantAction('open_workflow_templates')">模板建议</button>
+        <button class="btn btn-primary" onclick="generateWorkflowAssistantGuide(this)">生成引导建议</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/drawflow@0.0.59/dist/drawflow.min.js"></script>
+  <script>
+    // ---------- Global state ----------
+    let editor;
+    const NODE_CATEGORIES = {
+      '指标计算': [
+        { type: 'resample', label: '周期重采样', icon: '📊' },
+        { type: 'ma', label: '移动平均', icon: '📈' },
+        { type: 'macd', label: 'MACD', icon: '📉' },
+        { type: 'rsi', label: 'RSI', icon: '🔢' },
+        { type: 'boll', label: '布林带', icon: '🎯' },
+      ],
+      '数据处理': [
+        { type: 'filter', label: '数据过滤', icon: '🔍' },
+        { type: 'sort', label: '排序', icon: '↕️' },
+        { type: 'group_by', label: '分组聚合', icon: '📋' },
+        { type: 'column_rename', label: '列重命名', icon: '✏️' },
+        { type: 'expression', label: '表达式计算', icon: '🔢' },
+      ],
+      '流程控制': [
+        { type: 'condition', label: '条件分支', icon: '🔀' },
+      ],
+      '高级': [
+        { type: 'custom_python', label: '自定义脚本', icon: '🐍' },
+      ],
+    };
+
+    // Node parameter defaults
+    const NODE_DEFAULTS = {
+      resample: { rule: '30min', time_column: 'dt', group_column: '' },
+      ma: { windows: '5,10,20', source_column: 'close', use_ema: false },
+      macd: { fast: 12, slow: 26, signal: 9, source_column: 'close' },
+      rsi: { window: 14, source_column: 'close' },
+      boll: { window: 20, std_mult: 2, source_column: 'close' },
+      filter: { mode: 'keep', conditions: [] },
+      sort: { by: 'dt', ascending: true },
+      group_by: { group_by: 'code', aggregations: 'close=last,vol=sum' },
+      column_rename: { renames: 'code=stock_code,dt=trade_time' },
+      expression: { target_column: 'new_col', expression: "df['open'] + df['close']" },
+      condition: { condition: "df['close'] > 0", branch: 'true' },
+      custom_python: { code: 'def process(df):\n    return df' },
+    };
+
+    const NODE_COLORS = {
+      resample: '#6366f1', ma: '#22c55e', macd: '#f59e0b', rsi: '#38bdf8', boll: '#ec4899',
+      filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e', column_rename: '#f59e0b',
+      expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
+    };
+
+    let workflowId = null;
+    let nodeTypeList = [];
+
+    // 读取与主界面一致的主题设置（默认深色）
+    function getTheme() {
+      return localStorage.getItem('theme') || 'dark';
+    }
+
+    // 应用主题到当前文档根节点，触发 CSS 变量切换
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+
+    // ---------- Init ----------
+    async function init() {
+      // 页面初始化时先同步一次主题，避免出现背景色闪烁或不一致
+      applyTheme(getTheme());
+
+      const url = new URL(window.location.href);
+      workflowId = url.searchParams.get('id');
+
+      // Init Drawflow
+      const el = document.getElementById('drawflow');
+      editor = new Drawflow(el, 'html', null);
+      editor.reroute = true;
+      editor.reroute_fix_curvature = true;
+      editor.editor_mode = 'edit';
+      editor.start();
+
+      // Events
+      editor.on('nodeSelected', onNodeSelected);
+      editor.on('nodeUnselected', onNodeUnselected);
+      editor.on('nodeRemoved', onNodeRemoved);
+
+      // Drag & drop from palette
+      el.addEventListener('dragover', e => e.preventDefault());
+      el.addEventListener('drop', onDropNode);
+
+      // Load node types & build palette
+      await loadNodeTypes();
+
+      // Load existing workflow
+      if (workflowId) {
+        await loadWorkflow(workflowId);
+      }
+
+      onNodeUnselected();
+    }
+
+    async function loadNodeTypes() {
+      try {
+        const res = await api('/api/workflows/nodes');
+        nodeTypeList = res.nodes || [];
+      } catch (e) {
+        console.error('Failed to load node types:', e);
+        // Fallback to hardcoded list
+      }
+      buildPalette();
+    }
+
+    function buildPalette() {
+      const palette = document.getElementById('palette');
+      let html = '';
+      for (const [cat, nodes] of Object.entries(NODE_CATEGORIES)) {
+        html += `<div class="palette-section"><div class="palette-title">${cat}</div>`;
+        for (const n of nodes) {
+          html += `<div class="palette-item" draggable="true" data-type="${n.type}"
+                       ondragstart="onDragStart(event, '${n.type}')">
+                     <span class="icon">${n.icon}</span><span>${n.label}</span>
+                   </div>`;
+        }
+        html += '</div>';
+      }
+      palette.innerHTML = html;
+    }
+
+    // ---------- Drag & Drop ----------
+    function onDragStart(e, type) {
+      e.dataTransfer.setData('node-type', type);
+      e.dataTransfer.effectAllowed = 'copy';
+    }
+
+    function onDropNode(e) {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('node-type');
+      if (!type) return;
+
+      const canvasRect = document.getElementById('drawflow').getBoundingClientRect();
+      const x = (e.clientX - canvasRect.left + editor.canvas_x) / editor.scale;
+      const y = (e.clientY - canvasRect.top + editor.canvas_y) / editor.scale;
+
+      addNodeToCanvas(type, x, y);
+    }
+
+    // ---------- Node management ----------
+    function findNodeMeta(type) {
+      for (const nodes of Object.values(NODE_CATEGORIES)) {
+        for (const n of nodes) if (n.type === type) return n;
+      }
+      return null;
+    }
+
+    function addNodeToCanvas(type, x, y, params = null, origId = null) {
+      const meta = findNodeMeta(type);
+      const label = meta ? meta.label : type;
+      const icon = meta ? meta.icon : '⬢';
+      const color = NODE_COLORS[type] || '#6366f1';
+
+      const data = {
+        nodeType: type,
+        parameters: params || { ...NODE_DEFAULTS[type] || {} },
+        label: label,
+        icon: icon,
+        origId: origId,  // preserve original workflow ID for save/load
+      };
+
+      const html = `
+        <div class="title" style="border-left-color:${color}">${icon} ${label}</div>
+        <div class="content" data-content>${formatParamSummary(data.parameters)}</div>
+      `;
+
+      editor.addNode(label, 1, 1, x, y, label, data, html);
+    }
+
+    function formatParamSummary(params) {
+      if (!params || Object.keys(params).length === 0) return '无参数';
+      const items = [];
+      for (const [k, v] of Object.entries(params)) {
+        let sv = v;
+        if (typeof v === 'object') sv = JSON.stringify(v).substring(0, 30);
+        else sv = String(v).substring(0, 30);
+        items.push(`${k}: ${sv}`);
+      }
+      return items.join('<br>');
+    }
+
+    // ---------- Node selection & properties ----------
+    function onNodeSelected(nodeId) {
+      const node = editor.getNodeFromId(nodeId);
+      if (!node) return;
+
+      const meta = findNodeMeta(node.data.nodeType);
+      const color = NODE_COLORS[node.data.nodeType] || '#6366f1';
+      const panel = document.getElementById('props-panel');
+
+      let html = `
+        <h3 style="color:${color}">${node.data.icon} ${node.data.label}</h3>
+        <div class="form-group">
+          <label>节点类型</label>
+          <input class="form-control" value="${node.data.nodeType}" readonly>
+        </div>
+        ${renderParamsFields(node.data.nodeType, node.data.parameters || {})}
+        <button class="btn btn-danger btn-sm mt-16" onclick="deleteSelectedNode('${nodeId}')">删除节点</button>
+      `;
+      panel.innerHTML = html;
+    }
+
+    function onNodeUnselected() {
+      document.getElementById('props-panel').innerHTML =
+        '<div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>';
+    }
+
+    function onNodeRemoved(id) {
+      // If the selected node was removed, clear props panel
+      // Drawflow fires this event but we can't easily check selection here
+    }
+
+    function deleteSelectedNode(id) {
+      editor.removeNodeId(`node-${id}`);
+      onNodeUnselected();
+    }
+
+    function renderParamsFields(type, params) {
+      const schemas = {
+        resample: [
+          { id: 'rule', label: '目标周期', type: 'select', opts: ['5min','15min','30min','60min','D','W','M'] },
+          { id: 'time_column', label: '时间字段', type: 'text' },
+          { id: 'group_column', label: '分组字段（留空不分组）', type: 'text' },
+        ],
+        ma: [
+          { id: 'windows', label: '窗口（逗号分隔）', type: 'text' },
+          { id: 'source_column', label: '源字段', type: 'text' },
+          { id: 'use_ema', label: '使用 EMA', type: 'checkbox' },
+        ],
+        macd: [
+          { id: 'fast', label: '快线周期', type: 'number' },
+          { id: 'slow', label: '慢线周期', type: 'number' },
+          { id: 'signal', label: '信号线周期', type: 'number' },
+          { id: 'source_column', label: '源字段', type: 'text' },
+        ],
+        rsi: [
+          { id: 'window', label: '窗口', type: 'number' },
+          { id: 'source_column', label: '源字段', type: 'text' },
+        ],
+        boll: [
+          { id: 'window', label: '窗口', type: 'number' },
+          { id: 'std_mult', label: '标准差倍数', type: 'number' },
+          { id: 'source_column', label: '源字段', type: 'text' },
+        ],
+        filter: [
+          { id: 'mode', label: '模式', type: 'select', opts: ['keep','drop'] },
+          { id: 'column', label: '过滤字段', type: 'text' },
+          { id: 'operator', label: '操作符', type: 'select', opts: ['>','<','>=','<=','==','!=','is_not_null','is_null','contains'] },
+          { id: 'value', label: '值', type: 'text' },
+        ],
+        sort: [
+          { id: 'by', label: '排序字段', type: 'text' },
+          { id: 'ascending', label: '升序', type: 'checkbox' },
+        ],
+        group_by: [
+          { id: 'group_by', label: '分组字段', type: 'text' },
+          { id: 'aggregations', label: '聚合规则', type: 'text' },
+        ],
+        column_rename: [
+          { id: 'renames', label: '映射 (old=new)', type: 'text' },
+        ],
+        expression: [
+          { id: 'target_column', label: '目标列名', type: 'text' },
+          { id: 'expression', label: '表达式', type: 'textarea' },
+        ],
+        condition: [
+          { id: 'condition', label: '条件表达式', type: 'text' },
+          { id: 'branch', label: '输出分支', type: 'select', opts: ['true','false'] },
+        ],
+        custom_python: [
+          { id: 'code', label: 'Python 代码', type: 'textarea' },
+        ],
+      };
+
+      const fields = schemas[type] || [];
+      let html = '';
+      for (const f of fields) {
+        const val = params[f.id];
+        html += `<div class="form-group"><label>${f.label}</label>`;
+        if (f.type === 'select') {
+          html += `<select class="form-control" data-param="${f.id}">
+            ${f.opts.map(o => `<option value="${o}" ${o === String(val) ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>`;
+        } else if (f.type === 'checkbox') {
+          html += `<label class="form-check"><input type="checkbox" data-param="${f.id}" ${val ? 'checked' : ''}> ${f.label}</label>`;
+          html += `</div>`; // close extra wrapper
+          continue; // checkbox is self-contained
+        } else if (f.type === 'textarea') {
+          html += `<textarea class="form-control" data-param="${f.id}" rows="6">${val || ''}</textarea>`;
+        } else {
+          html += `<input class="form-control" type="${f.type}" data-param="${f.id}" value="${val ?? ''}">`;
+        }
+        html += `</div>`;
+      }
+      html += `<button class="btn btn-secondary btn-sm mt-8" onclick="applyParams()">应用参数</button>`;
+      return html;
+    }
+
+    function applyParams() {
+      const node = editor.getNodeFromId(editor.current_node);
+      if (!node) return;
+
+      const panel = document.getElementById('props-panel');
+      node.data.parameters = node.data.parameters || {};
+
+      // Text/select/number fields
+      panel.querySelectorAll('input:not([type=checkbox]), select, textarea').forEach(el => {
+        const key = el.dataset.param;
+        if (!key) return;
+        let val = el.value;
+        if (el.type === 'number') val = isNaN(Number(val)) ? val : Number(val);
+        node.data.parameters[key] = val;
+      });
+
+      // Checkboxes
+      panel.querySelectorAll('input[type=checkbox]').forEach(el => {
+        const key = el.dataset.param;
+        if (!key) return;
+        node.data.parameters[key] = el.checked;
+      });
+
+      // Update node display
+      const contentEl = editor.drawflow['node-' + editor.current_node]?.querySelector('[data-content]');
+      if (contentEl) {
+        contentEl.innerHTML = formatParamSummary(node.data.parameters);
+      }
+
+      toast('参数已更新', 'success');
+    }
+
+    // ---------- Save / Load ----------
+    async function saveWorkflow() {
+      const name = document.getElementById('wf-name-input').value.trim();
+      if (!name) { alert('请输入工作流名称'); return; }
+
+      const exportData = editor.export();
+      const nodes = [];
+      const connections = {};
+
+      // Map: drawflow_id -> orig_id for saving, orig_id -> drawflow_id for connecting
+      const idMap = {};
+
+      if (exportData.drawflow && exportData.drawflow.Home && exportData.drawflow.Home.data) {
+        const dfNodes = exportData.drawflow.Home.data;
+        // 先完整建立 drawflow_id -> orig_id 映射，避免单遍保存时出现“目标节点还未入表”的情况。
+        for (const [key, dfNode] of Object.entries(dfNodes)) {
+          const drawflowId = key.replace('node-', '');
+          const origId = dfNode.data.origId || drawflowId;
+          idMap[drawflowId] = origId;
+        }
+        // 再写节点和连接，确保连接里落库的是稳定的 orig_id。
+        for (const [key, dfNode] of Object.entries(dfNodes)) {
+          const drawflowId = key.replace('node-', '');
+          const origId = dfNode.data.origId || drawflowId;
+
+          nodes.push({
+            id: origId,
+            type: dfNode.data.nodeType,
+            parameters: dfNode.data.parameters || {},
+          });
+          // Build connections using orig_ids
+          if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
+            const targets = dfNode.outputs.output_1.connections
+              .filter(c => c.node)
+              .map(c => {
+                const tgtDfId = String(c.node);
+                // 目标节点不存在映射时丢弃该边，避免把临时 drawflow_id 持久化到 workflow_json。
+                return idMap[tgtDfId];
+              });
+            // 过滤掉无效边，避免“保存后连线丢失/断边”。
+            const validTargets = targets.filter(Boolean);
+            if (validTargets.length) {
+              connections[origId] = validTargets;
+            }
+          }
+        }
+      }
+
+      const body = {
+        name,
+        description: '',
+        workflow_json: { nodes, connections },
+      };
+
+      try {
+        if (workflowId) {
+          await api(`/api/workflows/${workflowId}`, { method: 'PUT', body: JSON.stringify(body) });
+        } else {
+          const res = await api('/api/workflows/', { method: 'POST', body: JSON.stringify(body) });
+          workflowId = res.id;
+        }
+        toast('保存成功', 'success');
+      } catch (e) {
+        toast('保存失败: ' + e.message, 'error');
+      }
+    }
+
+    async function loadWorkflow(id) {
+      try {
+        const wf = await api(`/api/workflows/${id}`);
+        document.getElementById('wf-name-input').value = wf.name || '';
+        const wfJson = wf.workflow_json;
+        if (!wfJson || !wfJson.nodes) return;
+
+        // Clear existing nodes
+        const exportData = editor.export();
+        if (exportData.drawflow && exportData.drawflow.Home && exportData.drawflow.Home.data) {
+          for (const key of Object.keys(exportData.drawflow.Home.data)) {
+            editor.removeNodeId(key);
+          }
+        }
+
+        // Map: orig_id -> drawflow_id
+        const dfIdMap = {};
+
+        // Load nodes with origId
+        let x = 100, y = 80;
+        for (const node of wfJson.nodes) {
+          addNodeToCanvas(node.type, x, y, node.parameters || {}, node.id);
+          dfIdMap[node.id] = null; // will be filled after addNodeToCanvas
+          x += 240;
+          if (x > 600) { x = 100; y += 150; }
+        }
+
+        // Build the mapping from orig_id to drawflow_id
+        const freshExport = editor.export();
+        if (freshExport.drawflow && freshExport.drawflow.Home) {
+          for (const [key, dfNode] of Object.entries(freshExport.drawflow.Home.data)) {
+            const dfId = key.replace('node-', '');
+            if (dfNode.data.origId) {
+              dfIdMap[dfNode.data.origId] = dfId;
+            }
+          }
+        }
+
+        // Load connections
+        const connPairs = wfJson.connections || {};
+        for (const [srcId, targets] of Object.entries(connPairs)) {
+          for (const tgtId of (Array.isArray(targets) ? targets : [targets])) {
+            const finalTgt = typeof tgtId === 'object' ? (tgtId.node || tgtId.id) : tgtId;
+            connectNodesByDataId(srcId, String(finalTgt), dfIdMap);
+          }
+        }
+
+        editor.zoomReset();
+      } catch (e) {
+        console.error('Failed to load workflow:', e);
+      }
+    }
+
+    function connectNodesByDataId(srcDataId, tgtDataId, dfIdMap) {
+      // 将工作流 JSON 中稳定的节点 ID 映射回画布 drawflow_id 后再连线。
+      const srcDfId = dfIdMap[String(srcDataId)];
+      const tgtDfId = dfIdMap[String(tgtDataId)];
+      // 缺任一端节点则跳过，避免抛异常中断后续连线恢复。
+      if (!srcDfId || !tgtDfId) return;
+      try {
+        // Drawflow connect 接受“纯数字字符串节点 ID”，不带 node- 前缀。
+        editor.addConnection(String(srcDfId), String(tgtDfId), 'output_1', 'input_1');
+      } catch (e) {
+        // 忽略重复边或非法边错误，确保其余连线继续恢复。
+        console.debug('connect failed:', srcDataId, '->', tgtDataId, e?.message || e);
+      }
+    }
+
+    function clearAll() {
+      if (!confirm('确定清空画布所有节点？')) return;
+      const exportData = editor.export();
+      if (exportData.drawflow && exportData.drawflow.Home && exportData.drawflow.Home.data) {
+        for (const key of Object.keys(exportData.drawflow.Home.data)) {
+          editor.removeNodeId(key);
+        }
+      }
+      onNodeUnselected();
+    }
+
+    // ---------- API helper ----------
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        method: options.method || 'GET',
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        body: options.body,
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`${res.status}: ${err}`);
+      }
+      return res.json();
+    }
+
+    function escapeHtml(value) {
+      // 统一转义，避免将建议内容直接插入 HTML 时引起展示异常。
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    async function trackAssistantEvent(eventName, payload = {}) {
+      // 工作流编辑器同样上报助手埋点，保持主界面和编辑器统计口径一致。
+      try {
+        await api('/api/llm/assistant-event', {
+          method: 'POST',
+          body: JSON.stringify({ event_name: eventName, scene: 'workflow', payload }),
+        });
+      } catch (e) {
+        console.debug('assistant event ignored:', e.message);
+      }
+    }
+
+    function openWorkflowAssistant() {
+      // 打开工作流助手弹层，优先用于节点链路和参数引导。
+      const el = document.getElementById('assistant-overlay');
+      if (!el) return;
+      el.style.display = 'flex';
+      trackAssistantEvent('assistant_opened', { mode: 'wizard', from: 'workflow_editor' });
+    }
+
+    function closeWorkflowAssistant() {
+      const el = document.getElementById('assistant-overlay');
+      if (!el) return;
+      el.style.display = 'none';
+    }
+
+    function applyWorkflowAssistantAction(action) {
+      // 为工作流编辑器提供最小可执行动作，避免仅给纯文本建议。
+      if (action === 'open_workflow_templates') {
+        toast('建议优先使用“分钟转日线/均线生成”模板作为起点', 'success');
+        trackAssistantEvent('assistant_action_applied', { action });
+      }
+      if (action === 'zoom_reset') {
+        editor.zoomReset();
+        trackAssistantEvent('assistant_action_applied', { action });
+      }
+    }
+
+    async function generateWorkflowAssistantGuide(triggerBtn = null) {
+      // 根据当前画布节点结构和用户目标生成步骤化建议。
+      const host = document.getElementById('assistant-result');
+      if (!host) return;
+      const mode = document.getElementById('assistant-mode')?.value || 'wizard';
+      const goal = document.getElementById('assistant-goal')?.value || '';
+      const lastError = document.getElementById('assistant-last-error')?.value || '';
+      const graph = editor.export();
+      const nodeCount = Object.keys(graph?.drawflow?.Home?.data || {}).length;
+      // 点击后立即更新按钮状态，给出明确的 loading 反馈。
+      const originalBtnText = triggerBtn ? triggerBtn.textContent : '';
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.textContent = '生成中...';
+      }
+      host.innerHTML = '<span style="color:var(--text-dim)">AI 正在生成建议...</span>';
+      try {
+        const res = await api('/api/llm/assistant-guide', {
+          method: 'POST',
+          body: JSON.stringify({
+            scene: 'workflow',
+            mode,
+            goal,
+            last_error: lastError,
+            current_config: { node_count: nodeCount },
+          }),
+        });
+        const steps = (res.steps || []).map((s, idx) =>
+          `<li><strong>${idx + 1}. ${escapeHtml(s.title)}</strong> - ${escapeHtml(s.detail)}</li>`
+        ).join('');
+        const checks = (res.checks || []).map(c => `<li>${escapeHtml(c)}</li>`).join('');
+        const troubles = (res.troubleshoot || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
+        host.innerHTML = `
+          <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:10px;margin-bottom:8px">
+            <strong>结论：</strong>${escapeHtml(res.summary || '')}
+          </div>
+          <div style="margin-bottom:8px"><strong>推荐步骤</strong><ol style="padding-left:18px">${steps || '<li>暂无建议</li>'}</ol></div>
+          <div style="margin-bottom:8px"><strong>自检清单</strong><ul style="padding-left:18px">${checks || '<li>暂无清单</li>'}</ul></div>
+          ${troubles ? `<div><strong>故障诊断</strong><ul style="padding-left:18px">${troubles}</ul></div>` : ''}
+          <div style="margin-top:8px">
+            <button class="btn btn-secondary btn-sm" onclick="applyWorkflowAssistantAction('zoom_reset')">重置画布缩放</button>
+          </div>
+        `;
+        trackAssistantEvent('assistant_guidance_generated', { mode, hasError: !!lastError, nodeCount });
+      } catch (e) {
+        host.innerHTML = `<span style="color:var(--danger)">建议生成失败：${escapeHtml(e.message)}</span>`;
+      } finally {
+        // 请求完成后恢复按钮状态，允许用户继续发起下一次生成。
+        if (triggerBtn) {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = originalBtnText || '生成引导建议';
+        }
+      }
+    }
+
+    // ---------- Toast ----------
+    function toast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show ' + type;
+      setTimeout(() => el.className = 'toast', 2000);
+    }
+
+    // ---------- Start ----------
+    window.addEventListener('DOMContentLoaded', init);
+
+    // 监听其它窗口主题切换（主界面切换时可实时同步）
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'theme') {
+        applyTheme(event.newValue || 'dark');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -13,14 +13,24 @@
   },
   "build": {
     "appId": "com.quantsync.etl",
-    "productName": "QuantSync ETL",
+    "productName": "QuantSyncETL",
     "directories": {
       "output": "dist"
     },
     "files": [
       "src/**/*",
-      "../backend/**/*",
       "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/backend-server",
+        "to": "backend-server",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../logo.png",
+        "to": "logo.png"
+      }
     ],
     "extraMetadata": {
       "main": "src/main.js"
@@ -36,7 +46,8 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "src/assets/icon.ico"
+      "icon": "src/assets/icon.ico",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": ["dmg", "zip"],

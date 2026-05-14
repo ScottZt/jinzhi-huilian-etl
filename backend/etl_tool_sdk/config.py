@@ -10,17 +10,18 @@ class SDKConfig:
     """SDK 全局配置类。"""
 
     # 默认数据目录（与工具主程序共享）
-    DEFAULT_DATA_DIR = Path.home() / "JinZhiHuiETL"
+    DEFAULT_DATA_DIR = Path.home() / "jinzhihuilian"
 
     # 日志配置
-    LOG_LEVEL = os.environ.get("JINZHIHUI_SDK_LOG_LEVEL", "INFO")
+    # Prefer unified env naming, keep legacy env naming fallback.
+    LOG_LEVEL = os.environ.get("JINZHIHUILIAN_SDK_LOG_LEVEL", os.environ.get("JINZHIHUI_SDK_LOG_LEVEL", "INFO"))
     LOG_DIR = DEFAULT_DATA_DIR / "logs"
     LOG_FILE = LOG_DIR / "sdk.log"
     LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
     LOG_BACKUP_COUNT = 5
 
     # 数据库配置
-    DB_PATH = DEFAULT_DATA_DIR / "jinzhihui.db"
+    DB_PATH = DEFAULT_DATA_DIR / "jinzhihuilian.db"
 
     # HTTP 请求默认超时（秒）
     HTTP_TIMEOUT = 30
@@ -40,13 +41,13 @@ class SDKConfig:
         """初始化 SDK 配置。可在导入 SDK 前调用以覆盖默认值。
 
         Args:
-            data_dir: 数据目录路径（默认 ~/.JinZhiHuiETL）
+            data_dir: 数据目录路径（默认 ~/jinzhihuilian）
             log_level: 日志级别（DEBUG/INFO/WARNING/ERROR）
         """
         if data_dir:
             cls.DEFAULT_DATA_DIR = Path(data_dir)
             cls.LOG_DIR = cls.DEFAULT_DATA_DIR / "logs"
-            cls.DB_PATH = cls.DEFAULT_DATA_DIR / "jinzhihui.db"
+            cls.DB_PATH = cls.DEFAULT_DATA_DIR / "jinzhihuilian.db"
 
         cls.LOG_LEVEL = log_level.upper()
         cls._initialized = True

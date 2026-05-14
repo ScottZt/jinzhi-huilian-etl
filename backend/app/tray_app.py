@@ -214,6 +214,9 @@ _tray_stop_event = threading.Event()
 # ─── Environment Helpers ───────────────────────────────────────
 
 def _get_data_dir() -> Path:
+    # Prefer unified env naming, keep legacy env naming for compatibility.
+    if os.environ.get("JINZHIHUILIAN_DATA_DIR"):
+        return Path(os.environ["JINZHIHUILIAN_DATA_DIR"])
     if os.environ.get("JINZHIHUI_DATA_DIR"):
         return Path(os.environ["JINZHIHUI_DATA_DIR"])
     if sys.platform == "win32":
@@ -222,7 +225,7 @@ def _get_data_dir() -> Path:
         base = Path.home() / "Library" / "Application Support"
     else:
         base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    return base / "JinZhiHuiETL"
+    return base / "jinzhihuilian"
 
 
 def _is_port_in_use(port: int) -> bool:
@@ -966,6 +969,8 @@ def run_tray_app():
                 init_result[0] = "error"
                 logger.error(f"Data dir error: {msg}")
                 return
+            # Export both new and legacy env names to keep old modules/scripts compatible.
+            os.environ["JINZHIHUILIAN_DATA_DIR"] = str(data_dir)
             os.environ["JINZHIHUI_DATA_DIR"] = str(data_dir)
             _redirect_stdio(data_dir)
             _setup_logging(data_dir)
@@ -1036,14 +1041,20 @@ def run_tray_app():
             t6 = time.time()
             logger.info(f"[{time.time()-t0:.1f}s] Starting uvicorn...")
             import uvicorn
+
+            # 安全限制：禁止监听 0.0.0.0（合规要求，禁止暴露至公网）
+            listen_host = "127.0.0.1"
+            assert listen_host != "0.0.0.0", "安全限制：禁止监听 0.0.0.0，仅允许 127.0.0.1"
+
             config = uvicorn.Config(
-                app, host="127.0.0.1", port=port,
+                app, host=listen_host, port=port,
                 log_level="info", access_log=False, log_config=None,
             )
             server = uvicorn.Server(config)
             srv_t = threading.Thread(target=server.run, daemon=True)
             srv_t.start()
             logger.info(f"[{time.time()-t0:.1f}s] Uvicorn started in {time.time()-t6:.1f}s")
+            logger.info(f"合规提示: 本服务默认仅监听 127.0.0.1，禁止暴露至公网")
 
             # Step 7: Wait for server ready
             init_status[0] = "等待服务就绪..."

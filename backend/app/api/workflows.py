@@ -1,13 +1,15 @@
 """工作流 API — CRUD + 预览执行。"""
+import math
 from fastapi import APIRouter
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 import uuid
 import pandas as pd
 
 from app.persistence import sqlite_repo
 from app.core.workflow_engine import get_workflow_engine
-from app.nodes import register_all_nodes
+from app.core.license_manager import check_feature_or_raise, check_feature
+from app.core.workflow_presets import get_workflow_presets
 
 router = APIRouter()
 
@@ -27,6 +29,25 @@ class WorkflowPreview(BaseModel):
     sample_data: Optional[List[dict]] = None
 
 
+class PresetRunRequest(BaseModel):
+    auto_seed: bool = True
+    overwrite_existing: bool = False
+
+
+def _json_safe(value: Any) -> Any:
+    """将返回数据转换为严格 JSON 安全格式，避免 NaN/Inf 导致响应序列化失败。"""
+    # Python float 中的 NaN/Inf 在严格 JSON 中非法，需要统一转为 None。
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
+    # 递归处理字典结构，确保嵌套字段同样安全。
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    # 递归处理列表结构，确保数组中的异常数值也被替换。
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 @router.get("/", response_model=List[dict])
 async def get_all_workflows():
     return sqlite_repo.list_workflows()
@@ -42,6 +63,7 @@ async def get_workflow(workflow_id: str):
 
 @router.post("/")
 async def create_workflow(body: WorkflowCreate):
+    check_feature_or_raise("max_workflows")  # free: 1, personal: 5, professional: unlimited
     workflow_id = str(uuid.uuid4())
     record = {
         "id": workflow_id,
@@ -55,6 +77,7 @@ async def create_workflow(body: WorkflowCreate):
 
 @router.put("/{workflow_id}")
 async def update_workflow(workflow_id: str, body: WorkflowCreate):
+    check_feature_or_raise("max_workflows")
     record = {
         "id": workflow_id,
         "name": body.name,
@@ -81,6 +104,13 @@ async def preview_workflow(workflow_id: str):
     return _execute_workflow_preview(wf_data["workflow_json"], None)
 
 
+@router.get("/{workflow_id}/preview")
+async def preview_workflow_get_compat(workflow_id: str):
+    """兼容旧前端缓存：允许 GET 方式访问工作流预览。"""
+    # 复用同一执行逻辑，确保 GET/POST 行为一致，避免缓存版本导致 405。
+    return await preview_workflow(workflow_id)
+
+
 @router.post("/preview")
 async def preview_workflow_direct(body: WorkflowPreview):
     """直接预览工作流（传入 workflow_json + 可选 sample_data）。"""
@@ -96,18 +126,98 @@ def _execute_workflow_preview(workflow_json: dict, df: Optional[pd.DataFrame]):
         df = pd.DataFrame()
 
     engine = get_workflow_engine()
-    register_all_nodes()
+    # 每次预览前都同步节点注册，保证插件和内置节点可执行。
+    engine.register_all()
 
     try:
         result_df, timings = engine.execute(workflow_json, df)
+        # 指标类节点常会在前几行产生 NaN/Inf；先统一做 JSON 安全化，避免预览接口报错。
+        preview_records = _json_safe(result_df.head(50).to_dict("records"))
         return {
             "rows": len(result_df),
             "columns": list(result_df.columns),
-            "preview": result_df.head(50).to_dict("records"),
-            "timings": timings,
+            "preview": preview_records,
+            "timings": _json_safe(timings),
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+def _upsert_workflow_by_name(name: str, description: str, workflow_json: dict, overwrite_existing: bool) -> dict:
+    """按名称写入工作流，支持覆盖或复用。"""
+    existing = sqlite_repo.list_workflows()
+    for wf in existing:
+        if wf.get("name") == name:
+            if overwrite_existing:
+                record = {
+                    "id": wf["id"],
+                    "name": name,
+                    "description": description,
+                    "workflow_json": workflow_json,
+                }
+                return sqlite_repo.save_workflow(record)
+            return wf
+    record = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "description": description,
+        "workflow_json": workflow_json,
+    }
+    return sqlite_repo.save_workflow(record)
+
+
+@router.get("/presets")
+async def list_workflow_presets():
+    """列出内置预制工作流清单。"""
+    presets = get_workflow_presets()
+    return [
+        {
+            "key": item["key"],
+            "name": item["name"],
+            "description": item["description"],
+            "sample_rows": len(item.get("sample_data", [])),
+        }
+        for item in presets
+    ]
+
+
+@router.post("/seed-presets")
+async def seed_workflow_presets(overwrite_existing: bool = False):
+    """写入内置预制工作流。"""
+    saved: List[Dict[str, Any]] = []
+    for preset in get_workflow_presets():
+        wf = _upsert_workflow_by_name(
+            name=preset["name"],
+            description=preset["description"],
+            workflow_json=preset["workflow_json"],
+            overwrite_existing=overwrite_existing,
+        )
+        saved.append({"id": wf["id"], "name": wf["name"], "key": preset["key"]})
+    return {"count": len(saved), "workflows": saved}
+
+
+@router.post("/run-presets")
+async def run_workflow_presets(body: Optional[PresetRunRequest] = None):
+    """执行所有预制工作流并返回结果，确保样例可跑通。"""
+    if body is None:
+        # 未传请求体时使用默认配置，方便直接一键调用。
+        body = PresetRunRequest()
+    if body.auto_seed:
+        await seed_workflow_presets(overwrite_existing=body.overwrite_existing)
+
+    runs: List[Dict[str, Any]] = []
+    for preset in get_workflow_presets():
+        df = pd.DataFrame(preset.get("sample_data", []))
+        result = _execute_workflow_preview(preset["workflow_json"], df)
+        runs.append(
+            {
+                "key": preset["key"],
+                "name": preset["name"],
+                "input_rows": len(df),
+                "result": result,
+            }
+        )
+    return {"count": len(runs), "runs": runs}
 
 
 @router.get("/nodes")
@@ -120,6 +230,19 @@ async def list_node_types():
         {"type": nt, "info": NodeRegistry.get_info(nt)}
         for nt in NodeRegistry.list_types()
     ]
+
+
+@router.post("/seed-demo")
+async def seed_demo_workflow():
+    """兼容旧接口：写入第一套预制工作流。"""
+    first = get_workflow_presets()[0]
+    wf = _upsert_workflow_by_name(
+        name=first["name"],
+        description=first["description"],
+        workflow_json=first["workflow_json"],
+        overwrite_existing=False,
+    )
+    return {"id": wf["id"], "message": "示例工作流已创建"}
 
 
 @router.post("/create-plugin")

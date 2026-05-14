@@ -154,10 +154,18 @@ async def test_credential(credential_id: str):
     if not data:
         return {"success": False, "message": "凭证不存在"}
     raw_cfg = data["config"]
-    if isinstance(raw_cfg, dict) and "_encrypted" in raw_cfg:
-        cfg = decrypt_credential(raw_cfg["_encrypted"])
-    else:
-        cfg = raw_cfg
+    try:
+        # 先解密配置；若密钥不一致或数据损坏，返回可读错误而不是 500。
+        if isinstance(raw_cfg, dict) and "_encrypted" in raw_cfg:
+            cfg = decrypt_credential(raw_cfg["_encrypted"])
+        else:
+            cfg = raw_cfg
+    except Exception as e:
+        return {"success": False, "message": f"❌ 凭证解密失败: {e}"}
+
+    if not isinstance(cfg, dict):
+        return {"success": False, "message": "❌ 凭证配置格式错误：config 必须是对象"}
+
     cred_type = data.get("type", "")
 
     try:
@@ -211,7 +219,14 @@ async def test_credential(credential_id: str):
                 return {"success": False, "message": "❌ 未配置 base_url"}
         else:
             return {"success": False, "message": f"❌ 未知凭证类型：{cred_type}"}
-    except httpx.TimeoutException:
-        return {"success": False, "message": "❌ 连接超时，请检查 base_url 是否正确、网络是否可达"}
     except Exception as e:
+        # 避免 httpx 导入失败时进入 except 子句再抛 NameError，导致前端只看到 InternalServerError。
+        if "httpx" in str(e).lower() and ("no module named" in str(e).lower() or "cannot import" in str(e).lower()):
+            return {"success": False, "message": "❌ 依赖缺失: httpx 未安装，请安装后重试"}
+        try:
+            import httpx as _httpx
+            if isinstance(e, _httpx.TimeoutException):
+                return {"success": False, "message": "❌ 连接超时，请检查 base_url 是否正确、网络是否可达"}
+        except Exception:
+            pass
         return {"success": False, "message": f"❌ {str(e)}"}

@@ -1,24 +1,32 @@
 import os
 import json
 import sqlite3
+import shutil
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from contextlib import contextmanager
 
 def _get_data_dir() -> Path:
+    # Prefer the unified env name; keep legacy env for backward compatibility.
+    if os.environ.get("JINZHIHUILIAN_DATA_DIR"):
+        return Path(os.environ["JINZHIHUILIAN_DATA_DIR"])
     if os.environ.get("JINZHIHUI_DATA_DIR"):
         return Path(os.environ["JINZHIHUI_DATA_DIR"])
     if os.environ.get("APPDATA"):
-        return Path(os.environ["APPDATA"]) / "JinZhiHuiETL"
+        return Path(os.environ["APPDATA"]) / "jinzhihuilian"
     return Path(__file__).resolve().parent.parent.parent.parent / "shared"
 
 STORE_DIR = _get_data_dir()
-DB_PATH = STORE_DIR / "jinzhihui.db"
+DB_PATH = STORE_DIR / "jinzhihuilian.db"
+LEGACY_DB_PATH = STORE_DIR / "jinzhihui.db"
 
 
 def _ensure_store():
     STORE_DIR.mkdir(parents=True, exist_ok=True)
+    # One-time migration: move legacy db filename to unified filename.
+    if (not DB_PATH.exists()) and LEGACY_DB_PATH.exists():
+        shutil.copy2(LEGACY_DB_PATH, DB_PATH)
 
 
 @contextmanager
@@ -169,16 +177,21 @@ def init_db():
             CREATE TABLE IF NOT EXISTS llm_config (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL DEFAULT 'default',
-                provider TEXT NOT NULL DEFAULT 'openai',
-                base_url TEXT NOT NULL DEFAULT 'https://api.openai.com/v1',
+                provider TEXT NOT NULL DEFAULT 'cloud_demo',
+                base_url TEXT NOT NULL DEFAULT 'https://api.siliconflow.cn/v1',
                 api_key TEXT NOT NULL,
-                model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+                model TEXT NOT NULL DEFAULT 'Qwen/Qwen2.5-7B-Instruct',
                 system_prompt TEXT NOT NULL DEFAULT '你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。',
-                enabled INTEGER NOT NULL DEFAULT 0,
+                stream_mode TEXT NOT NULL DEFAULT 'normal',
+                enabled INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
         """)
+        # 兼容旧版本数据库：补充 stream_mode 列，用于控制全局 LLM 调用模式（普通/SSE）。
+        llm_cols = [r["name"] for r in conn.execute("PRAGMA table_info(llm_config)").fetchall()]
+        if "stream_mode" not in llm_cols:
+            conn.execute("ALTER TABLE llm_config ADD COLUMN stream_mode TEXT NOT NULL DEFAULT 'normal'")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS kline_sources (
                 id TEXT PRIMARY KEY,
@@ -190,6 +203,46 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ai_assistant_events (
+                id TEXT PRIMARY KEY,
+                event_name TEXT NOT NULL,
+                scene TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        # 首次初始化：自动写入本地免费模型默认配置，确保新用户开箱可体验 AI 辅助。
+        llm_count_row = conn.execute("SELECT COUNT(1) AS cnt FROM llm_config").fetchone()
+        if (llm_count_row is None) or (int(llm_count_row["cnt"]) == 0):
+            now = datetime.utcnow().isoformat()
+            conn.execute(
+                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, stream_mode, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "default",
+                    "default",
+                    "cloud_demo",
+                    "https://api.siliconflow.cn/v1",
+                    "",
+                    "Qwen/Qwen2.5-7B-Instruct",
+                    "你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。",
+                    "normal",
+                    1,
+                    now,
+                    now,
+                ),
+            )
+        else:
+            # 兼容旧版本：若仍是 openai 且未填 key，则自动迁移到云端免费体验默认配置。
+            legacy = conn.execute(
+                "SELECT id, provider, api_key FROM llm_config ORDER BY updated_at DESC, created_at DESC LIMIT 1"
+            ).fetchone()
+            if legacy and str(legacy["provider"]).lower() == "openai" and not str(legacy["api_key"] or "").strip():
+                now = datetime.utcnow().isoformat()
+                conn.execute(
+                    "UPDATE llm_config SET provider=?, base_url=?, model=?, stream_mode=?, enabled=?, updated_at=? WHERE id=?",
+                    ("cloud_demo", "https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct", "normal", 1, now, legacy["id"]),
+                )
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
@@ -526,14 +579,18 @@ def save_pipeline(data: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.utcnow().isoformat()
     with _get_db() as conn:
         existing = conn.execute(
-            "SELECT id FROM pipelines WHERE id = ?", (data["id"],)
+            "SELECT id, status, last_run_at FROM pipelines WHERE id = ?", (data["id"],)
         ).fetchone()
         if existing:
+            # 更新时保留已有状态字段；仅当调用方显式传入时才覆盖。
+            status_val = data["status"] if "status" in data else existing["status"]
+            last_run_at_val = data["last_run_at"] if "last_run_at" in data else existing["last_run_at"]
             conn.execute(
                 "UPDATE pipelines SET name=?, description=?, pipeline_json=?, enabled=?, "
-                "cron_expression=?, updated_at=? WHERE id=?",
+                "cron_expression=?, status=?, last_run_at=?, updated_at=? WHERE id=?",
                 (data["name"], data.get("description", ""), json.dumps(data.get("pipeline_json", {})),
-                 1 if data.get("enabled", True) else 0, data.get("cron_expression"), now, data["id"]),
+                 1 if data.get("enabled", True) else 0, data.get("cron_expression"),
+                 status_val, last_run_at_val, now, data["id"]),
             )
         else:
             conn.execute(
@@ -782,18 +839,18 @@ def save_llm_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
         existing = conn.execute("SELECT id FROM llm_config WHERE id = ?", (cfg["id"],)).fetchone()
         if existing:
             conn.execute(
-                "UPDATE llm_config SET name=?, provider=?, base_url=?, api_key=?, model=?, system_prompt=?, enabled=?, updated_at=? WHERE id=?",
-                (cfg.get("name", "default"), cfg.get("provider", "openai"), cfg.get("base_url", ""),
-                 cfg.get("api_key", ""), cfg.get("model", "gpt-4o-mini"),
-                 cfg.get("system_prompt", ""), cfg.get("enabled", 0), now, cfg["id"]),
+                "UPDATE llm_config SET name=?, provider=?, base_url=?, api_key=?, model=?, system_prompt=?, stream_mode=?, enabled=?, updated_at=? WHERE id=?",
+                (cfg.get("name", "default"), cfg.get("provider", "cloud_demo"), cfg.get("base_url", "https://api.siliconflow.cn/v1"),
+                 cfg.get("api_key", ""), cfg.get("model", "Qwen/Qwen2.5-7B-Instruct"),
+                 cfg.get("system_prompt", ""), cfg.get("stream_mode", "normal"), cfg.get("enabled", 0), now, cfg["id"]),
             )
         else:
             conn.execute(
-                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (cfg.get("id", "default"), cfg.get("name", "default"), cfg.get("provider", "openai"),
-                 cfg.get("base_url", ""), cfg.get("api_key", ""),
-                 cfg.get("model", "gpt-4o-mini"), cfg.get("system_prompt", ""),
-                 cfg.get("enabled", 0), now, now),
+                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, stream_mode, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (cfg.get("id", "default"), cfg.get("name", "default"), cfg.get("provider", "cloud_demo"),
+                 cfg.get("base_url", "https://api.siliconflow.cn/v1"), cfg.get("api_key", ""),
+                 cfg.get("model", "Qwen/Qwen2.5-7B-Instruct"), cfg.get("system_prompt", ""),
+                 cfg.get("stream_mode", "normal"), cfg.get("enabled", 0), now, now),
             )
     return get_llm_config(cfg["id"])
 
@@ -815,7 +872,10 @@ def list_ll_configs() -> List[Dict[str, Any]]:
             data = _row_to_dict(row)
             # Mask API key in list
             key = data.get("api_key", "")
-            if key and len(key) > 8:
+            if not key:
+                # 空 key 保持为空，避免前端回填成“****”造成误保存。
+                data["api_key"] = ""
+            elif len(key) > 8:
                 data["api_key"] = key[:4] + "****" + key[-4:]
             else:
                 data["api_key"] = "****"
@@ -827,3 +887,62 @@ def delete_llm_config(cfg_id: str) -> bool:
     with _get_db() as conn:
         cursor = conn.execute("DELETE FROM llm_config WHERE id = ?", (cfg_id,))
         return cursor.rowcount > 0
+
+
+def get_active_llm_config() -> Optional[Dict[str, Any]]:
+    """获取当前可用的 LLM 配置（优先 enabled=1，其次按最近创建回退）。"""
+    with _get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM llm_config ORDER BY enabled DESC, updated_at DESC, created_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            return _row_to_dict(row)
+    return None
+
+
+# ---- AI Assistant Event ----
+
+def save_ai_assistant_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    """保存 AI 交互助手事件，供产品埋点和体验分析使用。"""
+    now = datetime.utcnow().isoformat()
+    with _get_db() as conn:
+        conn.execute(
+            "INSERT INTO ai_assistant_events (id, event_name, scene, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
+            (
+                event["id"],
+                event["event_name"],
+                event["scene"],
+                json.dumps(event.get("payload", {}), ensure_ascii=False),
+                now,
+            ),
+        )
+    return get_ai_assistant_event(event["id"])
+
+
+def get_ai_assistant_event(event_id: str) -> Optional[Dict[str, Any]]:
+    """按 ID 获取单条 AI 助手事件。"""
+    with _get_db() as conn:
+        row = conn.execute("SELECT * FROM ai_assistant_events WHERE id = ?", (event_id,)).fetchone()
+        if not row:
+            return None
+        data = _row_to_dict(row)
+        data["payload"] = json.loads(data["payload_json"]) if data.get("payload_json") else {}
+        data.pop("payload_json", None)
+        return data
+
+
+def list_ai_assistant_events(limit: int = 200) -> List[Dict[str, Any]]:
+    """按时间倒序获取 AI 助手事件，默认返回最近 200 条。"""
+    safe_limit = max(1, min(limit, 1000))
+    with _get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM ai_assistant_events ORDER BY created_at DESC LIMIT ?",
+            (safe_limit,),
+        ).fetchall()
+        results: List[Dict[str, Any]] = []
+        for row in rows:
+            data = _row_to_dict(row)
+            data["payload"] = json.loads(data["payload_json"]) if data.get("payload_json") else {}
+            data.pop("payload_json", None)
+            results.append(data)
+        return results

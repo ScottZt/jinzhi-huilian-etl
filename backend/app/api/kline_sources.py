@@ -154,22 +154,33 @@ async def delete_source(source_id: str):
 
 def _get_adapter_for_source(source_type: str, cfg: dict):
     """根据数据源类型选择合适的适配器。"""
-    try:
-        if source_type == "tushare":
-            from app.adapters.source_adapters.tushare_adapter import HttpAdapter
-        elif source_type == "akshare":
-            from app.adapters.source_adapters.akshare_adapter import HttpAdapter
-        elif source_type == "tdx":
-            from app.adapters.source_adapters.tdx_adapter import TdxAdapter
-            return TdxAdapter()
-        elif source_type == "http":
-            from app.adapters.source_adapters.tdx_adapter import HttpAdapter
+    # 兼容历史/前端保存的通用 HTTP 类型：根据 request_template 自动识别来源。
+    # - 包含 api_name: 视为 Tushare 风格
+    # - 包含 func: 视为 AkShare 风格
+    # - 其他: 回退到通用 HTTP 解析能力更强的 Tushare 适配器
+    if source_type == "http":
+        req_tmpl = cfg.get("request_template", {})
+        if isinstance(req_tmpl, str):
+            try:
+                req_tmpl = json.loads(req_tmpl)
+            except Exception:
+                req_tmpl = {}
+        if isinstance(req_tmpl, dict) and "func" in req_tmpl:
+            source_type = "akshare"
         else:
-            from app.adapters.source_adapters.tdx_adapter import HttpAdapter
+            source_type = "tushare"
+
+    if source_type == "tushare":
+        from app.adapters.source_adapters.tushare_adapter import HttpAdapter
         return HttpAdapter()
-    except ImportError:
-        from app.adapters.source_adapters.tdx_adapter import HttpAdapter
+    elif source_type == "akshare":
+        from app.adapters.source_adapters.akshare_adapter import HttpAdapter
         return HttpAdapter()
+    elif source_type == "tdx":
+        from app.adapters.source_adapters.tdx_adapter import TdxAdapter
+        return TdxAdapter()
+    else:
+        raise ValueError(f"Unsupported source type: {source_type}")
 
 
 @router.post("/{source_id}/test")
@@ -190,7 +201,48 @@ async def test_source(source_id: str):
         cfg = _inject_credential(cfg)
         cfg = normalize_config(cfg)
         adapter = _get_adapter_for_source(source_type, cfg)
-        success, message = adapter.check_connectivity(cfg)
+        # AkShare 场景执行“接口级”探测：不仅测 base_url，还用当前 request_template 触发一次最小拉取。
+        # 这样可以直接暴露“func/参数不匹配”的问题，避免只做 HEAD 连通导致误判。
+        if source_type == "akshare":
+            req_tmpl = cfg.get("request_template", {})
+            func_name = ""
+            if isinstance(req_tmpl, str):
+                try:
+                    req_tmpl = json.loads(req_tmpl)
+                except Exception:
+                    req_tmpl = {}
+            if isinstance(req_tmpl, dict):
+                func_name = str(req_tmpl.get("func", "")).strip()
+            # 若未配置 func，直接返回明确错误，提示用户先选具体 AkShare 接口模板。
+            if not func_name:
+                return {
+                    "success": False,
+                    "message": "AkShare 测试失败：request_template.func 为空，请先选择具体接口模板（如 stock_zh_a_hist）",
+                }
+
+            # 使用预览参数做一次最小样本请求，验证接口可调用且参数可用。
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=5)
+            preview_codes_raw = cfg.get("preview_codes", "000001")
+            if isinstance(preview_codes_raw, list):
+                probe_codes = [str(c) for c in preview_codes_raw[:1] if str(c).strip()]
+            elif isinstance(preview_codes_raw, str):
+                probe_codes = [c.strip() for c in preview_codes_raw.split(",") if c.strip()][:1]
+            else:
+                probe_codes = []
+            if not probe_codes:
+                probe_codes = ["000001"]
+
+            probe_interval = cfg.get("interval", "daily")
+            probe_df = adapter.fetch_kline(cfg, probe_codes, start_time, end_time, probe_interval)
+            if probe_df is None or probe_df.empty:
+                return {
+                    "success": False,
+                    "message": f"AkShare 接口调用成功但返回空数据：func={func_name}，请检查 symbol/日期区间/adjust 参数",
+                }
+            success, message = True, f"AkShare 接口测试成功：func={func_name}，返回 {len(probe_df)} 条记录"
+        else:
+            success, message = adapter.check_connectivity(cfg)
         notice = COMPLIANCE_NOTICE
         return {"success": success, "message": f"{message}\n\n{notice}"}
     except Exception as e:
@@ -241,13 +293,26 @@ async def preview_source_data(source_id: str):
 
         end_time = datetime.now()
         start_time = end_time - timedelta(days=3)
-        preview_codes_raw = cfg.get("preview_codes", "000001")
+        # 预览默认值按来源区分：Tushare 用带交易所后缀代码，其他来源保持 6 位代码。
+        default_preview_code = "000001"
+        if source_type == "tushare":
+            default_preview_code = "000001.SZ"
+        elif source_type == "http":
+            req_tmpl = cfg.get("request_template", {})
+            if isinstance(req_tmpl, str):
+                try:
+                    req_tmpl = json.loads(req_tmpl)
+                except Exception:
+                    req_tmpl = {}
+            if isinstance(req_tmpl, dict) and ("api_name" in req_tmpl) and ("func" not in req_tmpl):
+                default_preview_code = "000001.SZ"
+        preview_codes_raw = cfg.get("preview_codes", default_preview_code)
         if isinstance(preview_codes_raw, list):
             codes = [str(c) for c in preview_codes_raw[:3]]
         elif isinstance(preview_codes_raw, str):
             codes = [c.strip() for c in preview_codes_raw.split(",") if c.strip()][:3]
         else:
-            codes = ["000001"]
+            codes = [default_preview_code]
         interval = cfg.get("interval", "1min")
 
         # Capture debug info
