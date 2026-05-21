@@ -90,7 +90,9 @@ def _postgres_insert_worker(df: pd.DataFrame, cfg: Dict, table: str, worker_id: 
 
 
 def _duckdb_insert_worker(df: pd.DataFrame, cfg: Dict, table: str, worker_id: int) -> Dict[str, Any]:
-    db_path = cfg.get("db_path", ":memory:")
+    db_path = cfg.get("db_path", "")
+    if not db_path:
+        raise ValueError("db_path 为空")
     conn = duckdb.connect(db_path, read_only=False)
     try:
         conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")

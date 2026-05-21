@@ -72,7 +72,7 @@
 
     /* Canvas area */
     .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
-    #drawflow { width: 100%; height: 100%; }
+    .canvas-wrap #drawflow { width: 100%; height: 100%; }
 
     /* Drawflow overrides */
     /* Canvas background — match theme */
@@ -167,11 +167,12 @@
       <h1>金智汇连ETL</h1>
       <span style="color:var(--text-dim);font-size:12px">/</span>
       <input id="wf-name-input" placeholder="工作流名称" value="未命名工作流">
+      <input id="wf-desc-input" placeholder="工作流描述（可选）" style="width:260px;margin-left:8px">
     </div>
     <div class="topbar-actions">
-      <button class="btn" onclick="editor.zoomOut()">−</button>
-      <button class="btn" onclick="editor.zoomReset()">1:1</button>
-      <button class="btn" onclick="editor.zoomIn()">+</button>
+      <button class="btn" onclick="try{editor.zoomOut()}catch(e){}">−</button>
+      <button class="btn" onclick="try{editor.zoomReset()}catch(e){}">1:1</button>
+      <button class="btn" onclick="try{editor.zoomIn()}catch(e){}">+</button>
       <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
       <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
       <button class="btn btn-primary" onclick="saveWorkflow()">保存工作流</button>
@@ -249,6 +250,16 @@
       '高级': [
         { type: 'custom_python', label: '自定义脚本', icon: '🐍' },
       ],
+      '数据接入': [
+        { type: 'source_fetch', label: '数据源拉取', icon: '📥' },
+      ],
+      '数据输出': [
+        { type: 'target_write', label: '写入目标库', icon: '📤' },
+      ],
+      '数据优化': [
+        { type: 'dedup', label: '数据去重', icon: '🧹' },
+        { type: 'time_window', label: '时间窗口分批', icon: '⏱️' },
+      ],
     };
 
     // Node parameter defaults
@@ -265,16 +276,22 @@
       expression: { target_column: 'new_col', expression: "df['open'] + df['close']" },
       condition: { condition: "df['close'] > 0", branch: 'true' },
       custom_python: { code: 'def process(df):\n    return df' },
+      source_fetch: { source_type: 'tdx', codes: '000001,600000', interval: '1min', time_mode: 'lookback', lookback_days: 30, session_only: true, parallel: false, max_workers: 4 },
+      target_write: { target_type: 'duckdb', target_table: 'stock_minute_kline', batch_size: 5000, on_duplicate: 'ignore' },
+      dedup: { mode: 'keep_last', columns: 'code,dt' },
+      time_window: { window_size: 7, window_step: 7, time_column: 'dt', sort_first: true },
     };
 
     const NODE_COLORS = {
       resample: '#6366f1', ma: '#22c55e', macd: '#f59e0b', rsi: '#38bdf8', boll: '#ec4899',
       filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e', column_rename: '#f59e0b',
       expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
+      source_fetch: '#06b6d4', target_write: '#8b5cf6', dedup: '#14b8a6', time_window: '#f97316',
     };
 
     let workflowId = null;
     let nodeTypeList = [];
+    let currentSelectedNodeId = null;  // 保存当前选中的节点ID
 
     // 读取与主界面一致的主题设置（默认深色）
     function getTheme() {
@@ -299,6 +316,7 @@
       editor = new Drawflow(el, 'html', null);
       editor.reroute = true;
       editor.reroute_fix_curvature = true;
+      editor.zoom = true;
       editor.editor_mode = 'edit';
       editor.start();
 
@@ -360,9 +378,14 @@
       const type = e.dataTransfer.getData('node-type');
       if (!type) return;
 
-      const canvasRect = document.getElementById('drawflow').getBoundingClientRect();
-      const x = (e.clientX - canvasRect.left + editor.canvas_x) / editor.scale;
-      const y = (e.clientY - canvasRect.top + editor.canvas_y) / editor.scale;
+      // Use canvas-wrap for bounding rect (has explicit flex sizing)
+      const container = document.querySelector('.canvas-wrap');
+      const rect = container.getBoundingClientRect();
+      const scale = editor.scale || 1;
+      const panX = editor.canvas_x || 0;
+      const panY = editor.canvas_y || 0;
+      const x = (e.clientX - rect.left - panX) / scale;
+      const y = (e.clientY - rect.top - panY) / scale;
 
       addNodeToCanvas(type, x, y);
     }
@@ -411,8 +434,14 @@
 
     // ---------- Node selection & properties ----------
     function onNodeSelected(nodeId) {
-      const node = editor.getNodeFromId(nodeId);
+      currentSelectedNodeId = String(nodeId).replace(/^node-/, '');
+      // Drawflow 内部路径: editor.drawflow.drawflow[module].data
+      const store = editor.drawflow && editor.drawflow.drawflow ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      const node = store && store[nodeId] ? store[nodeId] : editor.getNodeFromId(nodeId);
       if (!node) return;
+
+      console.log('onNodeSelected id=' + nodeId + ' ascending=' + JSON.stringify(node.data?.parameters?.ascending));
+      console.log('store keys:', Object.keys(store || {}));
 
       const meta = findNodeMeta(node.data.nodeType);
       const color = NODE_COLORS[node.data.nodeType] || '#6366f1';
@@ -425,12 +454,14 @@
           <input class="form-control" value="${node.data.nodeType}" readonly>
         </div>
         ${renderParamsFields(node.data.nodeType, node.data.parameters || {})}
+        <button class="btn btn-secondary btn-sm mt-8" onclick="applyParamsForNode('${nodeId}')">应用参数</button>
         <button class="btn btn-danger btn-sm mt-16" onclick="deleteSelectedNode('${nodeId}')">删除节点</button>
       `;
       panel.innerHTML = html;
     }
 
     function onNodeUnselected() {
+      currentSelectedNodeId = null;
       document.getElementById('props-panel').innerHTML =
         '<div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>';
     }
@@ -500,6 +531,38 @@
         custom_python: [
           { id: 'code', label: 'Python 代码', type: 'textarea' },
         ],
+        source_fetch: [
+          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare'] },
+          { id: 'source_config', label: '数据源配置(JSON)', type: 'textarea' },
+          { id: 'codes', label: '股票代码(逗号分隔)', type: 'text' },
+          { id: 'interval', label: 'K线周期', type: 'select', opts: ['1min','5min','15min','30min','60min','D'] },
+          { id: 'time_mode', label: '时间模式', type: 'select', opts: ['lookback','custom','since_last'] },
+          { id: 'lookback_days', label: '回看天数', type: 'number' },
+          { id: 'parallel', label: '并行拉取', type: 'checkbox' },
+          { id: 'max_workers', label: '最大并发数', type: 'number' },
+          { id: 'session_only', label: '仅交易时段', type: 'checkbox' },
+        ],
+        target_write: [
+          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse'] },
+          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea' },
+          { id: 'target_table', label: '目标表名', type: 'text' },
+          { id: 'batch_size', label: '批次大小', type: 'number' },
+          { id: 'on_duplicate', label: '重复策略', type: 'select', opts: ['ignore','update','error'] },
+          { id: 'columns', label: '写入字段(逗号分隔)', type: 'text' },
+        ],
+        dedup: [
+          { id: 'mode', label: '去重模式', type: 'select', opts: ['keep_last','keep_first','check_existing'] },
+          { id: 'columns', label: '去重字段(逗号分隔)', type: 'text' },
+          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse',''] },
+          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea' },
+          { id: 'target_table', label: '目标表名', type: 'text' },
+        ],
+        time_window: [
+          { id: 'window_size', label: '窗口大小(天)', type: 'number' },
+          { id: 'window_step', label: '窗口步长(天)', type: 'number' },
+          { id: 'time_column', label: '时间字段', type: 'text' },
+          { id: 'sort_first', label: '先按时间排序', type: 'checkbox' },
+        ],
       };
 
       const fields = schemas[type] || [];
@@ -522,46 +585,76 @@
         }
         html += `</div>`;
       }
-      html += `<button class="btn btn-secondary btn-sm mt-8" onclick="applyParams()">应用参数</button>`;
       return html;
     }
 
-    function applyParams() {
-      const node = editor.getNodeFromId(editor.current_node);
-      if (!node) return;
+    function applyParamsForNode(nodeId) {
+      if (!nodeId) { toast('请先选中一个节点', 'warning'); return; }
 
       const panel = document.getElementById('props-panel');
-      node.data.parameters = node.data.parameters || {};
+      // Drawflow 内部路径: editor.drawflow.drawflow[module].data
+      const store = editor.drawflow && editor.drawflow.drawflow ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      if (!store || !store[nodeId]) { toast('节点不存在', 'error'); return; }
+      const node = store[nodeId];
 
-      // Text/select/number fields
+      // 从表单读取参数
+      const params = {};
+
       panel.querySelectorAll('input:not([type=checkbox]), select, textarea').forEach(el => {
-        const key = el.dataset.param;
-        if (!key) return;
+        const k = el.dataset.param;
+        if (!k) return;
         let val = el.value;
         if (el.type === 'number') val = isNaN(Number(val)) ? val : Number(val);
-        node.data.parameters[key] = val;
+        params[k] = val;
       });
 
-      // Checkboxes
       panel.querySelectorAll('input[type=checkbox]').forEach(el => {
-        const key = el.dataset.param;
-        if (!key) return;
-        node.data.parameters[key] = el.checked;
+        const k = el.dataset.param;
+        if (!k) return;
+        params[k] = el.checked;
       });
 
-      // Update node display
-      const contentEl = editor.drawflow['node-' + editor.current_node]?.querySelector('[data-content]');
-      if (contentEl) {
-        contentEl.innerHTML = formatParamSummary(node.data.parameters);
+      console.log('applyParamsForNode id=' + nodeId + ' params=' + JSON.stringify(params));
+      console.log('Before: node.data.parameters=' + JSON.stringify(node.data.parameters));
+
+      // 直接修改 Drawflow 内部存储（store 是引用）
+      node.data.parameters = params;
+
+      console.log('After: node.data.parameters=' + JSON.stringify(node.data.parameters));
+
+      // 更新画布上的节点卡片显示
+      const domNode = document.getElementById('node-' + nodeId);
+      if (domNode) {
+        const contentEl = domNode.querySelector('[data-content]');
+        if (contentEl) contentEl.innerHTML = formatParamSummary(params);
       }
 
+      // 重新渲染属性面板
+      const color = NODE_COLORS[node.data.nodeType] || '#6366f1';
+      panel.innerHTML = `
+        <h3 style="color:${color}">${node.data.icon} ${node.data.label}</h3>
+        <div class="form-group">
+          <label>节点类型</label>
+          <input class="form-control" value="${node.data.nodeType}" readonly>
+        </div>
+        ${renderParamsFields(node.data.nodeType, params)}
+        <button class="btn btn-secondary btn-sm mt-8" onclick="applyParamsForNode('${nodeId}')">应用参数</button>
+        <button class="btn btn-danger btn-sm mt-16" onclick="deleteSelectedNode('${nodeId}')">删除节点</button>
+      `;
+
       toast('参数已更新', 'success');
+    }
+
+    // 保留旧函数名兼容
+    function applyParams() {
+      applyParamsForNode(currentSelectedNodeId);
     }
 
     // ---------- Save / Load ----------
     async function saveWorkflow() {
       const name = document.getElementById('wf-name-input').value.trim();
       if (!name) { alert('请输入工作流名称'); return; }
+      const description = document.getElementById('wf-desc-input').value.trim();
 
       const exportData = editor.export();
       const nodes = [];
@@ -608,7 +701,7 @@
 
       const body = {
         name,
-        description: '',
+        description,
         workflow_json: { nodes, connections },
       };
 
@@ -620,6 +713,10 @@
           workflowId = res.id;
         }
         toast('保存成功', 'success');
+        // 通知父窗口刷新工作流列表
+        if (window.opener && typeof window.opener.refreshWorkflows === 'function') {
+          window.opener.refreshWorkflows();
+        }
       } catch (e) {
         toast('保存失败: ' + e.message, 'error');
       }
@@ -629,6 +726,7 @@
       try {
         const wf = await api(`/api/workflows/${id}`);
         document.getElementById('wf-name-input').value = wf.name || '';
+        document.getElementById('wf-desc-input').value = wf.description || '';
         const wfJson = wf.workflow_json;
         if (!wfJson || !wfJson.nodes) return;
 
@@ -672,7 +770,7 @@
           }
         }
 
-        editor.zoomReset();
+        try { if (typeof editor.zoomReset === 'function') editor.zoomReset(); } catch(e) {}
       } catch (e) {
         console.error('Failed to load workflow:', e);
       }
@@ -761,7 +859,7 @@
         trackAssistantEvent('assistant_action_applied', { action });
       }
       if (action === 'zoom_reset') {
-        editor.zoomReset();
+        try { if (typeof editor.zoomReset === 'function') editor.zoomReset(); } catch(e) {}
         trackAssistantEvent('assistant_action_applied', { action });
       }
     }

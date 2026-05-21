@@ -31,6 +31,7 @@ from app.api import pipelines; logger.info(f"[BOOT] app.api.pipelines loaded (t=
 from app.api import license; logger.info(f"[BOOT] app.api.license loaded (t={_t():.1f}s)")
 from app.api import ai_script; logger.info(f"[BOOT] app.api.ai_script loaded (t={_t():.1f}s)")
 from app.api import llm; logger.info(f"[BOOT] app.api.llm loaded (t={_t():.1f}s)")
+from app.api import file_utils; logger.info(f"[BOOT] app.api.file_utils loaded (t={_t():.1f}s)")
 from app.core.websocket_manager import get_ws_manager; logger.info(f"[BOOT] websocket_manager loaded (t={_t():.1f}s)")
 from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_repo.init_db loaded (t={_t():.1f}s)")
 logger.info(f"[BOOT] All imports done")
@@ -53,8 +54,7 @@ def _resource_path(relative: str) -> str:
 DEFAULT_PORT = int(os.environ.get("JINZHIHUILIAN_PORT", os.environ.get("JINZHIHUI_PORT", "8080")))
 MAX_PORT = DEFAULT_PORT + 19
 
-# Note: init_db(), init_scheduler() and port scanning are handled by tray_app.py
-# No slow operations at import time.
+# Note: init_db() and init_audit_db() are handled in lifespan().
 
 _broadcast_task = None
 
@@ -71,7 +71,7 @@ async def _periodic_broadcast():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _broadcast_task
-    # Ensure schema exists for Electron/dev startup path (which bypasses tray_app init flow).
+    # Ensure schema exists for standalone startup path.
     init_db()
     _init_audit_db()
     _broadcast_task = asyncio.create_task(_periodic_broadcast())
@@ -94,9 +94,9 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# API 限流中间件（100 次/分钟/IP）
+# API 限流中间件（500 次/分钟/IP）
 from app.middleware import RateLimiterMiddleware
-app.add_middleware(RateLimiterMiddleware, max_requests=100, window_seconds=60)
+app.add_middleware(RateLimiterMiddleware, max_requests=500, window_seconds=60)
 
 # API 审计日志中间件
 from app.middleware.api_audit import ApiAuditMiddleware, _init_audit_db
@@ -118,6 +118,7 @@ app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"]
 app.include_router(license.router, prefix="/api/license", tags=["license"])
 app.include_router(ai_script.router, prefix="/api/ai-script", tags=["ai-script"])
 app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
+app.include_router(file_utils.router, prefix="/api/files", tags=["files"])
 
 static_dir = _resource_path("static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")

@@ -83,6 +83,18 @@ class SchemaManager:
         ddl += ",\n".join(field_defs)
         ddl += "\n);"
 
+        # Add column comments (database-specific syntax)
+        for field in schema.fields:
+            if field.description:
+                if db_type == "mysql":
+                    ddl += f"\nALTER TABLE {schema.table_name} MODIFY COLUMN {field.name} {type_map[field.type](field)} COMMENT '{field.description}';"
+                elif db_type == "postgresql":
+                    ddl += f"\nCOMMENT ON COLUMN {schema.table_name}.{field.name} IS '{field.description}';"
+                elif db_type == "duckdb":
+                    ddl += f"\nCOMMENT ON COLUMN {schema.table_name}.{field.name} IS '{field.description}';"
+                elif db_type == "clickhouse":
+                    ddl += f"\nALTER TABLE {schema.table_name} COMMENT COLUMN {field.name} '{field.description}';"
+
         for index in schema.indexes:
             index_type = "UNIQUE INDEX" if index.unique else "INDEX"
             ddl += f"\n\nCREATE {index_type} {index.name} ON {schema.table_name} ({', '.join(index.fields)});"

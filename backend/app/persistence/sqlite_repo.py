@@ -4,7 +4,15 @@ import sqlite3
 import shutil
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# 全局统一使用上海时间（UTC+8）
+_SHANGHAI_TZ = timezone(timedelta(hours=8))
+
+
+def _now_iso() -> str:
+    """返回当前上海时间的 ISO 格式字符串。"""
+    return datetime.now(_SHANGHAI_TZ).isoformat()
 from contextlib import contextmanager
 
 def _get_data_dir() -> Path:
@@ -215,7 +223,7 @@ def init_db():
         # 首次初始化：自动写入本地免费模型默认配置，确保新用户开箱可体验 AI 辅助。
         llm_count_row = conn.execute("SELECT COUNT(1) AS cnt FROM llm_config").fetchone()
         if (llm_count_row is None) or (int(llm_count_row["cnt"]) == 0):
-            now = datetime.utcnow().isoformat()
+            now = _now_iso()
             conn.execute(
                 "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, stream_mode, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
@@ -238,7 +246,7 @@ def init_db():
                 "SELECT id, provider, api_key FROM llm_config ORDER BY updated_at DESC, created_at DESC LIMIT 1"
             ).fetchone()
             if legacy and str(legacy["provider"]).lower() == "openai" and not str(legacy["api_key"] or "").strip():
-                now = datetime.utcnow().isoformat()
+                now = _now_iso()
                 conn.execute(
                     "UPDATE llm_config SET provider=?, base_url=?, model=?, stream_mode=?, enabled=?, updated_at=? WHERE id=?",
                     ("cloud_demo", "https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct", "normal", 1, now, legacy["id"]),
@@ -252,7 +260,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 # ---- Connection CRUD ----
 
 def save_connection(conn_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM connections WHERE id = ?", (conn_data["id"],)
@@ -300,7 +308,7 @@ def delete_connection(conn_id: str) -> bool:
 # ---- Schema CRUD ----
 
 def save_schema(schema_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM table_schemas WHERE id = ?", (schema_data["id"],)
@@ -350,7 +358,7 @@ def delete_schema(schema_id: str) -> bool:
 # ---- Task CRUD ----
 
 def save_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM tasks WHERE id = ?", (task_data["id"],)
@@ -410,7 +418,7 @@ def delete_task(task_id: str) -> bool:
 # ---- Bulk Import CRUD ----
 
 def save_bulk_import(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM bulk_imports WHERE id = ?", (data["id"],)
@@ -475,7 +483,7 @@ def delete_bulk_import(import_id: str) -> bool:
 # ---- Workflow CRUD ----
 
 def save_workflow(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute("SELECT id FROM workflows WHERE id = ?", (data["id"],)).fetchone()
         if existing:
@@ -523,7 +531,7 @@ def delete_workflow(workflow_id: str) -> bool:
 # ---- Sync Run Records CRUD ----
 
 def save_sync_record(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute("SELECT id FROM sync_run_records WHERE id = ?", (data["id"],)).fetchone()
         if existing:
@@ -576,7 +584,7 @@ def list_sync_records(task_id: str, limit: int = 20) -> List[Dict[str, Any]]:
 # ---- Pipeline CRUD ----
 
 def save_pipeline(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id, status, last_run_at FROM pipelines WHERE id = ?", (data["id"],)
@@ -635,7 +643,7 @@ def delete_pipeline(pipeline_id: str) -> bool:
 
 
 def save_pipeline_run(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM pipeline_runs WHERE id = ?", (data["id"],)
@@ -695,7 +703,7 @@ def list_pipeline_runs(pipeline_id: str = None, limit: int = 20) -> List[Dict[st
 # ---- Metadata CRUD ----
 
 def save_metadata(key: str, value: str) -> None:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute('SELECT key FROM metadata WHERE key = ?', (key,)).fetchone()
         if existing:
@@ -719,7 +727,7 @@ def delete_metadata(key: str) -> bool:
 # ---- Credential CRUD ----
 
 def save_credential(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM credentials WHERE id = ?", (data["id"],)
@@ -776,7 +784,7 @@ def delete_credential(credential_id: str) -> bool:
 # ---- Kline Source CRUD (independent from connections) ----
 
 def save_kline_source(source_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute(
             "SELECT id FROM kline_sources WHERE id = ?", (source_data["id"],)
@@ -834,7 +842,7 @@ def delete_kline_source(source_id: str) -> bool:
 # ---- LLM Config CRUD ----
 
 def save_llm_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         existing = conn.execute("SELECT id FROM llm_config WHERE id = ?", (cfg["id"],)).fetchone()
         if existing:
@@ -904,7 +912,7 @@ def get_active_llm_config() -> Optional[Dict[str, Any]]:
 
 def save_ai_assistant_event(event: Dict[str, Any]) -> Dict[str, Any]:
     """保存 AI 交互助手事件，供产品埋点和体验分析使用。"""
-    now = datetime.utcnow().isoformat()
+    now = _now_iso()
     with _get_db() as conn:
         conn.execute(
             "INSERT INTO ai_assistant_events (id, event_name, scene, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",

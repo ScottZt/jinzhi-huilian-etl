@@ -206,7 +206,9 @@ class ExecutionEngine:
             )
             return pd.read_sql(sql, conn)
         elif db_type == "duckdb":
-            db_path = cfg.get("db_path", ":memory:")
+            db_path = cfg.get("db_path", "")
+            if not db_path:
+                raise ValueError("db_path 为空")
             conn = duckdb.connect(db_path, read_only=False)
             return conn.execute(sql).fetchdf()
         elif db_type == "clickhouse":
@@ -265,7 +267,9 @@ class ExecutionEngine:
             conn.close()
 
         elif db_type == "duckdb":
-            db_path = cfg.get("db_path", ":memory:")
+            db_path = cfg.get("db_path", "")
+            if not db_path:
+                raise ValueError("db_path 为空")
             conn = duckdb.connect(db_path, read_only=False)
             conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
             total_inserted = len(df)

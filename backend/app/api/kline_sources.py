@@ -1,5 +1,5 @@
 """数据源 API — 合规设计：通用 HTTP 连接，用户自行配置 API，无第三方 SDK 绑定。"""
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timedelta
 from typing import List
 from pydantic import BaseModel
@@ -9,6 +9,12 @@ import json
 from app.persistence import sqlite_repo
 from app.models.connection import ConnectionConfig
 from app.core.credential_manager import decrypt_credential, mask_sensitive
+from app.core.private_feature_auth import (
+    PRIVATE_FEATURE_HEADER,
+    issue_private_feature_token,
+    is_private_feature_configured,
+    is_private_feature_token_valid,
+)
 
 def _inject_credential(cfg: dict) -> dict:
     """If credential_id is set, merge credential config into cfg headers."""
@@ -84,6 +90,15 @@ def _inject_credential(cfg: dict) -> dict:
 
 router = APIRouter()
 
+# Mootdx 属于私有入口，默认不在常规列表中暴露。
+PRIVATE_SOURCE_TYPES = {"mootdx"}
+
+
+class PrivateFeatureUnlockRequest(BaseModel):
+    """私有功能解锁请求体。"""
+
+    password: str
+
 
 class KLineSourceCreate(BaseModel):
     name: str
@@ -98,6 +113,40 @@ class KLineSourceResponse(BaseModel):
     config: dict
 
 
+def _is_private_request_unlocked(request: Request) -> bool:
+    """判断当前请求是否已携带有效私有功能令牌。"""
+    token = str(request.headers.get(PRIVATE_FEATURE_HEADER, "")).strip()
+    return is_private_feature_token_valid(token)
+
+
+def _is_private_source(source_type: str) -> bool:
+    """判断数据源类型是否属于私有能力。"""
+    return str(source_type or "").strip().lower() in PRIVATE_SOURCE_TYPES
+
+
+def _filter_visible_sources(sources: list, request: Request) -> list:
+    """按请求权限过滤数据源列表，未解锁时隐藏私有数据源。"""
+    if _is_private_request_unlocked(request):
+        return sources
+    return [item for item in sources if not _is_private_source(item.get("type", ""))]
+
+
+def _ensure_private_source_allowed(source_type: str, request: Request) -> None:
+    """创建/修改私有数据源前执行权限校验。"""
+    if not _is_private_source(source_type):
+        return
+    if not is_private_feature_configured():
+        raise HTTPException(status_code=403, detail="Mootdx 私有功能未配置密码，无法启用")
+    if not _is_private_request_unlocked(request):
+        raise HTTPException(status_code=403, detail="Mootdx 私有功能未解锁")
+
+
+def _ensure_source_visible(data: dict, request: Request) -> None:
+    """访问单个数据源前校验其可见性，避免私有源被直接枚举。"""
+    if data and _is_private_source(data.get("type", "")) and (not _is_private_request_unlocked(request)):
+        raise HTTPException(status_code=404, detail="数据源不存在")
+
+
 # 合规说明文案（嵌入所有数据源相关页面）
 COMPLIANCE_NOTICE = (
     "⚠️ 合规提示：本工具不内置任何第三方数据源 SDK 或密钥。"
@@ -106,21 +155,47 @@ COMPLIANCE_NOTICE = (
 )
 
 
+@router.get("/private/status")
+async def get_private_feature_status(request: Request):
+    """返回 Mootdx 私有功能当前是否已配置以及当前请求是否已解锁。"""
+    return {
+        "configured": is_private_feature_configured(),
+        "unlocked": _is_private_request_unlocked(request),
+        "header_name": PRIVATE_FEATURE_HEADER,
+    }
+
+
+@router.post("/private/unlock")
+async def unlock_private_feature(body: PrivateFeatureUnlockRequest):
+    """通过环境变量密码解锁 Mootdx 私有功能。"""
+    if not is_private_feature_configured():
+        raise HTTPException(status_code=403, detail="Mootdx 私有功能未配置密码")
+
+    token = issue_private_feature_token(body.password)
+    if not token:
+        raise HTTPException(status_code=401, detail="私有功能密码错误")
+
+    return {"success": True, "token": token, "feature": "mootdx"}
+
+
 @router.get("/", response_model=List[dict])
-async def get_all_sources():
-    return sqlite_repo.list_kline_sources()
+async def get_all_sources(request: Request):
+    sources = sqlite_repo.list_kline_sources()
+    return _filter_visible_sources(sources, request)
 
 
 @router.get("/{source_id}")
-async def get_source(source_id: str):
+async def get_source(source_id: str, request: Request):
     data = sqlite_repo.get_kline_source(source_id)
     if not data:
         return {"error": "数据源不存在"}
+    _ensure_source_visible(data, request)
     return data
 
 
 @router.post("/")
-async def create_source(body: KLineSourceCreate):
+async def create_source(body: KLineSourceCreate, request: Request):
+    _ensure_private_source_allowed(body.type, request)
     source_id = str(uuid.uuid4())
     record = {
         "id": source_id,
@@ -134,7 +209,10 @@ async def create_source(body: KLineSourceCreate):
 
 
 @router.put("/{source_id}")
-async def update_source(source_id: str, body: KLineSourceCreate):
+async def update_source(source_id: str, body: KLineSourceCreate, request: Request):
+    existing = sqlite_repo.get_kline_source(source_id)
+    _ensure_source_visible(existing, request)
+    _ensure_private_source_allowed(body.type, request)
     record = {
         "id": source_id,
         "name": body.name,
@@ -147,7 +225,9 @@ async def update_source(source_id: str, body: KLineSourceCreate):
 
 
 @router.delete("/{source_id}")
-async def delete_source(source_id: str):
+async def delete_source(source_id: str, request: Request):
+    data = sqlite_repo.get_kline_source(source_id)
+    _ensure_source_visible(data, request)
     deleted = sqlite_repo.delete_kline_source(source_id)
     return {"deleted": deleted}
 
@@ -157,6 +237,7 @@ def _get_adapter_for_source(source_type: str, cfg: dict):
     # 兼容历史/前端保存的通用 HTTP 类型：根据 request_template 自动识别来源。
     # - 包含 api_name: 视为 Tushare 风格
     # - 包含 func: 视为 AkShare 风格
+    # - 包含 data_dir: 视为通达信本地文件风格
     # - 其他: 回退到通用 HTTP 解析能力更强的 Tushare 适配器
     if source_type == "http":
         req_tmpl = cfg.get("request_template", {})
@@ -167,6 +248,8 @@ def _get_adapter_for_source(source_type: str, cfg: dict):
                 req_tmpl = {}
         if isinstance(req_tmpl, dict) and "func" in req_tmpl:
             source_type = "akshare"
+        elif cfg.get("data_dir"):
+            source_type = "tdx"
         else:
             source_type = "tushare"
 
@@ -179,16 +262,20 @@ def _get_adapter_for_source(source_type: str, cfg: dict):
     elif source_type == "tdx":
         from app.adapters.source_adapters.tdx_adapter import TdxAdapter
         return TdxAdapter()
+    elif source_type == "mootdx":
+        from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
+        return MootdxAdapter()
     else:
         raise ValueError(f"Unsupported source type: {source_type}")
 
 
 @router.post("/{source_id}/test")
-async def test_source(source_id: str):
+async def test_source(source_id: str, request: Request):
     """测试 HTTP 数据源连接。"""
     data = sqlite_repo.get_kline_source(source_id)
     if not data:
         return {"error": "数据源不存在", "success": False}
+    _ensure_source_visible(data, request)
 
     cfg = data.get("config", {})
     source_type = data.get("type", "http")
@@ -250,11 +337,12 @@ async def test_source(source_id: str):
 
 
 @router.get("/{source_id}/codes")
-async def list_source_codes(source_id: str):
+async def list_source_codes(source_id: str, request: Request):
     """通过配置的 HTTP API 获取代码列表。"""
     data = sqlite_repo.get_kline_source(source_id)
     if not data:
         return {"error": "数据源不存在"}
+    _ensure_source_visible(data, request)
 
     cfg = data.get("config", {})
     source_type = data.get("type", "http")
@@ -272,7 +360,7 @@ async def list_source_codes(source_id: str):
 
 
 @router.get("/{source_id}/preview")
-async def preview_source_data(source_id: str):
+async def preview_source_data(source_id: str, request: Request):
     """从配置的 HTTP API 拉取少量样例数据，用于预览。
 
     合规说明：工具仅提供 HTTP 请求转发能力，不存储任何数据源 Token 或密钥。
@@ -280,6 +368,7 @@ async def preview_source_data(source_id: str):
     data = sqlite_repo.get_kline_source(source_id)
     if not data:
         return {"error": "数据源不存在"}
+    _ensure_source_visible(data, request)
 
     cfg = data.get("config", {})
     source_type = data.get("type", "http")
@@ -338,8 +427,14 @@ async def preview_source_data(source_id: str):
 
         df = adapter.fetch_kline(cfg, codes, start_time, end_time, interval)
 
-        if df.empty:
-            start_time = end_time - timedelta(days=30)
+        if df.empty and interval != "D":
+            # 分钟线可能不在近 3 天内，扩大范围重试
+            start_time = end_time - timedelta(days=60)
+            df = adapter.fetch_kline(cfg, codes, start_time, end_time, interval)
+
+        if df.empty and interval == "D":
+            # 日线数据可能需要更宽的范围
+            start_time = end_time - timedelta(days=90)
             df = adapter.fetch_kline(cfg, codes, start_time, end_time, "D")
 
         rows = df.head(20).to_dict("records")

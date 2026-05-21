@@ -24,8 +24,11 @@ cryptography>=43.0.0
 # Used by app.api.llm and app.core.ai_script_generator for HTTP model calls.
 requests>=2.32.0
 # Used by app.api.credentials for credential connectivity tests.
-httpx>=0.28.0
+# Keep this range compatible with mootdx 0.11.x, which requires httpx < 0.26.
+httpx>=0.25.0,<0.26.0
 # Used by app.adapters.source_adapters.akshare_adapter for local direct data fetching.
 akshare>=1.16.98
 # Used by app.adapters.source_adapters.tushare_adapter for Tushare SDK mode.
 tushare>=1.2.10
+# Used by app.adapters.source_adapters.mootdx_adapter for private minute K-line fetching.
+mootdx>=0.11.7

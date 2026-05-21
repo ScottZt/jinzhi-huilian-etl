@@ -225,6 +225,10 @@ def _build_pipeline_preview(pipeline: dict) -> dict:
         if source_type == "tdx":
             from app.adapters.source_adapters.tdx_adapter import TdxAdapter
             adapter = TdxAdapter()
+        elif source_type == "mootdx":
+            # 私有 Mootdx 源在数据流执行期直接读取已保存配置。
+            from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
+            adapter = MootdxAdapter()
         elif source_type == "akshare":
             from app.adapters.source_adapters.akshare_adapter import HttpAdapter
             adapter = HttpAdapter()
@@ -358,6 +362,10 @@ def _run_pipeline(pipeline_id: str):
             if source_type == "tdx":
                 from app.adapters.source_adapters.tdx_adapter import TdxAdapter
                 adapter = TdxAdapter()
+            elif source_type == "mootdx":
+                # 私有 Mootdx 源在数据流执行期直接读取已保存配置。
+                from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
+                adapter = MootdxAdapter()
             elif source_type == "akshare":
                 from app.adapters.source_adapters.akshare_adapter import HttpAdapter
                 adapter = HttpAdapter()

@@ -81,7 +81,9 @@ class ConnectionManager:
 
     def _check_duckdb(self, cfg: Dict[str, Any]) -> Tuple[bool, str, Any]:
         try:
-            db_path = cfg.get("db_path", ":memory:")
+            db_path = cfg.get("db_path", "")
+            if not db_path:
+                return False, "db_path 为空", None
             conn = duckdb.connect(db_path, read_only=False)
             cursor = conn.cursor()
             cursor.execute("SELECT version()")
@@ -206,7 +208,9 @@ class ConnectionManager:
         return tables
 
     def _duckdb_tables(self, cfg: Dict[str, Any]) -> list:
-        db_path = cfg.get("db_path", ":memory:")
+        db_path = cfg.get("db_path", "")
+        if not db_path:
+            return []
         conn = duckdb.connect(db_path, read_only=False)
         cursor = conn.cursor()
         cursor.execute("SHOW TABLES")
@@ -266,7 +270,9 @@ class ConnectionManager:
 
     def _duckdb_table_columns(self, cfg: Dict[str, Any], table_name: str) -> list:
         # DuckDB 通过 information_schema 查询，兼容本地文件库场景。
-        db_path = cfg.get("db_path", ":memory:")
+        db_path = cfg.get("db_path", "")
+        if not db_path:
+            return []
         conn = duckdb.connect(db_path, read_only=False)
         cursor = conn.cursor()
         cursor.execute(
@@ -326,7 +332,9 @@ class ConnectionManager:
                 conn.close()
                 return True, "DDL executed successfully"
             elif db_type == ConnectionType.DUCKDB:
-                db_path = cfg.get("db_path", ":memory:")
+                db_path = cfg.get("db_path", "")
+                if not db_path:
+                    return False, "db_path 为空"
                 conn = duckdb.connect(db_path, read_only=False)
                 conn.execute(ddl)
                 conn.close()

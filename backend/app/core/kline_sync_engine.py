@@ -39,7 +39,7 @@ class KLineSyncEngine:
         if not task:
             return {"error": f"Task {task_id} not found"}
 
-        source_conn = sqlite_repo.get_connection(task["source_connection_id"])
+        source_conn = sqlite_repo.get_kline_source(task["source_connection_id"]) or sqlite_repo.get_connection(task["source_connection_id"])
         target_conn = sqlite_repo.get_connection(task["target_connection_id"])
         config = task["config_json"]
 
@@ -104,6 +104,11 @@ class KLineSyncEngine:
         if field_mappings:
             transform_engine = get_transform_engine()
             df = transform_engine.apply_field_mappings(df, field_mappings)
+            # 仅保留映射后的目标字段，避免原始列（如 datetime/dt）混入写入阶段导致 DuckDB BY NAME 报错。
+            target_fields = [str(m.get("target_field", m.get("source_field", ""))) for m in field_mappings]
+            existing_targets = [f for f in target_fields if f in df.columns]
+            if existing_targets:
+                df = df[existing_targets].copy()
 
         # Step 6: Upsert 到目标表
         target_fields = list(df.columns)
@@ -145,6 +150,10 @@ class KLineSyncEngine:
         if conn_type == "tdx":
             from app.adapters.source_adapters.tdx_adapter import TdxAdapter
             adapter = TdxAdapter()
+        elif conn_type == "mootdx":
+            # Mootdx 私有源在同步阶段直接复用保存好的配置，不额外依赖前端解锁状态。
+            from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
+            adapter = MootdxAdapter()
         elif conn_type == "akshare":
             from app.adapters.source_adapters.akshare_adapter import HttpAdapter
             adapter = HttpAdapter()
@@ -165,7 +174,9 @@ class KLineSyncEngine:
 
             if target_type == "duckdb":
                 import duckdb
-                db_path = cfg.get("db_path", ":memory:")
+                db_path = cfg.get("db_path", "")
+                if not db_path:
+                    raise RuntimeError("db_path 为空")
                 conn = duckdb.connect(db_path, read_only=False)
                 try:
                     df = conn.execute(
@@ -245,7 +256,9 @@ class KLineSyncEngine:
 
         if target_type == "duckdb":
             import duckdb
-            db_path = cfg.get("db_path", ":memory:")
+            db_path = cfg.get("db_path", "")
+            if not db_path:
+                raise RuntimeError("db_path 为空")
             conn = duckdb.connect(db_path, read_only=False)
             try:
                 conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")

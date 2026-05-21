@@ -263,6 +263,21 @@
 
     .data-table .actions { display: flex; gap: 4px; }
 
+    .data-table th.sortable { cursor: pointer; user-select: none; }
+    .data-table th.sortable:hover { color: var(--accent); }
+    .data-table th.sortable.sort-active { color: var(--accent); }
+
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px; gap: 8px; flex-wrap: wrap;
+    }
+    .table-search {
+      max-width: 300px; height: 30px; padding: 4px 10px; font-size: 12px;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--card); color: var(--text); outline: none;
+    }
+    .table-search:focus { border-color: var(--accent); }
+
     /* API Reference grid */
     .api-ref-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 500px; overflow-y: auto; }
     .api-ref-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.15s; background: var(--card); }
@@ -530,14 +545,55 @@
     .log-viewer .log-success { color: var(--success); }
     .log-viewer .log-warning { color: var(--warning); }
 
-    /* Field mapper */
-    .field-map-row {
+    /* Schema field row */
+    .schema-field-row {
       display: grid;
-      grid-template-columns: 1fr 2fr 1fr;
+      grid-template-columns: 1fr 1.5fr 1fr auto auto;
       gap: 8px;
       margin-bottom: 8px;
       align-items: center;
     }
+
+    /* Schema index section */
+    .schema-index-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr auto auto;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    /* Schema field inline labels */
+    .schema-field-nullable,
+    .schema-index-unique {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .schema-field-nullable input,
+    .schema-index-unique input {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Schema field delete button */
+    .schema-field-del-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444' stroke-width='1.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .564c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0'/%3E%3C/svg%3E") no-repeat center / 18px;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .schema-field-del-btn:hover { opacity: 1; background-color: rgba(239,68,68,0.1); }
 
     /* Connection type cards */
     .conn-type-grid {
@@ -768,6 +824,7 @@
 
 <script>
 const API = '';
+const PRIVATE_FEATURE_TOKEN_KEY = 'jzhl_private_feature_token';
 const VIEWS = {};
 // 全局 AI 调用模式：normal=普通请求，sse=流式事件。默认普通模式。
 let _llmStreamMode = 'normal';
@@ -838,7 +895,81 @@ function forceHideLoading() {
   if (overlay) overlay.classList.add('hidden');
 }
 
+// ---------- 表格排序与搜索通用工具 ----------
+// 搜索通过 filterTableRows 调用，排序通过 th() 生成列头
+
+function th(label, sortField, tableId) {
+  // 可点击的排序列头
+  const tbody = document.getElementById(tableId)?.querySelector('tbody');
+  const isActive = tbody && tbody.dataset.sortField === sortField;
+  const asc = isActive ? (tbody.dataset.sortAsc === 'true') : false;
+  const arrow = isActive ? (asc ? ' ↑' : ' ↓') : '';
+  const cls = isActive ? 'sort-active' : '';
+  return `<th class="sortable ${cls}" data-sort="${sortField}" data-table="${tableId}">${label}${arrow}</th>`;
+}
+
+function thPlain(label) {
+  return `<th>${label}</th>`;
+}
+
+function timeCell(val) {
+  return `<td class="text-dim">${val ? new Date(val).toLocaleString('zh-CN') : '-'}</td>`;
+}
+
+function filterTableRows(tableId, keyword) {
+  keyword = keyword.toLowerCase().trim();
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  for (const tr of tbody.rows) {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = (!keyword || text.includes(keyword)) ? '' : 'none';
+  }
+}
+
+// 监听表头点击事件，按列排序
+document.addEventListener('click', function(e) {
+  const th = e.target.closest('th.sortable');
+  if (!th) return;
+  const sortField = th.dataset.sort;
+  const tableId = th.dataset.table;
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+
+  const current = tbody.dataset.sortField;
+  const currentAsc = tbody.dataset.sortAsc === 'true';
+  let asc = true;
+  if (current === sortField) { asc = !currentAsc; }
+
+  const rows = Array.from(tbody.rows);
+  const colIdx = Array.from(th.parentNode.children).indexOf(th);
+  rows.sort((a, b) => {
+    const aText = (a.cells[colIdx]?.textContent || '').trim();
+    const bText = (b.cells[colIdx]?.textContent || '').trim();
+    const aDate = Date.parse(aText);
+    const bDate = Date.parse(bText);
+    if (!isNaN(aDate) && !isNaN(bDate)) {
+      return asc ? aDate - bDate : bDate - aDate;
+    }
+    return asc ? aText.localeCompare(bText, 'zh') : bText.localeCompare(aText, 'zh');
+  });
+  for (const row of rows) tbody.appendChild(row);
+  tbody.dataset.sortField = sortField;
+  tbody.dataset.sortAsc = String(asc);
+});
+
 const API_TIMEOUT_MS = 20000;
+
+// 私有功能状态仅在当前浏览器会话中缓存，关闭页面后需重新解锁。
+let _privateFeatureState = { configured: false, unlocked: false };
+
+function getPrivateFeatureToken() {
+  // 会话级存储避免把私有入口长期留在浏览器本地。
+  return sessionStorage.getItem(PRIVATE_FEATURE_TOKEN_KEY) || '';
+}
 
 // ---------- API helpers ----------
 async function api(url, opts = {}) {
@@ -848,8 +979,13 @@ async function api(url, opts = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
+    const privateToken = getPrivateFeatureToken();
     const res = await fetch(API + url, {
-      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(privateToken ? { 'X-Private-Feature-Token': privateToken } : {}),
+        ...opts.headers,
+      },
       ...opts,
       signal: opts.signal || controller.signal,
     });
@@ -958,12 +1094,18 @@ function openModal(title, bodyHtml, footerHtml) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-footer').innerHTML = footerHtml;
-  document.getElementById('modal-overlay').classList.remove('hidden');
+  // Force reflow before showing modal — avoids Electron focus/input issues.
+  const overlay = document.getElementById('modal-overlay');
+  overlay.offsetHeight;
+  overlay.classList.remove('hidden');
   // Focus the first editable field after modal content is rendered.
   setTimeout(() => {
     const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]), #modal-body textarea, #modal-body select');
-    if (firstEditable) firstEditable.focus();
-  }, 0);
+    if (firstEditable) {
+      firstEditable.focus();
+      firstEditable.click();
+    }
+  }, 50);
 }
 
 function closeModal() {
@@ -1016,6 +1158,7 @@ const KLINE_SOURCE_TYPE_LABEL_MAP = {
   tdx: '通达信本地文件',
   akshare: 'AkShare 直连',
   tushare: 'Tushare HTTP',
+  mootdx: 'Mootdx 私有分钟线',
 };
 const CREDENTIAL_TYPE_LABEL_MAP = {
   tushare_token: 'Tushare Token',
@@ -1288,7 +1431,7 @@ document.addEventListener('mousedown', (event) => {
   target.readOnly = false;
   setTimeout(() => {
     target.focus();
-    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && typeof target.setSelectionRange === 'function') {
+    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.type !== 'checkbox' && target.type !== 'radio' && typeof target.setSelectionRange === 'function') {
       const cursorPos = String(target.value || '').length;
       target.setSelectionRange(cursorPos, cursorPos);
     }
@@ -1390,7 +1533,10 @@ overview: async () => ({
   schemas: async () => ({
     render: () => `
       <div class="flex-between mb-16">
-        <button class="btn btn-primary" onclick="openNewSchemaModal()">+ 新建表结构</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="openNewSchemaModal()">+ 新建表结构</button>
+          <button class="btn btn-secondary" onclick="openAISchemaModal()">🤖 AI 创建</button>
+        </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary" onclick="importSchemaJSON()">📥 导入JSON</button>
           <button class="btn btn-secondary" onclick="refreshSchemas()">🔄 刷新</button>
@@ -1939,8 +2085,15 @@ async function refreshConnections() {
       el.innerHTML = '<div class="empty-state"><div class="icon">🔗</div><p>还没有创建任何数据连接。<br>数据连接定义了数据从哪读取、或写入到哪。</p><button class="btn btn-primary" onclick="openNewConnectionModal()">+ 新建连接</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>名称</th><th>类型</th><th>配置</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="conn-search" placeholder="搜索连接名称、类型..." oninput="filterTableRows('connections-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
+    </div>
+    <table class="data-table" id="connections-table"><thead><tr>
+      ${thPlain('名称')}${thPlain('类型')}${thPlain('配置')}
+      ${th('创建时间', 'created_at', 'connections-table', window._connSort)}
+      ${th('更新时间', 'updated_at', 'connections-table', window._connSort)}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const c of list) {
       const cfg = JSON.stringify(c.config).substring(0, 60);
@@ -1948,6 +2101,8 @@ async function refreshConnections() {
         <td>${c.name}</td>
         <td><span class="badge badge-pending">${labelConnectionType(c.type)}</span></td>
         <td class="text-dim">${cfg}...</td>
+        ${timeCell(c.created_at)}
+        ${timeCell(c.updated_at)}
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testConnection('${c.id}')">测试</button>
           <button class="btn btn-secondary btn-sm" onclick="openEditConnectionModal('${c.id}')">编辑</button>
@@ -2000,7 +2155,15 @@ function selectConnType(el, type) {
   } else if (type === 'postgresql') {
     fields.innerHTML = connFields('host', 'localhost', 'port', '5432', 'user', '', 'password', '', 'database', '');
   } else if (type === 'duckdb') {
-    fields.innerHTML = connFields('db_path', '', '', '', '', '', '', '', '', '');
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>db_path</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="form-control" id="conn-cfg-db_path" value="" placeholder="选择或输入 DuckDB 数据库文件路径" style="flex:1;">
+          <button class="btn btn-secondary" onclick="pickDuckDBFile()" title="选择 DuckDB 文件">📂 选择文件</button>
+        </div>
+      </div>
+    `;
   } else if (type === 'clickhouse') {
     fields.innerHTML = connFields('host', 'localhost', 'port', '9000', 'user', 'default', 'password', '', 'database', 'default');
   } else if (['csv','excel','json','parquet'].includes(type)) {
@@ -2051,6 +2214,10 @@ async function saveConnection() {
     }
     config[key] = val;
   });
+  // DuckDB 特殊处理：使用 getDuckDBConfig 确保内存/文件模式正确
+  if (type === 'duckdb') {
+    Object.assign(config, getDuckDBConfig());
+  }
 
   try {
     await api('/api/connections', {
@@ -2094,6 +2261,29 @@ async function deleteConnection(id) {
   } catch(e) { alert('删除失败: ' + e.message); }
 }
 
+async function pickDuckDBFile() {
+  try {
+    const res = await api('/api/files/dialog', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: '选择 DuckDB 数据库文件',
+        filetypes: [['DuckDB Files', '*.duckdb *.db *.ddb'], ['All Files', '*.*']],
+        defaultextension: '.duckdb',
+      }),
+    });
+    if (res.path && !res.cancelled) {
+      document.getElementById('conn-cfg-db_path').value = res.path;
+    }
+  } catch(e) { alert('打开文件选择器失败: ' + e.message); }
+}
+
+function getDuckDBConfig() {
+  const pathInput = document.getElementById('conn-cfg-db_path');
+  if (!pathInput) return { db_path: '' };
+  const path = pathInput.value.trim();
+  return { db_path: path };
+}
+
 async function openEditConnectionModal(id) {
   try {
     const conn = await api(`/api/connections/${id}`);
@@ -2130,6 +2320,13 @@ async function openEditConnectionModal(id) {
           const inp = document.getElementById(`conn-cfg-${k}`);
           if (inp) inp.value = typeof v === 'object' ? JSON.stringify(v, null, 2) : v;
         }
+        // DuckDB: 回填 db_path
+        if (conn.type === 'duckdb') {
+          const pathInput = document.getElementById('conn-cfg-db_path');
+          if (pathInput && conn.config.db_path) {
+            pathInput.value = conn.config.db_path;
+          }
+        }
       }
     }
   } catch(e) { alert('加载连接失败: ' + e.message); }
@@ -2151,6 +2348,10 @@ async function updateConnection() {
     }
     config[key] = val;
   });
+  // DuckDB 特殊处理：使用 getDuckDBConfig 确保内存/文件模式正确
+  if (type === 'duckdb') {
+    Object.assign(config, getDuckDBConfig());
+  }
 
   try {
     await api(`/api/connections/${id}`, {
@@ -2171,8 +2372,15 @@ async function refreshSchemas() {
       el.innerHTML = '<div class="empty-state"><div class="icon">🗄️</div><p>暂无表结构</p><button class="btn btn-primary" onclick="openNewSchemaModal()">新建表结构</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>表名</th><th>数据库</th><th>字段数</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="schema-search" placeholder="搜索表名、数据库..." oninput="filterTableRows('schemas-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
+    </div>
+    <table class="data-table" id="schemas-table"><thead><tr>
+      ${thPlain('表名')}${thPlain('数据库')}${thPlain('字段数')}
+      ${th('创建时间', 'created_at', 'schemas-table')}
+      ${th('更新时间', 'updated_at', 'schemas-table')}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const s of list) {
       const fields = (s.schema_json && s.schema_json.fields) ? s.schema_json.fields.length : 0;
@@ -2180,7 +2388,10 @@ async function refreshSchemas() {
         <td>${s.table_name}</td>
         <td><span class="badge badge-pending">${s.database_type}</span></td>
         <td>${fields}</td>
+        ${timeCell(s.created_at)}
+        ${timeCell(s.updated_at)}
         <td class="actions">
+          <button class="btn btn-secondary btn-sm" onclick="editSchema('${s.id}')">编辑</button>
           <button class="btn btn-secondary btn-sm" onclick="previewDDL('${s.id}')">预览DDL</button>
           <button class="btn btn-secondary btn-sm" onclick="applySchema('${s.id}')">应用到DB</button>
           <button class="btn btn-danger btn-sm" onclick="deleteSchema('${s.id}')">删除</button>
@@ -2193,20 +2404,30 @@ async function refreshSchemas() {
 }
 
 function openNewSchemaModal() {
+  editingSchemaId = null;
   openModal('新建表结构', `
-    <div class="form-row">
-      <div class="form-group"><label>表名</label><input class="form-control" id="schema-table-name" placeholder="dat_day"></div>
-      <div class="form-group"><label>数据库类型</label>
-        <select class="form-control" id="schema-db-type">
-          <option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option>
-          <option value="duckdb">DuckDB</option><option value="clickhouse">ClickHouse</option>
-        </select>
+    <div class="flex-between mb-16" style="margin-top:-8px">
+      <div class="form-row" style="flex:1;margin-bottom:0">
+        <div class="form-group"><label>表名</label><input class="form-control" id="schema-table-name" placeholder="dat_day"></div>
+        <div class="form-group"><label>数据库类型</label>
+          <select class="form-control" id="schema-db-type">
+            <option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option>
+            <option value="duckdb">DuckDB</option><option value="clickhouse">ClickHouse</option>
+          </select>
+        </div>
       </div>
+      <button class="btn btn-secondary btn-sm" onclick="openAISchemaGeneratePanel()" style="margin-left:8px;white-space:nowrap;margin-top:16px">🤖 AI 辅助</button>
     </div>
+    <div id="ai-schema-panel" style="display:none"></div>
     <div class="form-group">
       <label>字段定义</label>
       <div id="schema-fields"></div>
       <button class="btn btn-secondary btn-sm mt-8" onclick="addSchemaField()">+ 添加字段</button>
+    </div>
+    <div class="form-group mt-16">
+      <label>索引</label>
+      <div id="schema-indexes"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="addSchemaIndex()">+ 添加索引</button>
     </div>
     <button class="btn btn-secondary btn-sm" onclick="previewSchemaDDL()">🔍 预览DDL</button>
     <div id="ddl-preview" class="log-viewer mt-8" style="max-height:200px;display:none"></div>
@@ -2218,6 +2439,55 @@ function openNewSchemaModal() {
 }
 
 let fieldCounter = 0;
+let editingSchemaId = null;  // 编辑时记录 schema ID，保存时用 PUT
+
+async function editSchema(id) {
+  try {
+    const s = await api(`/api/schemas/${id}`);
+    if (s.error) { alert('加载失败: ' + s.error); return; }
+    editingSchemaId = id;
+    const sj = s.schema_json || {};
+    openModal('编辑表结构 - ' + (s.table_name || ''), `
+    <div class="flex-between mb-16" style="margin-top:-8px">
+      <div class="form-row" style="flex:1;margin-bottom:0">
+        <div class="form-group"><label>表名</label><input class="form-control" id="schema-table-name" value="${escapeHtml(s.table_name || '')}"></div>
+        <div class="form-group"><label>数据库类型</label>
+          <select class="form-control" id="schema-db-type">
+            <option value="mysql" ${s.database_type === 'mysql' ? 'selected' : ''}>MySQL</option>
+            <option value="postgresql" ${s.database_type === 'postgresql' ? 'selected' : ''}>PostgreSQL</option>
+            <option value="duckdb" ${s.database_type === 'duckdb' ? 'selected' : ''}>DuckDB</option>
+            <option value="clickhouse" ${s.database_type === 'clickhouse' ? 'selected' : ''}>ClickHouse</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openAISchemaGeneratePanel()" style="margin-left:8px;white-space:nowrap;margin-top:16px">🤖 AI 辅助</button>
+    </div>
+    <div id="ai-schema-panel" style="display:none"></div>
+    <div class="form-group">
+      <label>字段定义</label>
+      <div id="schema-fields"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="addSchemaField()">+ 添加字段</button>
+    </div>
+    <div class="form-group mt-16">
+      <label>索引</label>
+      <div id="schema-indexes"></div>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="addSchemaIndex()">+ 添加索引</button>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="previewSchemaDDL()">🔍 预览DDL</button>
+    <div id="ddl-preview" class="log-viewer mt-8" style="max-height:200px;display:none"></div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="saveSchema()">保存</button>
+  `);
+    for (const f of (sj.fields || [])) {
+      addSchemaField(f.name, f.type, f.description || '', f.nullable !== false);
+    }
+    for (const idx of (sj.indexes || [])) {
+      addSchemaIndex(idx.name, (idx.fields || []).join(','), idx.unique || false);
+    }
+    if (!(sj.fields || []).length) addSchemaField();
+  } catch(e) { alert('加载失败: ' + e.message); }
+}
 function normalizeSchemaFields(fields = []) {
   // 统一补齐字段默认值，避免后端校验因缺少长度等参数失败。
   return (fields || []).map((field) => {
@@ -2231,15 +2501,33 @@ function normalizeSchemaFields(fields = []) {
   });
 }
 
-function addSchemaField(name = '', type = 'VARCHAR') {
+function addSchemaField(name = '', type = 'VARCHAR', description = '', nullable = true) {
   fieldCounter++;
   const container = document.getElementById('schema-fields');
   const options = ['VARCHAR','INT','BIGINT','DECIMAL','DATETIME','DATE','FLOAT','DOUBLE','TEXT','JSON'];
   const typeOpts = options.map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('');
-  container.insertAdjacentHTML('beforeend', `<div class="field-map-row" id="sf-row-${fieldCounter}">
+  container.insertAdjacentHTML('beforeend', `<div class="schema-field-row" id="sf-row-${fieldCounter}">
     <input class="form-control" id="sf-name-${fieldCounter}" placeholder="字段名" value="${name}">
     <select class="form-control" id="sf-type-${fieldCounter}">${typeOpts}</select>
-    <button class="btn btn-danger btn-sm" onclick="document.getElementById('sf-row-${fieldCounter}').remove()">✕</button>
+    <input class="form-control" id="sf-desc-${fieldCounter}" placeholder="备注" value="${description}" style="width:120px">
+    <label class="schema-field-nullable" title="允许空值">
+      <input type="checkbox" id="sf-nullable-${fieldCounter}" ${nullable ? 'checked' : ''}> 可空
+    </label>
+    <button class="schema-field-del-btn" onclick="document.getElementById('sf-row-${fieldCounter}').remove()" title="删除字段"></button>
+  </div>`);
+}
+
+let indexCounter = 0;
+function addSchemaIndex(name = '', fields = '', unique = false) {
+  indexCounter++;
+  const container = document.getElementById('schema-indexes');
+  container.insertAdjacentHTML('beforeend', `<div class="schema-index-row" id="si-row-${indexCounter}">
+    <input class="form-control" id="si-name-${indexCounter}" placeholder="索引名" value="${name}">
+    <input class="form-control" id="si-fields-${indexCounter}" placeholder="字段(逗号分隔)" value="${fields}">
+    <label class="schema-index-unique" title="唯一索引">
+      <input type="checkbox" id="si-unique-${indexCounter}" ${unique ? 'checked' : ''}> 唯一
+    </label>
+    <button class="schema-field-del-btn" onclick="document.getElementById('si-row-${indexCounter}').remove()" title="删除索引"></button>
   </div>`);
 }
 
@@ -2249,10 +2537,23 @@ async function previewSchemaDDL() {
     const id = row.id.split('-').pop();
     const name = document.getElementById(`sf-name-${id}`)?.value;
     const type = document.getElementById(`sf-type-${id}`)?.value;
-    if (name && type) fields.push({ name, type, nullable: true });
+    const desc = document.getElementById(`sf-desc-${id}`)?.value;
+    const nullable = document.getElementById(`sf-nullable-${id}`)?.checked ?? true;
+    if (name && type) fields.push({ name, type, nullable, description: desc || null });
+  });
+  const indexes = [];
+  document.querySelectorAll('[id^="si-row-"]').forEach(row => {
+    const id = row.id.split('-').pop();
+    const name = document.getElementById(`si-name-${id}`)?.value;
+    const fieldsStr = document.getElementById(`si-fields-${id}`)?.value;
+    const unique = document.getElementById(`si-unique-${id}`)?.checked ?? false;
+    if (name && fieldsStr) indexes.push({ name, fields: fieldsStr.split(',').map(s => s.trim()).filter(Boolean), unique });
   });
   const normalizedFields = normalizeSchemaFields(fields);
   if (!normalizedFields.length) { alert('请先添加字段'); return; }
+
+  console.log('DDL preview fields:', JSON.stringify(normalizedFields, null, 2));
+  console.log('DDL preview indexes:', JSON.stringify(indexes, null, 2));
 
   try {
     const res = await api('/api/schemas/preview-ddl', {
@@ -2260,9 +2561,10 @@ async function previewSchemaDDL() {
       body: JSON.stringify({
         table_name: document.getElementById('schema-table-name').value || 'new_table',
         database_type: document.getElementById('schema-db-type').value,
-        fields: normalizedFields, indexes: []
+        fields: normalizedFields, indexes
       }),
     });
+    console.log('DDL preview API response:', JSON.stringify(res, null, 2));
     const el = document.getElementById('ddl-preview');
     el.style.display = 'block';
     // 统一使用 pre 文本块渲染 DDL，避免主题差异导致颜色/换行可读性问题。
@@ -2279,32 +2581,286 @@ async function saveSchema() {
     const id = row.id.split('-').pop();
     const name = document.getElementById(`sf-name-${id}`)?.value;
     const type = document.getElementById(`sf-type-${id}`)?.value;
-    if (name && type) fields.push({ name, type, nullable: true });
+    const desc = document.getElementById(`sf-desc-${id}`)?.value;
+    const nullable = document.getElementById(`sf-nullable-${id}`)?.checked ?? true;
+    if (name && type) fields.push({ name, type, nullable, description: desc || null });
+  });
+  const indexes = [];
+  document.querySelectorAll('[id^="si-row-"]').forEach(row => {
+    const id = row.id.split('-').pop();
+    const name = document.getElementById(`si-name-${id}`)?.value;
+    const fieldsStr = document.getElementById(`si-fields-${id}`)?.value;
+    const unique = document.getElementById(`si-unique-${id}`)?.checked ?? false;
+    if (name && fieldsStr) indexes.push({ name, fields: fieldsStr.split(',').map(s => s.trim()).filter(Boolean), unique });
   });
   const normalizedFields = normalizeSchemaFields(fields);
   if (!tableName || !normalizedFields.length) { alert('请填写表名和字段'); return; }
 
   try {
-    await api('/api/schemas', {
-      method: 'POST',
-      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields: normalizedFields, indexes: [] }),
-    });
+    if (editingSchemaId) {
+      await api(`/api/schemas/${editingSchemaId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ table_name: tableName, database_type: dbType, fields: normalizedFields, indexes }),
+      });
+    } else {
+      await api('/api/schemas', {
+        method: 'POST',
+        body: JSON.stringify({ table_name: tableName, database_type: dbType, fields: normalizedFields, indexes }),
+      });
+    }
+    editingSchemaId = null;
     closeModal();
     await refreshSchemas();
   } catch(e) { alert('保存失败: ' + e.message); }
 }
 
-function importSchemaJSON() {
-  openModal('导入表结构 JSON', `
-    <div class="form-group">
-      <label>JSON 数据</label>
-      <textarea class="form-control" id="import-schema-json-input" rows="12"
-        placeholder='{"table_name":"dat_day","database_type":"mysql","fields":[{"name":"code","type":"VARCHAR"},{"name":"trade_time","type":"DATETIME"}],"indexes":[]}'>
-      </textarea>
+// Auto-expand textarea helper
+function _autoExpandTextarea(el) {
+  el.addEventListener('input', () => {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  });
+  // Initial expand
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ---------- AI Schema Helpers ----------
+
+function openAISchemaModal() {
+  openModal('🤖 AI 创建表结构', `
+    <div class="form-row">
+      <div class="form-group"><label>表名</label><input class="form-control" id="ai-schema-table-name" placeholder="stock_daily_kline"></div>
+      <div class="form-group"><label>数据库类型</label>
+        <select class="form-control" id="ai-schema-db-type">
+          <option value="duckdb">DuckDB</option><option value="mysql">MySQL</option>
+          <option value="postgresql">PostgreSQL</option><option value="clickhouse">ClickHouse</option>
+        </select>
+      </div>
     </div>
-    <div class="text-dim mt-8">支持格式: { "table_name", "database_type", "fields": [{ "name", "type", "nullable"? }], "indexes"?: [] }</div>
+    <div class="form-group">
+      <label>表描述（必填）</label>
+      <textarea class="form-control auto-resize" id="ai-schema-description" rows="1"
+        placeholder="例如：股票日线数据表，包含股票代码、交易日期、开盘价、最高价、最低价、收盘价、成交量"
+        style="min-height:60px;resize:vertical"></textarea>
+    </div>
+    <div class="form-group">
+      <label>JSON 数据样例（可选，有样例时优先规则推断）</label>
+      <textarea class="form-control auto-resize" id="ai-schema-json-sample" rows="1"
+        placeholder='[{"stock_code":"000001","trade_date":"2024-01-01","open":10.5,"high":11.0,"low":10.3,"close":10.8,"volume":100000}]'
+        style="min-height:60px;resize:vertical"></textarea>
+    </div>
+    <div id="ai-schema-result"></div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" id="ai-schema-generate-btn" onclick="doAISchemaGenerate()">生成表结构</button>
+  `);
+  // 自动伸展
+  document.querySelectorAll('#ai-schema-description, #ai-schema-json-sample').forEach(_autoExpandTextarea);
+}
+
+async function doAISchemaGenerate() {
+  const tableName = document.getElementById('ai-schema-table-name').value.trim();
+  const dbType = document.getElementById('ai-schema-db-type').value;
+  const description = document.getElementById('ai-schema-description').value.trim();
+  const jsonSample = document.getElementById('ai-schema-json-sample').value.trim();
+  if (!tableName) { alert('请填写表名'); return; }
+  if (!description && !jsonSample) { alert('请填写表描述或粘贴 JSON 样例'); return; }
+
+  const btn = document.getElementById('ai-schema-generate-btn');
+  btn.disabled = true;
+  btn.textContent = '正在生成...';
+  const resultEl = document.getElementById('ai-schema-result');
+  resultEl.innerHTML = '<div class="text-dim mt-8">正在生成表结构，请稍候...</div>';
+
+  try {
+    const res = await api('/api/schemas/ai-generate', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, description, json_sample: jsonSample }),
+    });
+    if (res.error) {
+      resultEl.innerHTML = `<div class="text-danger mt-8">${escapeHtml(res.error)}</div>`;
+      return;
+    }
+    // 直接创建新表并填充字段
+    applyAISchemaResult(tableName, dbType, res.fields, res.indexes);
+  } catch(e) {
+    resultEl.innerHTML = `<div class="text-danger mt-8">生成失败: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '生成表结构';
+  }
+}
+
+function openAISchemaGeneratePanel() {
+  const panel = document.getElementById('ai-schema-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    return;
+  }
+  const dbType = document.getElementById('schema-db-type').value || 'duckdb';
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px 16px;margin-bottom:12px">
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="font-size:13px">描述表用途，AI 自动生成字段结构</label>
+        <textarea class="form-control auto-resize" id="inline-ai-schema-desc" rows="1" placeholder="例如：股票分钟线，包含代码、时间、开高低收、成交量、成交额"
+          style="min-height:50px;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="doInlineAISchemaGenerate()">🤖 生成并填充</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ai-schema-panel').style.display='none'">收起</button>
+      </div>
+      <div id="inline-ai-schema-result"></div>
+    </div>
+  `;
+  document.querySelectorAll('#inline-ai-schema-desc').forEach(_autoExpandTextarea);
+}
+
+async function doInlineAISchemaGenerate() {
+  const tableName = document.getElementById('schema-table-name').value.trim();
+  const dbType = document.getElementById('schema-db-type').value;
+  const description = document.getElementById('inline-ai-schema-desc').value.trim();
+  if (!tableName) { alert('请先填写表名'); return; }
+  if (!description) { alert('请填写表描述'); return; }
+
+  const resultEl = document.getElementById('inline-ai-schema-result');
+  resultEl.innerHTML = '<div class="text-dim mt-8">正在生成...</div>';
+
+  try {
+    const res = await api('/api/schemas/ai-generate', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, description, json_sample: '' }),
+    });
+    if (res.error) {
+      resultEl.innerHTML = `<div class="text-danger mt-8">${escapeHtml(res.error)}</div>`;
+      return;
+    }
+    applyAISchemaResult(tableName, dbType, res.fields, res.indexes);
+    document.getElementById('ai-schema-panel').style.display = 'none';
+  } catch(e) {
+    resultEl.innerHTML = `<div class="text-danger mt-8">生成失败: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function applyAISchemaResult(tableName, dbType, fields, indexes) {
+  // 回填表名和数据库类型（如果当前为空）
+  const nameInput = document.getElementById('schema-table-name');
+  if (nameInput && !nameInput.value) nameInput.value = tableName;
+  const dbSelect = document.getElementById('schema-db-type');
+  if (dbSelect) dbSelect.value = dbType;
+
+  // 清空现有字段，填充 AI 生成的字段
+  const container = document.getElementById('schema-fields');
+  if (container) container.innerHTML = '';
+  const indexContainer = document.getElementById('schema-indexes');
+  if (indexContainer) indexContainer.innerHTML = '';
+
+  for (const f of (fields || [])) {
+    addSchemaField(f.name, f.type, f.description || '', f.nullable !== false);
+  }
+  for (const idx of (indexes || [])) {
+    addSchemaIndex(idx.name, (idx.fields || []).join(','), idx.unique || false);
+  }
+  if (!fields || !fields.length) addSchemaField();
+
+  // 更新 DDL 预览
+  previewSchemaDDL();
+}
+
+async function doAISchemaInferFromJSON() {
+  const text = document.getElementById('import-schema-json-input').value.trim();
+  if (!text) { alert('请先粘贴 JSON 数据'); return; }
+  const tableName = document.getElementById('import-schema-table-name').value.trim();
+  if (!tableName) { alert('请先填写表名'); return; }
+  const dbType = document.getElementById('import-schema-db-type').value;
+
+  const btn = document.getElementById('import-schema-infer-btn');
+  const resultEl = document.getElementById('import-schema-infer-result');
+  btn.disabled = true;
+  btn.textContent = '推断中...';
+  resultEl.innerHTML = '<div class="text-dim mt-8" style="margin-top:8px">正在推断字段结构，请稍候...</div>';
+
+  try {
+    const res = await api('/api/schemas/ai-infer-from-json', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, json_sample: text }),
+    });
+    if (res.error) {
+      resultEl.innerHTML = `<div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:13px;color:#ef4444">${escapeHtml(res.error)}</div>`;
+      return;
+    }
+
+    const fields = normalizeSchemaFields(res.fields);
+    const fieldRows = fields.map((f, i) => {
+      let line = `${i + 1}. <strong>${escapeHtml(f.name)}</strong> <span style="color:var(--accent)">${escapeHtml(f.type)}</span>`;
+      line += f.nullable === false ? ' <span style="color:#f59e0b">NOT NULL</span>' : '';
+      if (f.description) line += ` <span style="color:var(--text-dim)">-- ${escapeHtml(f.description)}</span>`;
+      return line;
+    }).join('<br>');
+
+    const sourceLabel = res.source === 'table_infer' ? '表格解析' : 'JSON 推断';
+    resultEl.innerHTML = `
+      <div style="margin-top:8px;padding:10px 12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:13px">
+        <div style="color:#10b981;margin-bottom:6px">✅ 推断成功（${sourceLabel}），解析出 ${fields.length} 个字段：</div>
+        <div style="line-height:1.8;max-height:260px;overflow-y:auto;padding-right:4px">${fieldRows}</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="confirmImportFromInfer()">确认导入</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-schema-infer-result').innerHTML=''">清除结果</button>
+        </div>
+      </div>
+    `;
+    // 缓存结果供确认导入使用
+    window._lastInferredFields = fields;
+    window._lastInferredIndexes = res.indexes || [];
+  } catch(e) {
+    resultEl.innerHTML = `<div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:13px;color:#ef4444">推断失败: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 AI 推断结构';
+  }
+}
+
+async function confirmImportFromInfer() {
+  const tableName = document.getElementById('import-schema-table-name').value.trim();
+  const dbType = document.getElementById('import-schema-db-type').value;
+  const fields = window._lastInferredFields || [];
+  const indexes = window._lastInferredIndexes || [];
+  if (!fields.length) { alert('没有可导入的字段'); return; }
+
+  try {
+    await api('/api/schemas', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, fields, indexes }),
+    });
+    closeModal();
+    await refreshSchemas();
+  } catch(e) { alert('导入失败: ' + e.message); }
+}
+
+function importSchemaJSON() {
+  openModal('导入表结构 JSON', `
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="form-group"><label>表名</label><input class="form-control" id="import-schema-table-name" placeholder="dat_day"></div>
+      <div class="form-group"><label>数据库类型</label>
+        <select class="form-control" id="import-schema-db-type">
+          <option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option>
+          <option value="duckdb">DuckDB</option><option value="clickhouse">ClickHouse</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>JSON 数据 / 原始数据样例</label>
+      <textarea class="form-control" id="import-schema-json-input" rows="12"
+        placeholder='支持三种格式，粘贴后即可推断：&#10;&#10;1) 标准 Schema JSON: {"table_name":"dat_day","fields":[{"name":"code","type":"VARCHAR"}]}&#10;2) 原始 JSON 数据样例: [{"stock_code":"000001","trade_date":"2024-01-01","open":10.5,"volume":100000}]&#10;3) Markdown/ASCII 表格: 字段名 | 类型 | 可空 | 备注 格式的表格'>
+      </textarea>
+    </div>
+    <div id="import-schema-infer-result"></div>
+    <div class="text-dim mt-8">支持三种格式：1) 标准 Schema JSON 2) 原始 JSON 数据样例（自动推断字段）3) Markdown/ASCII 字段定义表格</div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-secondary" id="import-schema-infer-btn" onclick="doAISchemaInferFromJSON()">🤖 AI 推断结构</button>
     <button class="btn btn-primary" onclick="doImportSchemaJSON()">导入</button>
   `);
 }
@@ -2316,18 +2872,33 @@ async function doImportSchemaJSON() {
     data = JSON.parse(text);
   } catch(e) { alert('JSON 格式错误: ' + e.message); return; }
 
-  if (!data.table_name) { alert('缺少 table_name'); return; }
-  if (!data.fields || !Array.isArray(data.fields) || !data.fields.length) { alert('缺少 fields 数组'); return; }
-
-  const tableName = data.table_name;
-  const dbType = data.database_type || 'mysql';
-  const fields = normalizeSchemaFields(data.fields.map(f => ({
-    name: f.name,
-    type: f.type || 'VARCHAR',
-    nullable: f.nullable !== false,
-    length: f.length,
-  })));
-  const indexes = data.indexes || [];
+  // 支持两种格式：标准 schema JSON 或原始数据样例
+  let tableName, dbType, fields, indexes;
+  if (data.fields && Array.isArray(data.fields) && data.fields.length) {
+    // 标准 schema JSON
+    tableName = data.table_name;
+    dbType = data.database_type || 'mysql';
+    fields = normalizeSchemaFields(data.fields.map(f => ({
+      name: f.name,
+      type: f.type || 'VARCHAR',
+      nullable: f.nullable !== false,
+      length: f.length,
+    })));
+    indexes = data.indexes || [];
+  } else {
+    // 原始数据样例，尝试用规则推断
+    const tableNameInput = document.getElementById('import-schema-table-name').value.trim();
+    if (!tableNameInput) { alert('原始数据样例需先填写表名'); return; }
+    tableName = tableNameInput;
+    dbType = document.getElementById('import-schema-db-type').value;
+    const res = await api('/api/schemas/ai-infer-from-json', {
+      method: 'POST',
+      body: JSON.stringify({ table_name: tableName, database_type: dbType, json_sample: text }),
+    });
+    if (res.error) { alert(res.error); return; }
+    fields = normalizeSchemaFields(res.fields);
+    indexes = res.indexes || [];
+  }
 
   try {
     await api('/api/schemas', {
@@ -3022,8 +3593,15 @@ async function refreshKlineSources() {
       el.innerHTML = '<div class="empty-state"><div class="icon">📡</div><p>暂无数据源，请先创建</p><button class="btn btn-primary" onclick="openKlineSourceModal()">新建数据源</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>名称</th><th>类型</th><th>配置概要</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="ks-search" placeholder="搜索数据源名称、类型..." oninput="filterTableRows('ks-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
+    </div>
+    <table class="data-table" id="ks-table"><thead><tr>
+      ${thPlain('名称')}${thPlain('类型')}${thPlain('配置概要')}
+      ${th('创建时间', 'created_at', 'ks-table')}
+      ${th('更新时间', 'updated_at', 'ks-table')}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const c of list) {
       const cfgStr = JSON.stringify(c.config || {});
@@ -3032,6 +3610,8 @@ async function refreshKlineSources() {
         <td>${c.name}</td>
         <td><span class="badge badge-pending">${labelKlineSourceType(c.type)}</span></td>
         <td class="text-dim">${cfg}</td>
+        ${timeCell(c.created_at)}
+        ${timeCell(c.updated_at)}
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testKlineSource('${c.id}')">测试</button>
           <button class="btn btn-secondary btn-sm" onclick="previewSourceById('${c.id}')">预览数据</button>
@@ -3097,6 +3677,16 @@ function openKlineSourceModal(editId = null) {
       <input class="form-control" id="ks-name" placeholder="例如: 我的Tushare数据源">
     </div>
     <div class="form-group">
+      <label>私有功能</label>
+      <div class="text-dim" style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+        <span id="ks-private-feature-status">Mootdx 私有入口默认隐藏</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input class="form-control" id="ks-private-feature-password" type="password" placeholder="输入 Mootdx 密码后点击解锁" style="max-width:260px;font-size:12px;height:28px;padding:2px 8px" onkeydown="if(event.key==='Enter')unlockMootdxFeature()">
+          <button type="button" class="btn btn-secondary btn-sm" id="ks-private-feature-btn" onclick="unlockMootdxFeature()" style="height:28px;font-size:12px;padding:0 12px">解锁</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
       <label>数据源类型</label>
       <div class="kline-type-grid">
         <div class="kline-type-card" data-type="http" onclick="selectKsType(this,'http')">
@@ -3107,6 +3697,9 @@ function openKlineSourceModal(editId = null) {
         </div>
         <div class="kline-type-card" data-type="ws" onclick="selectKsType(this,'ws')">
           <div class="icon">⚡</div><div class="label">WebSocket</div><div class="desc">实时数据流</div>
+        </div>
+        <div class="kline-type-card" data-type="mootdx" onclick="selectKsType(this,'mootdx')" id="ks-type-card-mootdx" style="display:none">
+          <div class="icon">🔒</div><div class="label">Mootdx 私有分钟线</div><div class="desc">输入密码后可见</div>
         </div>
       </div>
       <input type="hidden" id="ks-type" value="">
@@ -3120,12 +3713,79 @@ function openKlineSourceModal(editId = null) {
     <button class="btn btn-primary" onclick="saveKlineSource()">保存</button>
   `);
   window._ksPreviewDone = false;
+  refreshPrivateFeatureStatusUI();
   if (editId) {
     loadKlineSourceData(editId);
     window._ksPreviewDone = true;
   } else {
     // 新建时默认按 K 线模式预览，避免用户无感知地进入空列表预览。
     updateDatasourcePreviewUI('kline');
+  }
+}
+
+async function refreshPrivateFeatureStatusUI() {
+  // 每次打开数据源弹窗时都向后端确认一次状态，避免前端缓存过期后仍显示私有入口。
+  const statusEl = document.getElementById('ks-private-feature-status');
+  const unlockBtn = document.getElementById('ks-private-feature-btn');
+  const pwdInput = document.getElementById('ks-private-feature-password');
+  const mootdxCard = document.getElementById('ks-type-card-mootdx');
+  if (!statusEl || !unlockBtn || !mootdxCard) return;
+
+  try {
+    const res = await api('/api/kline-sources/private/status', { silent: true });
+    _privateFeatureState = {
+      configured: !!res.configured,
+      unlocked: !!res.unlocked,
+    };
+  } catch (e) {
+    _privateFeatureState = { configured: false, unlocked: false };
+  }
+
+  mootdxCard.style.display = (_privateFeatureState.configured && _privateFeatureState.unlocked) ? '' : 'none';
+  if (!_privateFeatureState.configured) {
+    statusEl.textContent = 'Mootdx 私有功能未配置密码';
+    unlockBtn.disabled = true;
+    unlockBtn.textContent = '暂不可用';
+    if (pwdInput) pwdInput.style.display = 'none';
+    return;
+  }
+  if (pwdInput) pwdInput.style.display = '';
+  unlockBtn.disabled = false;
+  if (_privateFeatureState.unlocked) {
+    statusEl.textContent = 'Mootdx 私有功能已解锁，请选择下方 Mootdx 数据源类型';
+    unlockBtn.textContent = '重新解锁';
+    if (pwdInput) pwdInput.placeholder = '已解锁，无需输入';
+  } else {
+    statusEl.textContent = '输入密码后点击「解锁」';
+    unlockBtn.textContent = '解锁';
+    if (pwdInput) pwdInput.placeholder = '输入 Mootdx 密码';
+  }
+}
+
+async function unlockMootdxFeature() {
+  const pwdInput = document.getElementById('ks-private-feature-password');
+  const statusEl = document.getElementById('ks-private-feature-status');
+  const password = pwdInput ? pwdInput.value : '';
+  if (!String(password).trim()) {
+    if (statusEl) statusEl.textContent = '请先在输入框中输入密码';
+    return;
+  }
+  try {
+    const res = await api('/api/kline-sources/private/unlock', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+      silent: true,
+    });
+    if (res && res.token) {
+      sessionStorage.setItem(PRIVATE_FEATURE_TOKEN_KEY, res.token);
+      await refreshPrivateFeatureStatusUI();
+      if (statusEl) statusEl.textContent = 'Mootdx 私有功能已解锁，请选择下方 Mootdx 数据源类型';
+      if (pwdInput) pwdInput.value = '';
+      return;
+    }
+    if (statusEl) statusEl.textContent = '密码错误，请重新输入';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '解锁失败: ' + e.message;
   }
 }
 
@@ -3235,6 +3895,60 @@ function selectKsType(el, type) {
         <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001">
       </div>
 `;
+  } else if (type === 'mootdx') {
+    fields.innerHTML = `
+      <div class="form-row">
+        <div class="form-group">
+          <label>服务器地址（可选）</label>
+          <input class="form-control" id="ks-cfg-server_host" value="" placeholder="留空则自动选择最快节点">
+        </div>
+        <div class="form-group">
+          <label>服务器端口（可选）</label>
+          <input class="form-control" id="ks-cfg-server_port" value="" placeholder="例如 7709">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>自动选优节点</label>
+          <select class="form-control" id="ks-cfg-use_bestip">
+            <option value="true" selected>是</option>
+            <option value="false">否</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>超时（秒）</label>
+          <input class="form-control" id="ks-cfg-timeout" value="10" placeholder="10">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>周期</label>
+          <select class="form-control" id="ks-cfg-interval">
+            <option value="1min" selected>1分钟</option>
+            <option value="5min">5分钟</option>
+            <option value="15min">15分钟</option>
+            <option value="30min">30分钟</option>
+            <option value="60min">60分钟</option>
+            <option value="D">日线</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>单次拉取页大小</label>
+          <input class="form-control" id="ks-cfg-page_size" value="800" placeholder="1-800">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>最大翻页数</label>
+          <input class="form-control" id="ks-cfg-max_pages" value="12" placeholder="12">
+        </div>
+        <div class="form-group">
+          <label>股票代码（逗号分隔，用于预览）</label>
+          <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
+        </div>
+      </div>
+      <div class="text-dim" style="font-size:12px;margin-top:4px">此入口默认隐藏，仅在输入正确密码后显示。数据通过本机 Mootdx 在线行情接口获取。</div>
+    `;
   } else if (type === 'tdx') {
     fields.innerHTML = `
       <div class="form-group">
@@ -3243,11 +3957,24 @@ function selectKsType(el, type) {
           <input class="form-control" id="ks-cfg-data_dir" value="" placeholder="C:\\tdx\\vipdoc\\sh 或 /path/to/tdx/vipdoc">
           <button type="button" class="btn btn-secondary btn-sm" id="ks-cfg-data_dir-picker" onclick="chooseTdxDataDir()" title="选择本地目录">选择文件夹</button>
         </div>
-        <div class="text-dim" style="font-size:12px;margin-top:4px">请先通过通达信官方客户端下载数据到本地目录。本工具仅读取本地 .lc/.dat 文件，不连接任何远程服务器。</div>
+        <div class="text-dim" style="font-size:12px;margin-top:4px">请先通过通达信官方客户端下载数据到本地目录。本工具仅读取本地 .day/.1min/.lc1 等文件，不连接任何远程服务器。</div>
       </div>
-      <div class="form-group">
-        <label>股票代码（逗号分隔，用于预览）</label>
-        <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
+      <div class="form-row">
+        <div class="form-group">
+          <label>K线周期</label>
+          <select class="form-control" id="ks-cfg-interval">
+            <option value="1min" selected>1分钟</option>
+            <option value="5min">5分钟</option>
+            <option value="15min">15分钟</option>
+            <option value="30min">30分钟</option>
+            <option value="60min">60分钟</option>
+            <option value="D">日线</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>股票代码（逗号分隔，用于预览）</label>
+          <input class="form-control" id="ks-cfg-preview_codes" value="000001" placeholder="000001,600000">
+        </div>
       </div>
 `;
   }
@@ -3320,6 +4047,8 @@ async function loadKlineSourceData(id) {
   try {
     const conn = await api(`/api/kline-sources/${id}`);
     document.getElementById('ks-name').value = conn.name || '';
+    // 私有数据源编辑时先恢复解锁状态，再尝试选中隐藏卡片。
+    if (conn.type === 'mootdx') await refreshPrivateFeatureStatusUI();
     const el = document.querySelector(`.kline-type-card[data-type="${conn.type}"]`);
     if (el) selectKsType(el, conn.type);
     if (conn.config) {
@@ -3647,15 +4376,22 @@ async function refreshCredentials() {
       el.innerHTML = '<div class="empty-state"><div class="icon">🔑</div><p>暂无凭证</p><button class="btn btn-primary" onclick="openCredentialModal()">新建凭证</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>名称</th><th>类型</th><th>创建时间</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="cred-search" placeholder="搜索凭证名称、类型..." oninput="filterTableRows('cred-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
+    </div>
+    <table class="data-table" id="cred-table"><thead><tr>
+      ${thPlain('名称')}${thPlain('类型')}
+      ${th('创建时间', 'created_at', 'cred-table')}
+      ${th('更新时间', 'updated_at', 'cred-table')}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const c of list) {
-      const created = new Date(c.created_at).toLocaleString('zh-CN');
       html += `<tr>
         <td>${c.name}</td>
         <td><span class="badge badge-pending">${labelCredentialType(c.type)}</span></td>
-        <td class="text-dim">${created}</td>
+        ${timeCell(c.created_at)}
+        ${timeCell(c.updated_at)}
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="testCredential('${c.id}')">🔗 测试</button>
           <button class="btn btn-secondary btn-sm" onclick="openCredentialModal('${c.id}')">编辑</button>
@@ -4369,8 +5105,8 @@ const tdxApis = [
   // 通达信仅支持本地目录模式：读取用户本机已下载的数据文件，不调用远程接口。
   { src: 'tdx', cat: 'market', apiName: 'local_day_kline', desc: '本地日线K线(.day/.lc)',
     params: 'data_dir(本地目录), preview_codes(股票代码), interval(建议D)', fields: 'datetime,open,high,low,close,amount,volume' },
-  { src: 'tdx', cat: 'market', apiName: 'local_minute_kline', desc: '本地分钟K线(.1min/.5min/.15min/.30min，当前interval未强约束)',
-    params: 'data_dir(本地目录), preview_codes(股票代码), interval(1min/5min/15min/30min；当前仅占位提示)', fields: 'datetime,open,high,low,close,amount,volume' },
+  { src: 'tdx', cat: 'market', apiName: 'local_minute_kline', desc: '本地分钟K线(.1min/.5min/.15min/.30min，按interval周期读取)',
+    params: 'data_dir(本地目录), preview_codes(股票代码), interval(1min/5min/15min/30min)', fields: 'datetime,open,high,low,close,amount,volume' },
   { src: 'tdx', cat: 'market', apiName: 'local_security_list', desc: '本地代码列表扫描',
     params: 'data_dir(本地目录)', fields: 'code,name,market,file_count' },
 ];
@@ -4378,7 +5114,7 @@ const tdxApis = [
 // All APIs merged for "全部" tab
 const allApis = [...tushareApis, ...akshareApis, ...tdxApis];
 
-const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信' };
+const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信', mootdx: '🔒 Mootdx' };
 const catLabels = { market:'行情', finance:'财务', fund:'基金', index:'指数', flow:'资金', sector:'板块' };
 
 // 分组标签由 getSourceTabMap() 动态生成：支持运行时注入“自定义模板”分组。
@@ -4649,8 +5385,7 @@ function fillApiTemplate(apiName, apiInfo, src) {
     if (codesEl) codesEl.value = '000001';
     // Show API reference info for user
     if (apiName === 'local_minute_kline') {
-      // 真实能力提示：当前 interval 字段仅做占位展示，后端尚未按粒度强制过滤。
-      addLog('通达信 local_minute_kline：当前版本 interval 仅占位提示，暂未实现按 5min/30min 强制筛选。请选择本地目录后点击"测试连接"验证。', 'warning');
+      addLog('通达信 local_minute_kline：已启用按周期筛选，请确认 interval 参数(1min/5min等)与本地 .1min/.5min 文件匹配', 'info');
     } else {
       addLog(`通达信 ${apiName}：请选择本地数据目录后点击"测试连接"验证`, 'info');
     }
@@ -4685,8 +5420,18 @@ async function refreshPipelines() {
       el.innerHTML = '<div class="empty-state"><div class="icon">🔄</div><p>暂无数据流</p><button class="btn btn-primary" onclick="openPipelineModal()">新建数据流</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>名称</th><th>数据源数</th><th>目标</th><th>状态</th><th>Cron</th><th>上次运行</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="pl-list-search" placeholder="搜索数据流名称、目标表..." oninput="filterTableRows('pl-list-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${pipelines.length} 个</span>
+    </div>
+    <table class="data-table" id="pl-list-table"><thead><tr>
+      ${th('名称', 'name', 'pl-list-table')}
+      ${thPlain('数据源数')}${thPlain('目标')}${thPlain('状态')}
+      ${th('Cron', 'cron', 'pl-list-table')}
+      ${th('上次运行', 'last_run', 'pl-list-table')}
+      ${th('创建时间', 'created_at', 'pl-list-table')}
+      ${th('更新时间', 'updated_at', 'pl-list-table')}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const p of pipelines) {
       const pjson = p.pipeline_json || {};
@@ -4701,6 +5446,8 @@ async function refreshPipelines() {
         <td><span class="badge badge-${badgeClassForStatus(p.status || 'pending')}">${labelStatus(p.status || 'pending')}</span></td>
         <td class="text-dim">${p.cron_expression || '-'}</td>
         <td class="text-dim">${time}</td>
+        ${timeCell(p.created_at)}
+        ${timeCell(p.updated_at)}
         <td class="actions">
           <button class="btn btn-success btn-sm" onclick="runPipeline('${p.id}')">执行</button>
           <button class="btn btn-secondary btn-sm" onclick="previewPipeline('${p.id}')">预览</button>
@@ -5982,8 +6729,15 @@ async function refreshWorkflows() {
       el.innerHTML = '<div class="empty-state"><div class="icon">🔀</div><p>暂无工作流</p><button class="btn btn-primary" onclick="openWorkflowModal()">新建工作流</button></div>';
       return;
     }
-    let html = `<table class="data-table"><thead><tr>
-      <th>名称</th><th>描述</th><th>节点数</th><th>操作</th>
+    let html = `<div class="table-toolbar">
+      <input class="table-search" id="wf-search" placeholder="搜索工作流名称、描述..." oninput="filterTableRows('wf-table', this.value)">
+      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
+    </div>
+    <table class="data-table" id="wf-table"><thead><tr>
+      ${thPlain('名称')}${thPlain('描述')}${thPlain('节点数')}
+      ${th('创建时间', 'created_at', 'wf-table')}
+      ${th('更新时间', 'updated_at', 'wf-table')}
+      ${thPlain('操作')}
     </tr></thead><tbody>`;
     for (const w of list) {
       const nodes = (w.workflow_json?.nodes || []).length;
@@ -5991,6 +6745,8 @@ async function refreshWorkflows() {
         <td>${w.name}</td>
         <td class="text-dim">${w.description || '-'}</td>
         <td>${nodes}</td>
+        ${timeCell(w.created_at)}
+        ${timeCell(w.updated_at)}
         <td class="actions">
           <button class="btn btn-secondary btn-sm" onclick="openWorkflowModal('${w.id}')">编辑</button>
           <button class="btn btn-secondary btn-sm" onclick="previewWorkflow('${w.id}')">预览</button>

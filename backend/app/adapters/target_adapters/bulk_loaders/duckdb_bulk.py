@@ -6,7 +6,9 @@ from typing import Dict, Any, List
 class DuckDBBulkLoader:
 
     def __init__(self, config: Dict[str, Any]):
-        self.db_path = config.get("db_path", ":memory:")
+        self.db_path = config.get("db_path", "")
+        if not self.db_path:
+            raise ValueError("db_path 为空")
         self.connection = None
 
     def connect(self):

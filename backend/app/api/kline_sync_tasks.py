@@ -38,6 +38,7 @@ def _run_sync_task(task_id: str):
     """后台执行同步任务。"""
     engine = KLineSyncEngine()
     result = engine.sync(task_id)
+    error_msg = ", ".join(result.get("errors", [])) if result.get("errors") else result.get("error")
     sqlite_repo.save_sync_record({
         "id": str(uuid.uuid4()),
         "task_id": task_id,
@@ -45,7 +46,7 @@ def _run_sync_task(task_id: str):
         "rows_read": result.get("rows_read", 0),
         "rows_written": result.get("rows_written", 0),
         "rows_skipped": result.get("rows_skipped", 0),
-        "error_message": ", ".join(result.get("errors", [])) if result.get("errors") else None,
+        "error_message": error_msg,
         "status": "failed" if result.get("error") else "success",
     })
     task = sqlite_repo.get_task(task_id)

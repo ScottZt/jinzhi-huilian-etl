@@ -53,118 +53,7 @@ async def get_all_workflows():
     return sqlite_repo.list_workflows()
 
 
-@router.get("/{workflow_id}")
-async def get_workflow(workflow_id: str):
-    data = sqlite_repo.get_workflow(workflow_id)
-    if not data:
-        return {"error": "Workflow not found"}
-    return data
-
-
-@router.post("/")
-async def create_workflow(body: WorkflowCreate):
-    check_feature_or_raise("max_workflows")  # free: 1, personal: 5, professional: unlimited
-    workflow_id = str(uuid.uuid4())
-    record = {
-        "id": workflow_id,
-        "name": body.name,
-        "description": body.description or "",
-        "workflow_json": body.workflow_json,
-    }
-    sqlite_repo.save_workflow(record)
-    return {"id": workflow_id, **record}
-
-
-@router.put("/{workflow_id}")
-async def update_workflow(workflow_id: str, body: WorkflowCreate):
-    check_feature_or_raise("max_workflows")
-    record = {
-        "id": workflow_id,
-        "name": body.name,
-        "description": body.description or "",
-        "workflow_json": body.workflow_json,
-    }
-    sqlite_repo.save_workflow(record)
-    return record
-
-
-@router.delete("/{workflow_id}")
-async def delete_workflow(workflow_id: str):
-    deleted = sqlite_repo.delete_workflow(workflow_id)
-    return {"deleted": deleted}
-
-
-@router.post("/{workflow_id}/preview")
-async def preview_workflow(workflow_id: str):
-    """执行工作流预览（带 sample_data 时使用自定义数据，否则使用空 DataFrame）。"""
-    wf_data = sqlite_repo.get_workflow(workflow_id)
-    if not wf_data:
-        return {"error": "Workflow not found"}
-
-    return _execute_workflow_preview(wf_data["workflow_json"], None)
-
-
-@router.get("/{workflow_id}/preview")
-async def preview_workflow_get_compat(workflow_id: str):
-    """兼容旧前端缓存：允许 GET 方式访问工作流预览。"""
-    # 复用同一执行逻辑，确保 GET/POST 行为一致，避免缓存版本导致 405。
-    return await preview_workflow(workflow_id)
-
-
-@router.post("/preview")
-async def preview_workflow_direct(body: WorkflowPreview):
-    """直接预览工作流（传入 workflow_json + 可选 sample_data）。"""
-    df = None
-    if body.sample_data:
-        df = pd.DataFrame(body.sample_data)
-    return _execute_workflow_preview(body.workflow_json, df)
-
-
-def _execute_workflow_preview(workflow_json: dict, df: Optional[pd.DataFrame]):
-    """执行工作流并返回结果。"""
-    if df is None:
-        df = pd.DataFrame()
-
-    engine = get_workflow_engine()
-    # 每次预览前都同步节点注册，保证插件和内置节点可执行。
-    engine.register_all()
-
-    try:
-        result_df, timings = engine.execute(workflow_json, df)
-        # 指标类节点常会在前几行产生 NaN/Inf；先统一做 JSON 安全化，避免预览接口报错。
-        preview_records = _json_safe(result_df.head(50).to_dict("records"))
-        return {
-            "rows": len(result_df),
-            "columns": list(result_df.columns),
-            "preview": preview_records,
-            "timings": _json_safe(timings),
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def _upsert_workflow_by_name(name: str, description: str, workflow_json: dict, overwrite_existing: bool) -> dict:
-    """按名称写入工作流，支持覆盖或复用。"""
-    existing = sqlite_repo.list_workflows()
-    for wf in existing:
-        if wf.get("name") == name:
-            if overwrite_existing:
-                record = {
-                    "id": wf["id"],
-                    "name": name,
-                    "description": description,
-                    "workflow_json": workflow_json,
-                }
-                return sqlite_repo.save_workflow(record)
-            return wf
-    record = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "description": description,
-        "workflow_json": workflow_json,
-    }
-    return sqlite_repo.save_workflow(record)
-
+# ---------- 静态路由必须在 /{workflow_id} 之前注册 ----------
 
 @router.get("/presets")
 async def list_workflow_presets():
@@ -200,7 +89,6 @@ async def seed_workflow_presets(overwrite_existing: bool = False):
 async def run_workflow_presets(body: Optional[PresetRunRequest] = None):
     """执行所有预制工作流并返回结果，确保样例可跑通。"""
     if body is None:
-        # 未传请求体时使用默认配置，方便直接一键调用。
         body = PresetRunRequest()
     if body.auto_seed:
         await seed_workflow_presets(overwrite_existing=body.overwrite_existing)
@@ -269,28 +157,6 @@ async def create_plugin(body: dict):
     fname = f"{node_type}.py"
     fpath = plugins_dir / fname
 
-    content = f'''"""自定义插件: {name}"""
-import pandas as pd
-from app.core.workflow_engine import BaseNode
-
-
-class CustomNode(BaseNode):
-    node_type = "{node_type}"
-    display_name = "{display_name}"
-    category = "{category}"
-
-    def process(self, df: pd.DataFrame, params: dict) -> pd.DataFrame:
-        {code}
-
-        return result if "result" in dir() else df
-'''
-    # Replace the placeholder with actual code
-    content = content.replace(
-        "def process(df, params):\n        # df: pandas.DataFrame\n        # params: dict\n        return df",
-        code
-    )
-
-    # Simpler approach: write the class with the user's code
     func_body = "\n        ".join(code.strip().split("\n"))
 
     content = f'''"""自定义插件: {name}"""
@@ -313,3 +179,114 @@ class CustomNode(BaseNode):
         return {"success": True, "message": f"插件已保存到 {fname}，重启服务后生效"}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+# ---------- /{workflow_id} 通配路由（必须放在静态路由之后） ----------
+
+
+def _execute_workflow_preview(workflow_json: dict, df: Optional[pd.DataFrame]):
+    """执行工作流并返回结果。"""
+    if df is None:
+        df = pd.DataFrame()
+    engine = get_workflow_engine()
+    engine.register_all()
+    try:
+        result_df, timings = engine.execute(workflow_json, df)
+        preview_records = _json_safe(result_df.head(50).to_dict("records"))
+        return {
+            "rows": len(result_df),
+            "columns": list(result_df.columns),
+            "preview": preview_records,
+            "timings": _json_safe(timings),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _upsert_workflow_by_name(name: str, description: str, workflow_json: dict, overwrite_existing: bool) -> dict:
+    """按名称写入工作流，支持覆盖或复用。"""
+    existing = sqlite_repo.list_workflows()
+    for wf in existing:
+        if wf.get("name") == name:
+            if overwrite_existing:
+                record = {
+                    "id": wf["id"],
+                    "name": name,
+                    "description": description,
+                    "workflow_json": workflow_json,
+                }
+                return sqlite_repo.save_workflow(record)
+            return wf
+    record = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "description": description,
+        "workflow_json": workflow_json,
+    }
+    return sqlite_repo.save_workflow(record)
+
+
+@router.get("/{workflow_id}")
+async def get_workflow(workflow_id: str):
+    data = sqlite_repo.get_workflow(workflow_id)
+    if not data:
+        return {"error": "Workflow not found"}
+    return data
+
+
+@router.post("/")
+async def create_workflow(body: WorkflowCreate):
+    check_feature_or_raise("max_workflows")  # free: 1, personal: 5, professional: unlimited
+    workflow_id = str(uuid.uuid4())
+    record = {
+        "id": workflow_id,
+        "name": body.name,
+        "description": body.description or "",
+        "workflow_json": body.workflow_json,
+    }
+    sqlite_repo.save_workflow(record)
+    return {"id": workflow_id, **record}
+
+
+@router.put("/{workflow_id}")
+async def update_workflow(workflow_id: str, body: WorkflowCreate):
+    check_feature_or_raise("max_workflows")
+    record = {
+        "id": workflow_id,
+        "name": body.name,
+        "description": body.description or "",
+        "workflow_json": body.workflow_json,
+    }
+    sqlite_repo.save_workflow(record)
+    return record
+
+
+@router.delete("/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    deleted = sqlite_repo.delete_workflow(workflow_id)
+    return {"deleted": deleted}
+
+
+@router.post("/{workflow_id}/preview")
+async def preview_workflow(workflow_id: str):
+    """执行工作流预览（带 sample_data 时使用自定义数据，否则使用空 DataFrame）。"""
+    wf_data = sqlite_repo.get_workflow(workflow_id)
+    if not wf_data:
+        return {"error": "Workflow not found"}
+
+    return _execute_workflow_preview(wf_data["workflow_json"], None)
+
+
+@router.get("/{workflow_id}/preview")
+async def preview_workflow_get_compat(workflow_id: str):
+    """兼容旧前端缓存：允许 GET 方式访问工作流预览。"""
+    return await preview_workflow(workflow_id)
+
+
+@router.post("/preview")
+async def preview_workflow_direct(body: WorkflowPreview):
+    """直接预览工作流（传入 workflow_json + 可选 sample_data）。"""
+    df = None
+    if body.sample_data:
+        df = pd.DataFrame(body.sample_data)
+    return _execute_workflow_preview(body.workflow_json, df)

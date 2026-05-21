@@ -328,7 +328,9 @@ class ImportRunner(threading.Thread):
         conn.close()
 
     def _duckdb_batch_insert(self, cfg, table, target_fields, source_fields, chunk_iter, record):
-        db_path = cfg.get("db_path", ":memory:")
+        db_path = cfg.get("db_path", "")
+        if not db_path:
+            raise ValueError("db_path 为空")
         conn = duckdb.connect(db_path, read_only=False)
         cursor = conn.cursor()
 
@@ -461,7 +463,9 @@ class ImportRunner(threading.Thread):
         conn_cfg = sqlite_repo.get_connection(record["target_connection_id"])
         cfg = conn_cfg["config"]
         table = record["target_table"]
-        db_path = cfg.get("db_path", ":memory:")
+        db_path = cfg.get("db_path", "")
+        if not db_path:
+            raise ValueError("db_path 为空")
         conn = duckdb.connect(db_path, read_only=False)
         temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8')
         adapter.read_csv().to_csv(temp_file.name, index=False)

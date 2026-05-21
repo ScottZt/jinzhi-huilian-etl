@@ -68,8 +68,12 @@ def register_all_nodes():
     from app.nodes import column_ops
     from app.nodes import condition
     from app.nodes import custom_python
+    from app.nodes import source_fetch
+    from app.nodes import target_write
+    from app.nodes import range_control
 
-    for mod in [resample, indicators, filter, sort_group, column_ops, condition, custom_python]:
+    for mod in [resample, indicators, filter, sort_group, column_ops, condition, custom_python,
+                source_fetch, target_write, range_control]:
         for cls in _discover_nodes(mod):
             NodeRegistry.register(cls)
     _builtin_nodes.clear()
