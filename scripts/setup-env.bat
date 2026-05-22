@@ -36,7 +36,11 @@ echo.
 echo Installing dependencies...
 call venv\Scripts\activate.bat
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+if exist requirements.txt (
+    pip install -r requirements.txt
+)
+REM Install optional data source packages
+pip install python-binance yfinance akshare tushare mootdx
 pip freeze > requirements.lock.txt
 
 echo.

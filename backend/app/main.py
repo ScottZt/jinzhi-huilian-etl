@@ -58,6 +58,31 @@ MAX_PORT = DEFAULT_PORT + 19
 
 _broadcast_task = None
 
+_OPTIONAL_DEPS = {
+    "python-binance": ("binance", "Binance 加密货币数据源"),
+    "yfinance": ("yfinance", "Yahoo Finance 多市场数据源"),
+    "akshare": ("akshare", "AkShare A股/期货/外汇数据源"),
+    "tushare": ("tushare", "Tushare A股数据源"),
+    "mootdx": ("mootdx", "Mootdx 分钟线数据源"),
+}
+
+
+def _check_optional_deps():
+    """启动时检查可选依赖包，缺失时给出安装提示。"""
+    missing = []
+    for pkg_name, (import_name, desc) in _OPTIONAL_DEPS.items():
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing.append(f"  - {pkg_name}（用于 {desc}）")
+    if missing:
+        logger.warning(
+            "[启动检查] 以下可选依赖未安装，对应数据源将不可用:\n%s\n"
+            "可通过以下命令安装:\n  pip install %s",
+            "\n".join(missing),
+            " ".join(m[2:].split("（")[0].strip().replace("- ", "") for m in missing),
+        )
+
 
 async def _periodic_broadcast():
     """Periodically broadcast status to all WebSocket clients."""
@@ -74,6 +99,7 @@ async def lifespan(app: FastAPI):
     # Ensure schema exists for standalone startup path.
     init_db()
     _init_audit_db()
+    _check_optional_deps()
     _broadcast_task = asyncio.create_task(_periodic_broadcast())
     yield
     if _broadcast_task:

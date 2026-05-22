@@ -32,7 +32,11 @@ echo ""
 echo "Installing dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+if [ -f requirements.txt ]; then
+    pip install -r requirements.txt
+fi
+# Install optional data source packages
+pip install python-binance yfinance akshare tushare mootdx
 pip freeze > requirements.lock.txt
 
 echo ""

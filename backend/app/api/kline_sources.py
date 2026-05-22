@@ -265,6 +265,12 @@ def _get_adapter_for_source(source_type: str, cfg: dict):
     elif source_type == "mootdx":
         from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
         return MootdxAdapter()
+    elif source_type == "binance":
+        from app.adapters.source_adapters.binance_adapter import BinanceAdapter
+        return BinanceAdapter()
+    elif source_type == "yfinance":
+        from app.adapters.source_adapters.yfinance_adapter import YfinanceAdapter
+        return YfinanceAdapter()
     else:
         raise ValueError(f"Unsupported source type: {source_type}")
 
@@ -328,6 +334,27 @@ async def test_source(source_id: str, request: Request):
                     "message": f"AkShare 接口调用成功但返回空数据：func={func_name}，请检查 symbol/日期区间/adjust 参数",
                 }
             success, message = True, f"AkShare 接口测试成功：func={func_name}，返回 {len(probe_df)} 条记录"
+        elif source_type in ("binance", "yfinance"):
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=30)
+            preview_codes_raw = cfg.get("symbols", cfg.get("preview_codes", ""))
+            if isinstance(preview_codes_raw, str):
+                probe_codes = [c.strip() for c in preview_codes_raw.split(",") if c.strip()]
+            elif isinstance(preview_codes_raw, list):
+                probe_codes = [str(c) for c in preview_codes_raw if str(c).strip()]
+            else:
+                probe_codes = []
+            default_code = "BTCUSDT" if source_type == "binance" else "AAPL"
+            if not probe_codes:
+                probe_codes = [default_code]
+            probe_interval = cfg.get("interval", "1d")
+            probe_df = adapter.fetch_kline(cfg, probe_codes, start_time, end_time, probe_interval)
+            if probe_df is None or probe_df.empty:
+                return {
+                    "success": False,
+                    "message": f"{source_type.title()} 测试成功但返回空数据，请检查 symbol/日期区间",
+                }
+            success, message = True, f"{source_type.title()} 测试成功，返回 {len(probe_df)} 条记录"
         else:
             success, message = adapter.check_connectivity(cfg)
         notice = COMPLIANCE_NOTICE
@@ -386,6 +413,10 @@ async def preview_source_data(source_id: str, request: Request):
         default_preview_code = "000001"
         if source_type == "tushare":
             default_preview_code = "000001.SZ"
+        elif source_type == "binance":
+            default_preview_code = "BTCUSDT"
+        elif source_type == "yfinance":
+            default_preview_code = "AAPL"
         elif source_type == "http":
             req_tmpl = cfg.get("request_template", {})
             if isinstance(req_tmpl, str):

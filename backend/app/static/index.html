@@ -363,9 +363,9 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      width: 520px;
-      max-width: 90vw;
-      max-height: 85vh;
+      width: 720px;
+      max-width: 95vw;
+      max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.4);
     }
@@ -1159,6 +1159,8 @@ const KLINE_SOURCE_TYPE_LABEL_MAP = {
   akshare: 'AkShare 直连',
   tushare: 'Tushare HTTP',
   mootdx: 'Mootdx 私有分钟线',
+  binance: 'Binance 加密货币',
+  yfinance: 'Yahoo Finance',
 };
 const CREDENTIAL_TYPE_LABEL_MAP = {
   tushare_token: 'Tushare Token',
@@ -3701,6 +3703,12 @@ function openKlineSourceModal(editId = null) {
         <div class="kline-type-card" data-type="mootdx" onclick="selectKsType(this,'mootdx')" id="ks-type-card-mootdx" style="display:none">
           <div class="icon">🔒</div><div class="label">Mootdx 私有分钟线</div><div class="desc">输入密码后可见</div>
         </div>
+        <div class="kline-type-card" data-type="binance" onclick="selectKsType(this,'binance')">
+          <div class="icon">🪙</div><div class="label">Binance</div><div class="desc">加密货币免费数据</div>
+        </div>
+        <div class="kline-type-card" data-type="yfinance" onclick="selectKsType(this,'yfinance')">
+          <div class="icon">📈</div><div class="label">Yahoo Finance</div><div class="desc">美股/外汇/期货免费数据</div>
+        </div>
       </div>
       <input type="hidden" id="ks-type" value="">
       <input type="hidden" id="ks-cfg-selected_api" value="">
@@ -3948,6 +3956,79 @@ function selectKsType(el, type) {
         </div>
       </div>
       <div class="text-dim" style="font-size:12px;margin-top:4px">此入口默认隐藏，仅在输入正确密码后显示。数据通过本机 Mootdx 在线行情接口获取。</div>
+    `;
+  } else if (type === 'binance') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>API 基础地址（base_url）</label>
+        <input class="form-control" id="ks-cfg-base_url" value="https://data-api.binance.vision" placeholder="https://data-api.binance.vision">
+        <div class="text-dim" style="font-size:12px;margin-top:4px">默认使用 data-api.binance.vision 镜像（国内可用）。如被墙可尝试 https://api.binance.me 或 https://api1.binance.com</div>
+      </div>
+      <div class="form-group">
+        <label>交易对（逗号分隔）</label>
+        <input class="form-control" id="ks-cfg-symbols" value="BTCUSDT,ETHUSDT" placeholder="BTCUSDT,ETHUSDT,BNBUSDT">
+        <div class="text-dim" style="font-size:12px;margin-top:4px">Binance 公共行情接口，无需 API Key 即可使用。交易对格式: 基础资产+报价资产，如 BTCUSDT、ETHBTC</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>K线周期</label>
+          <select class="form-control" id="ks-cfg-interval">
+            <option value="1m">1分钟</option>
+            <option value="5m">5分钟</option>
+            <option value="15m">15分钟</option>
+            <option value="30m">30分钟</option>
+            <option value="1h">1小时</option>
+            <option value="4h">4小时</option>
+            <option value="1d" selected>日线</option>
+            <option value="1w">周线</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>预览交易对</label>
+          <input class="form-control" id="ks-cfg-preview_codes" value="BTCUSDT" placeholder="BTCUSDT">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>API Key（可选，仅用于提高频率限制）</label>
+        <input class="form-control" id="ks-cfg-api_key" value="" placeholder="留空使用公共行情接口">
+      </div>
+      <div class="form-group">
+        <label>API Secret（可选）</label>
+        <input class="form-control" id="ks-cfg-api_secret" value="" placeholder="留空使用公共行情接口">
+      </div>
+      <div class="text-dim" style="font-size:12px;margin-top:4px">Binance 提供免费行情数据，无需注册。如需更高频率限制，可在 binance.com 注册获取 API Key。</div>
+    `;
+  } else if (type === 'yfinance') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>代码（逗号分隔）</label>
+        <input class="form-control" id="ks-cfg-symbols" value="AAPL" placeholder="AAPL(美股), EURUSD=X(外汇), BTC-USD(加密币), GC=F(期货), ^GSPC(指数)">
+        <div class="text-dim" style="font-size:12px;margin-top:4px">
+          <strong>代码格式参考:</strong><br>
+          美股: AAPL, MSFT, TSLA | 外汇: EURUSD=X, GBPUSD=X, CNY=X<br>
+          加密货币: BTC-USD, ETH-USD | 期货: GC=F(黄金), CL=F(原油) | 指数: ^GSPC(标普500), ^DJI(道琼斯)
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>K线周期</label>
+          <select class="form-control" id="ks-cfg-interval">
+            <option value="1m">1分钟</option>
+            <option value="5m">5分钟</option>
+            <option value="15m">15分钟</option>
+            <option value="30m">30分钟</option>
+            <option value="1h">1小时</option>
+            <option value="1d" selected>日线</option>
+            <option value="1wk">周线</option>
+            <option value="1mo">月线</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>预览代码</label>
+          <input class="form-control" id="ks-cfg-preview_codes" value="AAPL" placeholder="AAPL">
+        </div>
+      </div>
+      <div class="text-dim" style="font-size:12px;margin-top:4px">Yahoo Finance 免费数据源，无需 API Key。注意: 部分市场数据可能有15分钟延迟。</div>
     `;
   } else if (type === 'tdx') {
     fields.innerHTML = `
@@ -4595,6 +4676,8 @@ function getSourceTabMap() {
     tushare: { label: '🔵 Tushare', apis: tushareApis },
     akshare: { label: '🟢 AkShare', apis: akshareApis },
     tdx: { label: '🟠 通达信', apis: tdxApis },
+    binance: { label: '🪙 Binance', apis: binanceApis },
+    yfinance: { label: '📈 Yahoo', apis: yfinanceApis },
   };
   if (customApis.length) {
     map.custom = { label: `🧩 自定义(${customApis.length})`, apis: customApis };
@@ -4708,6 +4791,8 @@ function openCustomApiTemplateModal(editApiName = '', prefill = null) {
         <select class="form-control" id="api-tpl-src">
           <option value="tushare" ${src === 'tushare' ? 'selected' : ''}>Tushare</option>
           <option value="akshare" ${src === 'akshare' ? 'selected' : ''}>AkShare</option>
+          <option value="binance" ${src === 'binance' ? 'selected' : ''}>Binance</option>
+          <option value="yfinance" ${src === 'yfinance' ? 'selected' : ''}>Yahoo Finance</option>
         </select>
       </div>
       <div class="form-group">
@@ -4833,6 +4918,8 @@ function openApiTemplateAIImportModal() {
         <select class="form-control" id="api-ai-source-hint">
           <option value="tushare">Tushare</option>
           <option value="akshare">AkShare</option>
+          <option value="binance">Binance</option>
+          <option value="yfinance">Yahoo Finance</option>
           <option value="custom">自定义/未知</option>
         </select>
       </div>
@@ -5076,6 +5163,24 @@ const akshareApis = [
     reqExample: '{"func":"stock_zh_a_spot_em","symbol":"000001"}' },
   { src: 'akshare', cat: 'market', apiName: 'stock_zh_index_spot_em', desc: '指数实时行情',
     params: 'symbol(指数代码)', fields: '代码,名称,最新价,涨跌幅,涨跌额,成交量,成交额' },
+  // 期货
+  { src: 'akshare', cat: 'market', apiName: 'futures_zh_daily_sina', desc: '国内期货日线行情',
+    params: 'symbol(期货品种代码)', fields: '日期,开盘价,最高价,最低价,收盘价,成交量,持仓量',
+    reqExample: '{"func":"futures_zh_daily_sina","symbol":"V0"}' },
+  { src: 'akshare', cat: 'market', apiName: 'futures_main_sina', desc: '期货主力合约信息',
+    params: 'symbol(商品品种)', fields: '品种,主力合约,日期,开盘价,最高价,最低价,收盘价,成交量',
+    reqExample: '{"func":"futures_main_sina","symbol":"V0"}' },
+  // 外汇
+  { src: 'akshare', cat: 'market', apiName: 'fx_spot_quote', desc: '外汇现货实时报价',
+    params: 'symbol(货币对)', fields: '货币对,最新价,买入价,卖出价,最高价,最低价,涨跌幅',
+    reqExample: '{"func":"fx_spot_quote","symbol":"美元人民币"}' },
+  { src: 'akshare', cat: 'market', apiName: 'fx_swb_minute_sina', desc: '外汇分钟行情',
+    params: 'symbol(货币对)', fields: '日期时间,开盘价,最高价,最低价,收盘价',
+    reqExample: '{"func":"fx_swb_minute_sina","symbol":"美元人民币"}' },
+  // 加密货币
+  { src: 'akshare', cat: 'market', apiName: 'crypto_js_spot', desc: '加密货币现货行情',
+    params: 'symbol(币种名称)', fields: '货币,价格,24h涨跌幅,24h最高,24h最低,24h成交量,总市值',
+    reqExample: '{"func":"crypto_js_spot","symbol":"BTC"}' },
   // 基金
   { src: 'akshare', cat: 'fund', apiName: 'fund_open_fund_info_em', desc: '开放基金信息',
     params: 'fund, indicator', fields: '基金代码,基金名称,日期,单位净值,累计净值,日增长率,近1周,近1月,近3月,近1年,今年来,成立来',
@@ -5111,10 +5216,38 @@ const tdxApis = [
     params: 'data_dir(本地目录)', fields: 'code,name,market,file_count' },
 ];
 
-// All APIs merged for "全部" tab
-const allApis = [...tushareApis, ...akshareApis, ...tdxApis];
+const binanceApis = [
+  { src: 'binance', cat: 'market', apiName: 'klines', desc: 'K线数据(免费)',
+    params: 'symbol, interval, startTime, endTime, limit', fields: 'open_time,open,high,low,close,volume,close_time,quote_volume,trades',
+    symbols: 'BTCUSDT,ETHUSDT', interval: '1m', defaultCode: 'BTCUSDT',
+    reqExample: '{"symbol":"BTCUSDT","interval":"1m","limit":100}' },
+  { src: 'binance', cat: 'market', apiName: 'exchange_info', desc: '交易对列表',
+    params: '无', fields: 'symbols,baseAsset,quoteAsset,status',
+    symbols: '', interval: '1d', defaultCode: 'BTCUSDT' },
+];
 
-const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信', mootdx: '🔒 Mootdx' };
+const yfinanceApis = [
+  { src: 'yfinance', cat: 'market', apiName: 'us_stock_daily', desc: '美股日线',
+    params: 'symbol(如AAPL)', fields: 'Date,Open,High,Low,Close,Volume',
+    symbols: 'AAPL', interval: '1d', defaultCode: 'AAPL' },
+  { src: 'yfinance', cat: 'market', apiName: 'forex_daily', desc: '外汇日线',
+    params: 'symbol(如EURUSD=X)', fields: 'Date,Open,High,Low,Close,Volume',
+    symbols: 'EURUSD=X', interval: '1d', defaultCode: 'EURUSD=X' },
+  { src: 'yfinance', cat: 'market', apiName: 'crypto_daily', desc: '加密货币日线',
+    params: 'symbol(如BTC-USD)', fields: 'Date,Open,High,Low,Close,Volume',
+    symbols: 'BTC-USD', interval: '1d', defaultCode: 'BTC-USD' },
+  { src: 'yfinance', cat: 'market', apiName: 'futures_daily', desc: '期货日线',
+    params: 'symbol(如GC=F)', fields: 'Date,Open,High,Low,Close,Volume',
+    symbols: 'GC=F', interval: '1d', defaultCode: 'GC=F' },
+  { src: 'yfinance', cat: 'market', apiName: 'index_daily', desc: '指数日线',
+    params: 'symbol(如^GSPC)', fields: 'Date,Open,High,Low,Close,Volume',
+    symbols: '^GSPC', interval: '1d', defaultCode: '^GSPC' },
+];
+
+// All APIs merged for "全部" tab
+const allApis = [...tushareApis, ...akshareApis, ...tdxApis, ...binanceApis, ...yfinanceApis];
+
+const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信', mootdx: '🔒 Mootdx', binance: '🪙 Binance', yfinance: '📈 Yahoo' };
 const catLabels = { market:'行情', finance:'财务', fund:'基金', index:'指数', flow:'资金', sector:'板块' };
 
 // 分组标签由 getSourceTabMap() 动态生成：支持运行时注入“自定义模板”分组。
@@ -5300,7 +5433,7 @@ function useApi(apiName) {
     openKlineSourceModal();
     setTimeout(() => {
       // Select the correct type card based on src
-      const typeMap = { tushare: 'http', akshare: 'http', tdx: 'tdx' };
+      const typeMap = { tushare: 'http', akshare: 'http', tdx: 'tdx', binance: 'binance', yfinance: 'yfinance' };
       const cardType = typeMap[src] || 'http';
       const typeCard = document.querySelector(`.kline-type-card[data-type="${cardType}"]`);
       if (typeCard) selectKsType(typeCard, cardType);
@@ -5389,6 +5522,20 @@ function fillApiTemplate(apiName, apiInfo, src) {
     } else {
       addLog(`通达信 ${apiName}：请选择本地数据目录后点击"测试连接"验证`, 'info');
     }
+  } else if (src === 'binance') {
+    const symbols = document.getElementById('ks-cfg-symbols');
+    const interval = document.getElementById('ks-cfg-interval');
+    if (symbols && apiInfo.symbols) symbols.value = apiInfo.symbols;
+    if (interval && apiInfo.interval) interval.value = apiInfo.interval;
+    if (previewCodes) previewCodes.value = apiInfo.defaultCode || 'BTCUSDT';
+    addLog('Binance 免费行情数据：无需 API Key，点击"测试连接"验证', 'info');
+  } else if (src === 'yfinance') {
+    const symbols = document.getElementById('ks-cfg-symbols');
+    const interval = document.getElementById('ks-cfg-interval');
+    if (symbols && apiInfo.symbols) symbols.value = apiInfo.symbols;
+    if (interval && apiInfo.interval) interval.value = apiInfo.interval;
+    if (previewCodes) previewCodes.value = apiInfo.defaultCode || 'AAPL';
+    addLog('Yahoo Finance 免费数据：无需 API Key，注意部分市场数据可能有延迟', 'info');
   }
 }
 

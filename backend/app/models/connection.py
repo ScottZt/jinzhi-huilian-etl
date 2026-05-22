@@ -15,6 +15,8 @@ class ConnectionType(str, Enum):
     TDX = "tdx"
     AKSHARE = "akshare"
     TUSHARE = "tushare"
+    BINANCE = "binance"
+    YFINANCE = "yfinance"
 
 class ConnectionConfig(BaseModel):
     id: Optional[str] = None
