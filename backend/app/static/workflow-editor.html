@@ -170,9 +170,7 @@
       <input id="wf-desc-input" placeholder="工作流描述（可选）" style="width:260px;margin-left:8px">
     </div>
     <div class="topbar-actions">
-      <button class="btn" onclick="try{editor.zoomOut()}catch(e){}">−</button>
-      <button class="btn" onclick="try{editor.zoomReset()}catch(e){}">1:1</button>
-      <button class="btn" onclick="try{editor.zoomIn()}catch(e){}">+</button>
+      <span style="color:var(--text-dim);font-size:11px;margin-right:4px" title="滚轮缩放，中键拖拽画布">🖱️ 滚轮缩放 / 中键拖拽</span>
       <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
       <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
       <button class="btn btn-primary" onclick="saveWorkflow()">保存工作流</button>
@@ -227,6 +225,23 @@
 
   <script src="https://cdn.jsdelivr.net/npm/drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script>
+    // ---------- API Key auto-fetch ----------
+    let _apiAuthKey = '';
+    (async function initApiKey() {
+      try {
+        const res = await fetch('/api/auth/key');
+        if (res.ok) { _apiAuthKey = (await res.json()).api_key || ''; }
+      } catch (e) {}
+    })();
+    async function ensureApiKey() {
+      if (_apiAuthKey) return _apiAuthKey;
+      try {
+        const res = await fetch('/api/auth/key');
+        if (res.ok) { _apiAuthKey = (await res.json()).api_key || ''; }
+      } catch (e) {}
+      return _apiAuthKey;
+    }
+
     // ---------- Global state ----------
     let editor;
     const NODE_CATEGORIES = {
@@ -316,9 +331,72 @@
       editor = new Drawflow(el, 'html', null);
       editor.reroute = true;
       editor.reroute_fix_curvature = true;
-      editor.zoom = true;
       editor.editor_mode = 'edit';
+
+      // 在 editor.start() 之前绑定事件（确保优先级高于 Drawflow 内部事件）
+      // 滚轮缩放（不需要 Ctrl 键）
+      el.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY > 0) {
+          editor.zoom_out();
+        } else {
+          editor.zoom_in();
+        }
+      }, { passive: false, capture: true });
+
+      // 鼠标中键拖拽画布
+      let isPanning = false;
+      let panStartX = 0, panStartY = 0;
+      let panStartCX = 0, panStartCY = 0;
+
+      el.addEventListener('mousedown', function(e) {
+        if (e.button === 1) {
+          e.preventDefault();
+          e.stopPropagation();
+          isPanning = true;
+          panStartX = e.clientX;
+          panStartY = e.clientY;
+          panStartCX = editor.canvas_x;
+          panStartCY = editor.canvas_y;
+          el.style.cursor = 'grabbing';
+          editor.editor_selected = true;
+        }
+      }, { capture: true });
+
+      document.addEventListener('mouseup', function(e) {
+        if (isPanning && e.button === 1) {
+          isPanning = false;
+          editor.editor_selected = false;
+          el.style.cursor = '';
+        }
+      });
+
+      document.addEventListener('mousemove', function(e) {
+        if (!isPanning) return;
+        e.preventDefault();
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        editor.canvas_x = panStartCX + dx;
+        editor.canvas_y = panStartCY + dy;
+        const precanvas = editor.precanvas || el.querySelector('.drawflow');
+        if (precanvas) {
+          precanvas.style.transform = 'translate(' + editor.canvas_x + 'px, ' + editor.canvas_y + 'px) scale(' + editor.zoom + ')';
+        }
+      }, { passive: false });
+
       editor.start();
+
+      // Drawflow 0.0.59 API:
+      //   zoom_in() / zoom_out() / zoom_reset() — 缩放
+      //   precanvas — 被 transform 的元素 (.drawflow)
+      //   canvas_x / canvas_y — 画布偏移
+      //   zoom — 当前缩放值（默认 1）
+
+      // 启用缩放范围
+      editor.zoom = true;
+      editor.zoom_max = 2;
+      editor.zoom_min = 0.2;
 
       // Events
       editor.on('nodeSelected', onNodeSelected);
@@ -532,9 +610,9 @@
           { id: 'code', label: 'Python 代码', type: 'textarea' },
         ],
         source_fetch: [
-          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare'] },
+          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare','binance','yfinance'] },
           { id: 'source_config', label: '数据源配置(JSON)', type: 'textarea' },
-          { id: 'codes', label: '股票代码(逗号分隔)', type: 'text' },
+          { id: 'codes', label: '交易对/股票代码(逗号分隔)', type: 'text' },
           { id: 'interval', label: 'K线周期', type: 'select', opts: ['1min','5min','15min','30min','60min','D'] },
           { id: 'time_mode', label: '时间模式', type: 'select', opts: ['lookback','custom','since_last'] },
           { id: 'lookback_days', label: '回看天数', type: 'number' },
@@ -804,9 +882,14 @@
 
     // ---------- API helper ----------
     async function api(url, options = {}) {
+      const apiKey = await ensureApiKey();
       const res = await fetch(url, {
         method: options.method || 'GET',
-        headers: { 'Content-Type': 'application/json', ...options.headers },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+          ...options.headers,
+        },
         body: options.body,
       });
       if (!res.ok) {

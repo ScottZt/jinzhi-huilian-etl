@@ -38,6 +38,12 @@ def _get_adapter(source_type: str, cfg: dict):
     elif source_type == "tushare":
         from app.adapters.source_adapters.tushare_adapter import HttpAdapter
         return HttpAdapter()
+    elif source_type == "binance":
+        from app.adapters.source_adapters.binance_adapter import BinanceAdapter
+        return BinanceAdapter()
+    elif source_type == "yfinance":
+        from app.adapters.source_adapters.yfinance_adapter import YfinanceAdapter
+        return YfinanceAdapter()
     else:
         raise ValueError(f"不支持的数据源类型: {source_type}")
 
@@ -50,7 +56,7 @@ class SourceFetchNode(BaseNode):
         "source_type": {
             "type": "select",
             "label": "数据源类型",
-            "options": ["tdx", "mootdx", "akshare", "tushare"],
+            "options": ["tdx", "mootdx", "akshare", "tushare", "binance", "yfinance"],
             "default": "tdx",
         },
         "source_config": {
@@ -60,8 +66,8 @@ class SourceFetchNode(BaseNode):
         },
         "codes": {
             "type": "text",
-            "label": "股票代码(逗号分隔)",
-            "default": "000001,600000",
+            "label": "交易对/股票代码(逗号分隔)",
+            "default": "BTCUSDT,ETHUSDT",
         },
         "interval": {
             "type": "select",

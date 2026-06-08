@@ -270,6 +270,8 @@ class BuiltinFuncs:
             return None
         return str(value)
 
+from app.core.secure_exec import safe_eval as _safe_engine_eval
+
 
 # ---- Transform rule types ----
 
@@ -398,10 +400,8 @@ class TransformEngine:
         for i in range(len(df)):
             local_ctx = {col: ctx[col][i] for col in df.columns}
             local_ctx.update({name: func for name, func in self._builtin_names.items() if callable(func)})
-            try:
-                result.append(eval(safe_expr, {"__builtins__": {}}, local_ctx))
-            except Exception:
-                result.append(None)
+            ok, val = _safe_engine_eval(safe_expr, {"__builtins__": {}}, local_ctx, label="transform_safe_eval")
+            result.append(val if ok else None)
         return pd.Series(result, index=df.index)
 
     def _apply_sql_expr(self, df: pd.DataFrame, rule: Dict) -> pd.DataFrame:

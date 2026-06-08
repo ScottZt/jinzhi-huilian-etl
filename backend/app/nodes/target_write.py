@@ -1,11 +1,30 @@
 """目标写入节点 — 将处理后的 DataFrame 写入目标数据库。"""
 import json
+import re
 import time
 from typing import List, Optional
 
 import pandas as pd
 
 from app.core.workflow_engine import BaseNode
+
+# Whitelist pattern for SQL identifiers (table/column names)
+_IDENT_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    """Validate a SQL identifier against a safe whitelist. Raises on violation."""
+    if not _IDENT_RE.match(name):
+        raise ValueError(
+            f"{label} '{name}' contains invalid characters. "
+            f"Only letters, digits, and underscores are allowed, starting with a letter or underscore."
+        )
+    return name
+
+
+def _validate_identifiers(names: List[str], label: str = "identifier") -> List[str]:
+    """Validate multiple SQL identifiers."""
+    return [_validate_identifier(n, label) for n in names]
 
 
 class TargetWriteNode(BaseNode):
@@ -65,8 +84,12 @@ class TargetWriteNode(BaseNode):
         cols_str = (params.get("columns") or "").strip()
         if cols_str:
             write_cols = [c.strip() for c in cols_str.split(",") if c.strip()]
+            write_cols = _validate_identifiers(write_cols, "column")
             available = [c for c in write_cols if c in df.columns]
             df = df[available].copy()
+
+        # Validate table name
+        target_table = _validate_identifier(target_table, "target_table")
 
         # NaN -> None
         df = df.where(pd.notnull(df), None)
@@ -75,22 +98,31 @@ class TargetWriteNode(BaseNode):
         if target_type == "duckdb":
             return self._write_duckdb(df, cfg, target_table, batch_size, on_duplicate)
         elif target_type == "mysql":
-            return self._write_mysql(df, cfg, target_table, batch_size, on_duplicate)
+            return self._write_mysql(df, cfg, target_table, batch_size, on_duplicate, columns)
         elif target_type == "postgresql":
-            return self._write_pg(df, cfg, target_table, batch_size, on_duplicate)
+            return self._write_pg(df, cfg, target_table, batch_size, on_duplicate, columns)
         elif target_type == "clickhouse":
-            return self._write_ch(df, cfg, target_table, batch_size)
+            return self._write_ch(df, cfg, target_table, batch_size, columns)
         else:
             raise ValueError(f"不支持的目标类型: {target_type}")
 
     def _write_duckdb(self, df: pd.DataFrame, cfg: dict, table: str, batch_size: int, on_duplicate: str) -> pd.DataFrame:
         import duckdb
+        import os
 
         db_path = cfg.get("db_path", "")
         if not db_path:
             raise RuntimeError("db_path 为空")
+
+        # 确保父目录存在
+        db_dir = os.path.dirname(db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
         conn = duckdb.connect(db_path, read_only=False)
         try:
+            # 表不存在时自动创建
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {table} AS SELECT * FROM df LIMIT 0")
             conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
             total = len(df)
         except Exception as e:

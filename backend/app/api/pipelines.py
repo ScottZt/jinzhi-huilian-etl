@@ -1,6 +1,6 @@
-"""数据流编排 API — 统一的数据流管理（多数据源 → ETL工作流 → 目标存储）。"""
+"""数据流编排 API - 统一的数据流管理（多数据源 → ETL工作流 → 目标存储）。"""
 from fastapi import APIRouter, BackgroundTasks
-from typing import List, Optional
+from typing import List, Optional, Set
 from pydantic import BaseModel
 import uuid
 import time
@@ -48,6 +48,18 @@ def _apply_pipeline_field_mappings(df: pd.DataFrame, field_mappings: List[dict])
     if existing_targets:
         return mapped[existing_targets].copy()
     return mapped
+
+
+def _analyze_workflow_capabilities(workflow_json: dict) -> Set[str]:
+    """分析工作流是否包含 source_fetch 和 target_write 节点，避免与 Pipeline 冲突。"""
+    nodes = workflow_json.get("nodes", [])
+    types = {n.get("type") for n in nodes}
+    caps: Set[str] = set()
+    if "source_fetch" in types:
+        caps.add("source_fetch")
+    if "target_write" in types:
+        caps.add("target_write")
+    return caps
 
 
 def _get_pipeline_source_data(source_id: str):
@@ -100,91 +112,106 @@ def _has_postgres_unique_constraint(conn_cfg: dict, table_name: str, columns: Li
 
 
 def _precheck_pipeline_config(pipeline: dict) -> dict:
-    # 统一预检查入口：运行前先做结构校验，避免“执行成功但0写入”或运行时才爆错。
+    """统一预检查入口：运行前先做结构校验，避免执行成功但0写入或运行时才爆错。"""
     pjson = pipeline.get("pipeline_json", {}) or {}
     sources = pjson.get("sources", []) or []
     target = pjson.get("target", {}) or {}
     field_mappings = pjson.get("field_mappings", []) or []
     on_duplicate = str(pjson.get("on_duplicate", "ignore"))
+    workflow_id = pjson.get("workflow_id")
+
+    # 分析工作流能力，决定 Pipeline 是否需要 Source/Target
+    wf_caps: Set[str] = set()
+    if workflow_id:
+        wf_data = sqlite_repo.get_workflow(workflow_id)
+        if wf_data and wf_data.get("workflow_json"):
+            wf_caps = _analyze_workflow_capabilities(wf_data["workflow_json"])
 
     errors: List[str] = []
     warnings: List[str] = []
     conn_mgr = ConnectionManager()
 
-    if not sources:
-        errors.append("未配置数据源")
-    if not target or not target.get("connection_id"):
-        errors.append("未配置目标连接")
-    if not target or not str(target.get("table", "")).strip():
-        errors.append("未配置目标表名")
+    if "source_fetch" not in wf_caps and not sources:
+        errors.append("未配置数据源（工作流也未包含 source_fetch 节点）")
+    if "target_write" not in wf_caps:
+        if not target or not target.get("connection_id"):
+            errors.append("未配置目标连接（工作流也未包含 target_write 节点）")
+        if not target or not str(target.get("table", "")).strip():
+            errors.append("未配置目标表名（工作流也未包含 target_write 节点）")
     if errors:
         return {"ok": False, "errors": errors, "warnings": warnings}
 
-    # 检查来源配置完整性（codes 模式允许空 codes，kline 模式要求显式代码列表）。
-    for idx, source in enumerate(sources):
-        source_id = source.get("connection_id")
-        source_data = _get_pipeline_source_data(source_id)
-        if not source_data:
-            errors.append(f"数据源#{idx + 1} 不存在: {source_id}")
-            continue
-        preview_mode = str(source_data.get("config", {}).get("preview_mode", "kline")).lower()
-        codes = source.get("params", {}).get("codes", []) or []
-        if preview_mode != "codes" and not codes:
-            errors.append(f"数据源#{idx + 1} 未配置股票代码（当前为K线模式）")
+    if "source_fetch" in wf_caps:
+        warnings.append("工作流包含 source_fetch 节点，Pipeline 数据源配置将被跳过")
+    else:
+        # 检查来源配置完整性
+        for idx, source in enumerate(sources):
+            source_id = source.get("connection_id")
+            source_data = _get_pipeline_source_data(source_id)
+            if not source_data:
+                errors.append(f"数据源#{idx + 1} 不存在: {source_id}")
+                continue
+            preview_mode = str(source_data.get("config", {}).get("preview_mode", "kline")).lower()
+            codes = source.get("params", {}).get("codes", []) or []
+            if preview_mode != "codes" and not codes:
+                errors.append(f"数据源#{idx + 1} 未配置股票代码（当前为K线模式）")
 
-    target_conn = sqlite_repo.get_connection(target.get("connection_id"))
-    if not target_conn:
-        errors.append("目标连接不存在")
-        return {"ok": False, "errors": errors, "warnings": warnings}
+    if "target_write" in wf_caps:
+        warnings.append("工作流包含 target_write 节点，Pipeline 目标库配置将被跳过")
+    else:
+        target_conn = sqlite_repo.get_connection(target.get("connection_id"))
+        if not target_conn:
+            errors.append("目标连接不存在")
+            return {"ok": False, "errors": errors, "warnings": warnings}
 
-    # 检查目标表是否存在，避免执行时才报“表不存在”。
-    target_table = str(target.get("table", "")).strip()
-    try:
-        tables = conn_mgr.get_tables(type("Obj", (), {
-            "type": target_conn["type"],
-            "config": target_conn.get("config", {}),
-        })())
-        if target_table and target_table not in tables:
-            errors.append(f"目标表不存在: {target_table}")
-    except Exception as e:
-        warnings.append(f"无法预读取目标表列表: {e}")
+        # 检查目标表是否存在，避免执行时才报"表不存在"。
+        target_table = str(target.get("table", "")).strip()
+        try:
+            tables = conn_mgr.get_tables(type("Obj", (), {
+                "type": target_conn["type"],
+                "config": target_conn.get("config", {}),
+            })())
+            if target_table and target_table not in tables:
+                errors.append(f"目标表不存在: {target_table}")
+        except Exception as e:
+            warnings.append(f"无法预读取目标表列表: {e}")
 
-    # 若已配置字段映射，检查目标字段是否在目标表中。
-    if target_table and field_mappings:
-        expected_fields = []
-        for mapping in field_mappings:
-            tgt = mapping.get("target_field") or mapping.get("source_field")
-            if tgt:
-                expected_fields.append(str(tgt))
-        expected_fields = [f for i, f in enumerate(expected_fields) if f not in expected_fields[:i]]
-        if expected_fields:
-            try:
-                table_cols = conn_mgr.get_table_columns(type("Obj", (), {
-                    "type": target_conn["type"],
-                    "config": target_conn.get("config", {}),
-                })(), target_table)
-                miss = [f for f in expected_fields if f not in table_cols]
-                if miss:
-                    errors.append(f"目标表缺少映射字段: {', '.join(miss)}")
-            except Exception as e:
-                warnings.append(f"无法预读取目标字段列表: {e}")
+        # 若已配置字段映射，检查目标字段是否在目标表中。
+        if target_table and field_mappings:
+            expected_fields = []
+            for mapping in field_mappings:
+                tgt = mapping.get("target_field") or mapping.get("source_field")
+                if tgt:
+                    expected_fields.append(str(tgt))
+            expected_fields = [f for i, f in enumerate(expected_fields) if f not in expected_fields[:i]]
+            if expected_fields:
+                try:
+                    table_cols = conn_mgr.get_table_columns(type("Obj", (), {
+                        "type": target_conn["type"],
+                        "config": target_conn.get("config", {}),
+                    })(), target_table)
+                    miss = [f for f in expected_fields if f not in table_cols]
+                    if miss:
+                        errors.append(f"目标表缺少映射字段: {', '.join(miss)}")
+                except Exception as e:
+                    warnings.append(f"无法预读取目标字段列表: {e}")
 
-    # PostgreSQL 下 ON CONFLICT 必须匹配唯一/主键约束，缺失时执行必失败。
-    if target_conn.get("type") == "postgresql" and on_duplicate in ("ignore", "update") and field_mappings:
-        conflict_cols = []
-        for mapping in field_mappings:
-            tgt = mapping.get("target_field") or mapping.get("source_field")
-            if tgt:
-                conflict_cols.append(str(tgt))
+        # PostgreSQL 下 ON CONFLICT 必须匹配唯一/主键约束，缺失时执行必失败。
+        if target_conn.get("type") == "postgresql" and on_duplicate in ("ignore", "update") and field_mappings:
+            conflict_cols = []
+            for mapping in field_mappings:
+                tgt = mapping.get("target_field") or mapping.get("source_field")
+                if tgt:
+                    conflict_cols.append(str(tgt))
+                if len(conflict_cols) >= 2:
+                    break
             if len(conflict_cols) >= 2:
-                break
-        if len(conflict_cols) >= 2:
-            if not _has_postgres_unique_constraint(target_conn.get("config", {}), target_table, conflict_cols):
-                errors.append(
-                    f"PostgreSQL 缺少唯一约束: ({', '.join(conflict_cols)})，无法使用 ON CONFLICT"
-                )
-        else:
-            warnings.append("字段映射不足2列，ON CONFLICT 键推断可能不稳定")
+                if not _has_postgres_unique_constraint(target_conn.get("config", {}), target_table, conflict_cols):
+                    errors.append(
+                        f"PostgreSQL 缺少唯一约束: ({', '.join(conflict_cols)})，无法使用 ON CONFLICT"
+                    )
+            else:
+                warnings.append("字段映射不足2列，ON CONFLICT 键推断可能不稳定")
 
     return {"ok": len(errors) == 0, "errors": errors, "warnings": warnings}
 
@@ -203,12 +230,67 @@ def _json_safe(value):
     return value
 
 
+def _build_codes_df(source_data: dict) -> pd.DataFrame:
+    """代码列表模式：直接读取 list_codes 结果并转成 DataFrame。"""
+    source_type = source_data.get("type", "")
+    cfg = normalize_config(source_data.get("config", {}) or {})
+    if source_type == "tdx":
+        from app.adapters.source_adapters.tdx_adapter import TdxAdapter
+        adapter = TdxAdapter()
+    elif source_type == "mootdx":
+        from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
+        adapter = MootdxAdapter()
+    elif source_type == "akshare":
+        from app.adapters.source_adapters.akshare_adapter import HttpAdapter
+        adapter = HttpAdapter()
+    elif source_type == "tushare":
+        from app.adapters.source_adapters.tushare_adapter import HttpAdapter
+        adapter = HttpAdapter()
+    else:
+        return pd.DataFrame()
+    codes = adapter.list_codes(cfg) or []
+    if not codes:
+        return pd.DataFrame()
+    if isinstance(codes[0], dict):
+        return pd.DataFrame(codes)
+    return pd.DataFrame([{"code": str(v)} for v in codes])
+
+
 def _build_pipeline_preview(pipeline: dict) -> dict:
     """执行数据流预览：拉源 + 工作流 + 字段映射，不写入目标库。"""
     pjson = pipeline.get("pipeline_json", {})
     sources = pjson.get("sources", [])
     workflow_id = pjson.get("workflow_id")
     field_mappings = pjson.get("field_mappings", [])
+
+    # 分析工作流是否自带 Source，有则由工作流完成拉取
+    wf_caps: Set[str] = set()
+    wf_data = None
+    if workflow_id:
+        wf_data = sqlite_repo.get_workflow(workflow_id)
+        if wf_data and wf_data.get("workflow_json"):
+            wf_caps = _analyze_workflow_capabilities(wf_data["workflow_json"])
+
+    if "source_fetch" in wf_caps:
+        # 工作流自带 source_fetch：直接执行工作流预览
+        from app.core.workflow_engine import get_workflow_engine
+        engine_w = get_workflow_engine()
+        engine_w.register_all()
+        df, workflow_timings = engine_w.execute(wf_data["workflow_json"], pd.DataFrame())
+        if field_mappings and not df.empty:
+            df = _apply_pipeline_field_mappings(df, field_mappings)
+        return {
+            "pipeline_id": pipeline.get("id"),
+            "pipeline_name": pipeline.get("name", ""),
+            "rows": len(df),
+            "columns": list(df.columns),
+            "preview": _json_safe(df.head(50).to_dict("records")),
+            "sources": [{"index": 1, "connection_id": "workflow:source_fetch", "status": "ok",
+                         "rows_read": len(df), "rows_after_transform": len(df),
+                         "interval": "n/a (workflow-managed)", "codes_count": 0}],
+            "workflow_timings": _json_safe(workflow_timings),
+        }
+
     if not sources:
         return {"error": "数据流未配置数据源"}
 
@@ -217,32 +299,6 @@ def _build_pipeline_preview(pipeline: dict) -> dict:
     source_reports = []
     total_rows_after_transform = 0
     workflow_timings = {}
-
-    def _build_codes_df(source_data: dict) -> pd.DataFrame:
-        # “代码列表模式”直接读取 list_codes 结果并转成 DataFrame，供映射和写入复用。
-        source_type = source_data.get("type", "")
-        cfg = normalize_config(source_data.get("config", {}) or {})
-        if source_type == "tdx":
-            from app.adapters.source_adapters.tdx_adapter import TdxAdapter
-            adapter = TdxAdapter()
-        elif source_type == "mootdx":
-            # 私有 Mootdx 源在数据流执行期直接读取已保存配置。
-            from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
-            adapter = MootdxAdapter()
-        elif source_type == "akshare":
-            from app.adapters.source_adapters.akshare_adapter import HttpAdapter
-            adapter = HttpAdapter()
-        elif source_type == "tushare":
-            from app.adapters.source_adapters.tushare_adapter import HttpAdapter
-            adapter = HttpAdapter()
-        else:
-            return pd.DataFrame()
-        codes = adapter.list_codes(cfg) or []
-        if not codes:
-            return pd.DataFrame()
-        if isinstance(codes[0], dict):
-            return pd.DataFrame(codes)
-        return pd.DataFrame([{"code": str(v)} for v in codes])
 
     for idx, source in enumerate(sources):
         source_conn_id = source.get("connection_id")
@@ -272,7 +328,7 @@ def _build_pipeline_preview(pipeline: dict) -> dict:
 
         interval = params.get("interval", "1min")
 
-        # 按数据流配置应用工作流，便于预览“加工后”的结果。
+        # 按数据流配置应用工作流，便于预览"加工后"的结果。
         if workflow_id and not df.empty:
             wf_data = sqlite_repo.get_workflow(workflow_id)
             if wf_data and wf_data.get("workflow_json"):
@@ -347,100 +403,100 @@ def _run_pipeline(pipeline_id: str):
         batch_size = pjson.get("batch_size", 5000)
         on_duplicate = pjson.get("on_duplicate", "ignore")
 
-        if not sources or not target:
-            raise ValueError("数据流需要至少一个数据源和一个目标")
+        # 分析工作流是否自带 Source/Target，避免与 Pipeline 冲突
+        wf_caps: Set[str] = set()
+        wf_data = None
+        if workflow_id:
+            wf_data = sqlite_repo.get_workflow(workflow_id)
+            if wf_data and wf_data.get("workflow_json"):
+                wf_caps = _analyze_workflow_capabilities(wf_data["workflow_json"])
 
         engine = KLineSyncEngine()
         total_read = 0
         total_written = 0
         total_skipped = 0
 
-        def _build_codes_df(source_data: dict) -> pd.DataFrame:
-            # “代码列表模式”直接读取 list_codes 结果并转成 DataFrame，供映射和写入复用。
-            source_type = source_data.get("type", "")
-            cfg = normalize_config(source_data.get("config", {}) or {})
-            if source_type == "tdx":
-                from app.adapters.source_adapters.tdx_adapter import TdxAdapter
-                adapter = TdxAdapter()
-            elif source_type == "mootdx":
-                # 私有 Mootdx 源在数据流执行期直接读取已保存配置。
-                from app.adapters.source_adapters.mootdx_adapter import MootdxAdapter
-                adapter = MootdxAdapter()
-            elif source_type == "akshare":
-                from app.adapters.source_adapters.akshare_adapter import HttpAdapter
-                adapter = HttpAdapter()
-            elif source_type == "tushare":
-                from app.adapters.source_adapters.tushare_adapter import HttpAdapter
-                adapter = HttpAdapter()
+        if "source_fetch" in wf_caps:
+            # 工作流自带 source_fetch：由工作流独立完成拉取+写入，Pipeline 仅做调度
+            from app.core.workflow_engine import get_workflow_engine
+            engine_w = get_workflow_engine()
+            engine_w.register_all()
+            df, _ = engine_w.execute(wf_data["workflow_json"], pd.DataFrame())
+            total_read = len(df)
+            if df.empty:
+                raise ValueError("工作流 source_fetch 未拉取到数据")
+            if field_mappings:
+                df = _apply_pipeline_field_mappings(df, field_mappings)
+            if "target_write" not in wf_caps:
+                # 工作流没有 target_write，Pipeline 负责写入
+                target_conn = sqlite_repo.get_connection(target.get("connection_id"))
+                if target_conn:
+                    total_written = engine._insert_to_target(
+                        df, target_conn, target.get("table", "dat_kline"),
+                        batch_size, on_duplicate
+                    )
             else:
-                return pd.DataFrame()
-            codes = adapter.list_codes(cfg) or []
-            if not codes:
-                return pd.DataFrame()
-            if isinstance(codes[0], dict):
-                return pd.DataFrame(codes)
-            return pd.DataFrame([{"code": str(v)} for v in codes])
+                total_written = total_read
+        else:
+            # 常规流程：Pipeline 拉取 → 工作流 Transform → Pipeline 写入
+            processed_sources = 0
 
-        processed_sources = 0
-
-        for source in sources:
-            source_conn = _get_pipeline_source_data(source.get("connection_id"))
-            if not source_conn:
-                total_skipped += 1
-                continue
-            target_conn = sqlite_repo.get_connection(target.get("connection_id"))
-            if not target_conn:
-                total_skipped += 1
-                continue
-
-            params = source.get("params", {})
-            codes = params.get("codes", [])
-            preview_mode = str(source_conn.get("config", {}).get("preview_mode", "kline")).lower()
-            interval = params.get("interval", "1min")
-            session_only = params.get("session_only", True)
-            if (not codes) and preview_mode == "codes":
-                df = _build_codes_df(source_conn)
-            else:
-                if not codes:
+            for source in sources:
+                source_conn = _get_pipeline_source_data(source.get("connection_id"))
+                if not source_conn:
                     total_skipped += 1
                     continue
-                start_time, end_time = engine._resolve_time_range(params)
-                df = engine._fetch_source(source_conn, codes, start_time, end_time, interval)
-            total_read += len(df)
-            processed_sources += 1
+                target_conn = sqlite_repo.get_connection(target.get("connection_id"))
+                if not target_conn:
+                    total_skipped += 1
+                    continue
 
-            if df.empty:
-                continue
+                params = source.get("params", {})
+                codes = params.get("codes", [])
+                preview_mode = str(source_conn.get("config", {}).get("preview_mode", "kline")).lower()
+                interval = params.get("interval", "1min")
+                session_only = params.get("session_only", True)
+                if (not codes) and preview_mode == "codes":
+                    df = _build_codes_df(source_conn)
+                else:
+                    if not codes:
+                        total_skipped += 1
+                        continue
+                    start_time, end_time = engine._resolve_time_range(params)
+                    df = engine._fetch_source(source_conn, codes, start_time, end_time, interval)
+                total_read += len(df)
+                processed_sources += 1
 
-            if session_only and interval == "1min":
-                df = engine._filter_session_minutes(df)
+                if df.empty:
+                    continue
 
-            # 工作流处理
-            if workflow_id:
-                wf_data = sqlite_repo.get_workflow(workflow_id)
-                if wf_data and wf_data.get("workflow_json"):
+                if session_only and interval == "1min":
+                    df = engine._filter_session_minutes(df)
+
+                # 工作流处理
+                if workflow_id and wf_data and wf_data.get("workflow_json"):
                     from app.core.workflow_engine import get_workflow_engine
                     engine_w = get_workflow_engine()
                     engine_w.register_all()
                     df, _ = engine_w.execute(wf_data["workflow_json"], df)
 
-            if df.empty:
-                continue
+                if df.empty:
+                    continue
 
-            # 字段映射
-            if field_mappings:
-                df = _apply_pipeline_field_mappings(df, field_mappings)
+                # 字段映射
+                if field_mappings:
+                    df = _apply_pipeline_field_mappings(df, field_mappings)
 
-            # 写入目标
-            written = engine._insert_to_target(
-                df, target_conn, target.get("table", "dat_kline"),
-                batch_size, on_duplicate
-            )
-            total_written += written
+                # 写入目标（工作流已有 target_write 时跳过）
+                if "target_write" not in wf_caps:
+                    written = engine._insert_to_target(
+                        df, target_conn, target.get("table", "dat_kline"),
+                        batch_size, on_duplicate
+                    )
+                    total_written += written
 
-        # 避免“全部来源都被跳过”时显示成功，明确给出可诊断错误。
-        if processed_sources == 0:
-            raise ValueError("未读取到可执行的数据源，请检查数据流来源是否有效或是否配置了股票代码")
+            if processed_sources == 0:
+                raise ValueError("未读取到可执行的数据源，请检查数据流来源是否有效或是否配置了股票代码")
 
         elapsed = time.time() - t0
         sqlite_repo.save_pipeline_run({
@@ -453,7 +509,6 @@ def _run_pipeline(pipeline_id: str):
             "finished_at": datetime.now().isoformat(),
         })
 
-        # 更新 pipeline 状态
         pipeline["last_run_at"] = datetime.now().isoformat()
         pipeline["status"] = "completed"
         sqlite_repo.save_pipeline(pipeline)
@@ -570,7 +625,7 @@ async def run_pipeline(pipeline_id: str, background_tasks: BackgroundTasks, forc
 
 @router.post("/{pipeline_id}/precheck")
 async def precheck_pipeline(pipeline_id: str):
-    # 提供显式预检查接口，前端可在“执行”前先展示问题并做二次确认。
+    # 提供显式预检查接口，前端可在"执行"前先展示问题并做二次确认。
     pipeline = sqlite_repo.get_pipeline(pipeline_id)
     if not pipeline:
         return {"error": "Pipeline not found", "ok": False, "errors": ["数据流不存在"], "warnings": []}

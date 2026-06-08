@@ -1,6 +1,10 @@
 """条件分支节点 — 按条件分流数据。"""
+import logging
 import pandas as pd
 from app.core.workflow_engine import BaseNode
+from app.core.secure_exec import validate_code_ast
+
+logger = logging.getLogger(__name__)
 
 
 class ConditionNode(BaseNode):
@@ -17,6 +21,11 @@ class ConditionNode(BaseNode):
             return df
         cond_str = params.get("condition", "")
         if not cond_str:
+            return df
+        # Validate expression before passing to pandas.eval
+        ok, err = validate_code_ast(cond_str)
+        if not ok:
+            logger.warning("ConditionNode: expression rejected: %s", err)
             return df
         try:
             mask = df.eval(cond_str, engine='python')

@@ -1,6 +1,10 @@
 """列操作节点 — 重命名、表达式计算。"""
+import logging
 import pandas as pd
 from app.core.workflow_engine import BaseNode
+from app.core.secure_exec import validate_code_ast
+
+logger = logging.getLogger(__name__)
 
 
 class ColumnRenameNode(BaseNode):
@@ -43,6 +47,12 @@ class ExpressionNode(BaseNode):
         target = params.get("target_column", "new_col")
         expr = params.get("expression", "")
         if not expr:
+            return df
+        # Validate expression before passing to pandas.eval
+        ok, err = validate_code_ast(expr)
+        if not ok:
+            logger.warning("ExpressionNode: expression rejected: %s", err)
+            df[target] = None
             return df
         work = df.copy()
         try:

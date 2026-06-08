@@ -1,6 +1,7 @@
 """
 脚本执行接口 — 合规设计：提供脚本沙箱执行环境，用于运行大模型生成的 Python 脚本。
 """
+import logging
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, Callable
@@ -9,6 +10,9 @@ import traceback
 
 from etl_tool_sdk.license import LicenseManager
 from etl_tool_sdk.config import SDKConfig
+from app.core.secure_exec import make_sandbox_globals, safe_exec
+
+logger = logging.getLogger(__name__)
 
 
 class ScriptExecutor:
@@ -79,35 +83,26 @@ class ScriptExecutor:
         if not code:
             return input_df, None
 
-        safe_globals = {
-            "pd": pd,
-            "np": np,
-            "np_where": np.where,
-            "np_select": np.select,
-            "datetime": __import__('datetime').datetime,
-            "timedelta": __import__('datetime').timedelta,
-            "__builtins__": {},
-        }
-
+        safe_globals = make_sandbox_globals()
         local_ns = {
             "df": input_df.copy(),
             "context": context or {},
         }
 
-        try:
-            exec(code, safe_globals, local_ns)
-            func = local_ns.get("process")
-            if callable(func):
-                result = func(local_ns["df"])
-            elif isinstance(local_ns.get("df"), pd.DataFrame):
-                result = local_ns["df"]
-            else:
-                result = input_df
-            if isinstance(result, pd.DataFrame):
-                return result, None
-            return input_df, None
-        except Exception as e:
-            return input_df, f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+        ok, err = safe_exec(code, safe_globals, local_ns, label="node_script")
+        if not ok:
+            return input_df, err
+
+        func = local_ns.get("process")
+        if callable(func):
+            result = func(local_ns["df"])
+        elif isinstance(local_ns.get("df"), pd.DataFrame):
+            result = local_ns["df"]
+        else:
+            result = input_df
+        if isinstance(result, pd.DataFrame):
+            return result, None
+        return input_df, None
 
     def execute_full_script(
         self,
@@ -133,24 +128,17 @@ class ScriptExecutor:
         """
         timeout = timeout or SDKConfig.SANDBOX_TIMEOUT_SECONDS
 
-        safe_globals = {
-            "pd": pd,
-            "np": np,
-            "datetime": __import__('datetime').datetime,
-            "timedelta": __import__('datetime').timedelta,
-            "__builtins__": {},
-        }
-
+        safe_globals = make_sandbox_globals()
         local_ns = {"context": context or {}}
 
-        try:
-            exec(code, safe_globals, local_ns)
-            result = local_ns.get("result", local_ns.get("df"))
-            if isinstance(result, pd.DataFrame):
-                return result, None
-            return None, None
-        except Exception as e:
-            return None, f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+        ok, err = safe_exec(code, safe_globals, local_ns, label="full_script")
+        if not ok:
+            return None, err
+
+        result = local_ns.get("result", local_ns.get("df"))
+        if isinstance(result, pd.DataFrame):
+            return result, None
+        return None, None
 
     def execute_with_retry(
         self,
@@ -273,7 +261,7 @@ class ScriptExecutor:
         timeout_seconds: int = 300,
     ) -> tuple[Optional[pd.DataFrame], Optional[str]]:
         """
-        带超时的脚本执行。
+        带超时的脚本执行（使用安全沙箱）。
 
         注意：Windows 下 subprocess 级别的超时需要多进程支持，
         此方法在超时时会抛出 TimeoutError。
@@ -287,14 +275,16 @@ class ScriptExecutor:
             raise TimeoutError("Script execution timed out")
 
         local_ns = dict(input_data)
-        safe_globals = self.create_safe_globals()
+        safe_globals = make_sandbox_globals()
 
         old_handler = signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(timeout_seconds)
 
         try:
-            exec(code, safe_globals, local_ns)
+            ok, err = safe_exec(code, safe_globals, local_ns, label="timeout_script")
             signal.alarm(0)
+            if not ok:
+                return None, err
             result = local_ns.get("result", local_ns.get("df"))
             if isinstance(result, pd.DataFrame):
                 return result, None

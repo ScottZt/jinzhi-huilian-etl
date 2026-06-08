@@ -826,10 +826,36 @@
 const API = '';
 const PRIVATE_FEATURE_TOKEN_KEY = 'jzhl_private_feature_token';
 const VIEWS = {};
-// 全局 AI 调用模式：normal=普通请求，sse=流式事件。默认普通模式。
-let _llmStreamMode = 'normal';
+// 全局 API Key — 启动时从服务端自动获取，后续请求自动附加
+let _apiAuthKey = '';
 // API 模板 SSE 会话句柄：用于取消正在进行的流式解析。
+let _llmStreamMode = 'normal';
 let _apiTemplateSSE = null;
+
+// Auto-fetch API key on startup
+(async function initApiKey() {
+  try {
+    const res = await fetch('/api/auth/key');
+    if (res.ok) {
+      const data = await res.json();
+      _apiAuthKey = data.api_key || '';
+    }
+  } catch (e) {
+    // Non-localhost or server not ready — will retry on first API call
+  }
+})();
+
+async function ensureApiKey() {
+  if (_apiAuthKey) return _apiAuthKey;
+  try {
+    const res = await fetch('/api/auth/key');
+    if (res.ok) {
+      const data = await res.json();
+      _apiAuthKey = data.api_key || '';
+    }
+  } catch (e) {}
+  return _apiAuthKey;
+}
 
 // ---------- Navigation ----------
 const VIEW_DATA_LOADER = {
@@ -979,10 +1005,13 @@ async function api(url, opts = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
+    // Ensure API key is loaded
+    const apiKey = await ensureApiKey();
     const privateToken = getPrivateFeatureToken();
     const res = await fetch(API + url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
         ...(privateToken ? { 'X-Private-Feature-Token': privateToken } : {}),
         ...opts.headers,
       },
@@ -990,6 +1019,12 @@ async function api(url, opts = {}) {
       signal: opts.signal || controller.signal,
     });
     if (!res.ok) {
+      // On 401, try to refresh API key and hint user
+      if (res.status === 401) {
+        _apiAuthKey = ''; // force refresh
+        await ensureApiKey();
+        throw new Error('鉴权失败，请重启服务后重试');
+      }
       const text = await res.text();
       throw new Error(text || `HTTP ${res.status}`);
     }
@@ -1681,7 +1716,7 @@ overview: async () => ({
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
           <button class="btn btn-secondary" onclick="openAIAssistantModal('workflow', { mode: 'wizard' })">🤖 AI 辅助</button>
-          <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入示例</button>
+          <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入全部示例(6个)</button>
           <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
           <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
         </div>
@@ -3299,7 +3334,7 @@ async function refreshTasks(opts = {}) {
   } catch(e) { console.error(e); }
 }
 
-function renderTaskTable(el, tasks) {
+async function renderTaskTable(el, tasks) {
   let html = `<table class="data-table"><thead><tr>
     <th>名称</th><th>类型</th><th>目标表</th><th>状态</th><th>上次运行</th><th>操作</th>
   </tr></thead><tbody>`;
@@ -3320,7 +3355,6 @@ function renderTaskTable(el, tasks) {
   html += '</tbody></table>';
   el.innerHTML = html;
 }
-
 async function openNewTaskModal() {
   const connections = await api('/api/connections');
   if (!connections.length) { alert('请先创建连接'); return; }
@@ -6858,12 +6892,9 @@ async function clearAiConfig() {
 // ---------- 工作流 ----------
 async function seedDemoWorkflow() {
   try {
-    const res = await api('/api/workflows/seed-demo', { method: 'POST' });
-    if (res.message && res.message.includes('已存在')) {
-      alert(res.message);
-    } else {
-      alert('✅ ' + res.message);
-    }
+    const res = await api('/api/workflows/seed-presets', { method: 'POST', body: JSON.stringify({}) });
+    const count = res.count || 0;
+    alert(`✅ 已导入 ${count} 个示例工作流`);
     refreshWorkflows();
   } catch(e) { alert('创建失败: ' + e.message); }
 }

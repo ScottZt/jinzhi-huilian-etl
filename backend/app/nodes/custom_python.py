@@ -1,6 +1,10 @@
-"""自定义 Python 脚本节点 — 用户编写 Python 代码处理 DataFrame。"""
+"""自定义 Python 脚本节点 — 用户编写 Python 代码处理 DataFrame（沙箱执行）。"""
+import logging
 import pandas as pd
 from app.core.workflow_engine import BaseNode
+from app.core.secure_exec import make_sandbox_globals, safe_exec
+
+logger = logging.getLogger(__name__)
 
 
 class CustomPythonNode(BaseNode):
@@ -17,23 +21,15 @@ class CustomPythonNode(BaseNode):
         code = params.get("code", "")
         if not code:
             return df
-        safe_globals = {
-            "pd": pd, "np": __import__('numpy'),
-            "np_where": __import__('numpy').where,
-            "np_select": __import__('numpy').select,
-            "__builtins__": {},
-        }
+        safe_globals = make_sandbox_globals()
         local_ns = {"df": df.copy()}
-        try:
-            exec(code, safe_globals, local_ns)
-            result = local_ns.get("df", df)
-            if not isinstance(result, pd.DataFrame):
-                func = local_ns.get("process")
-                if callable(func):
-                    result = func(df)
-            if isinstance(result, pd.DataFrame):
-                return result
+        ok, err = safe_exec(code, safe_globals, local_ns, label="custom_python_node")
+        if not ok:
+            logger.error("CustomPythonNode: %s", err)
             return df
-        except Exception as e:
-            print(f"CustomPythonNode error: {e}")
-            return df
+        result = local_ns.get("df", df)
+        if not isinstance(result, pd.DataFrame):
+            func = local_ns.get("process")
+            if callable(func):
+                result = func(df)
+        return result if isinstance(result, pd.DataFrame) else df

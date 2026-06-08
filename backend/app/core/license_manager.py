@@ -1,5 +1,6 @@
 """License 授权管理系统 — 机器码绑定 + 在线/离线激活 + 版本权限控制。"""
 import hashlib
+import hmac
 import platform
 import uuid
 import json
@@ -8,6 +9,52 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
+
+# ---- Activation code signing ----
+# The secret key is obfuscated and should be replaced before build.
+# In development, a default key is used for testing activation codes.
+_SECRET_KEY_PARTS = [
+    "9a7f3b2e1c4d",
+    "5e8a0f6c3b7d",
+    "2d4e6f8a0b1c",
+]
+_SIGNING_SALT = b"jzhl_etl_license_v1"
+
+
+def _get_signing_key() -> bytes:
+    """Get the signing key, optionally overridden by env variable."""
+    env_key = os.environ.get("JZHL_LICENSE_SIGNING_KEY", "")
+    if env_key:
+        return env_key.encode("utf-8")
+    # Obfuscated default key — segments concatenated at runtime
+    return ("".join(_SECRET_KEY_PARTS)).encode("utf-8")
+
+
+def _sign_activation(lic_type: str, expires: str) -> str:
+    """Create HMAC-SHA256 signature for an activation code."""
+    message = f"{lic_type}:{expires}".encode("utf-8")
+    key = _get_signing_key()
+    sig = hmac.new(key, _SIGNING_SALT + message, hashlib.sha256).hexdigest()[:16]
+    return sig
+
+
+def _verify_activation(lic_type: str, expires: str, signature: str) -> bool:
+    """Verify HMAC-SHA256 signature on an activation code."""
+    expected = _sign_activation(lic_type, expires)
+    return hmac.compare_digest(expected, signature)
+
+
+def generate_activation_code(lic_type: str, expires: str = "lifetime") -> str:
+    """
+    Generate a valid activation code (for licensing server / build script use).
+    Format: type:expires:signature
+
+    Example usage in license server:
+        code = generate_activation_code("personal", "2026-12-31")
+    """
+    sig = _sign_activation(lic_type, expires)
+    return f"{lic_type}:{expires}:{sig}"
+
 
 LICENSE_DB_KEY = "_license_meta"
 
@@ -217,18 +264,21 @@ def activate_online(activation_code: str) -> dict:
     """在线激活 License。"""
     machine_code = get_machine_code()
 
-    # 激活码格式解析（演示用 — 实际应调用授权服务器 API）
-    # 格式: {type}:{expires}:{checksum}
-    # 例如: personal:2026-12-31:xxxx
+    # 激活码格式: {type}:{expires}:{hmac_signature}
     parts = activation_code.strip().split(":")
-    if len(parts) < 2:
-        raise ValueError("激活码格式无效")
+    if len(parts) < 3:
+        raise ValueError("激活码格式无效（缺少签名）")
 
     lic_type = parts[0]
-    expires_str = parts[1] if len(parts) > 1 else None
+    expires_str = parts[1]
+    signature = parts[2]
 
     if lic_type not in (LicenseType.PERSONAL, LicenseType.PROFESSIONAL):
         raise ValueError(f"不支持的 License 类型: {lic_type}")
+
+    # HMAC-SHA256 签名验证
+    if not _verify_activation(lic_type, expires_str, signature):
+        raise PermissionError("激活码签名无效，请使用合法授权码")
 
     expires_at = None
     if expires_str and expires_str != "lifetime":

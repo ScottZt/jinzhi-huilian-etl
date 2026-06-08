@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
+from contextlib import contextmanager
 
 # 全局统一使用上海时间（UTC+8）
 _SHANGHAI_TZ = timezone(timedelta(hours=8))
@@ -13,10 +14,9 @@ _SHANGHAI_TZ = timezone(timedelta(hours=8))
 def _now_iso() -> str:
     """返回当前上海时间的 ISO 格式字符串。"""
     return datetime.now(_SHANGHAI_TZ).isoformat()
-from contextlib import contextmanager
+
 
 def _get_data_dir() -> Path:
-    # Prefer the unified env name; keep legacy env for backward compatibility.
     if os.environ.get("JINZHIHUILIAN_DATA_DIR"):
         return Path(os.environ["JINZHIHUILIAN_DATA_DIR"])
     if os.environ.get("JINZHIHUI_DATA_DIR"):
@@ -25,6 +25,7 @@ def _get_data_dir() -> Path:
         return Path(os.environ["APPDATA"]) / "jinzhihuilian"
     return Path(__file__).resolve().parent.parent.parent.parent / "shared"
 
+
 STORE_DIR = _get_data_dir()
 DB_PATH = STORE_DIR / "jinzhihuilian.db"
 LEGACY_DB_PATH = STORE_DIR / "jinzhihui.db"
@@ -32,7 +33,6 @@ LEGACY_DB_PATH = STORE_DIR / "jinzhihui.db"
 
 def _ensure_store():
     STORE_DIR.mkdir(parents=True, exist_ok=True)
-    # One-time migration: move legacy db filename to unified filename.
     if (not DB_PATH.exists()) and LEGACY_DB_PATH.exists():
         shutil.copy2(LEGACY_DB_PATH, DB_PATH)
 
@@ -50,521 +50,329 @@ def _get_db():
         conn.close()
 
 
+def _row_to_dict(row: sqlite3.Row) -> dict:
+    return dict(row)
+
+
+# ---- Generic Repository ----
+
+class _BaseRepo:
+    """通用 SQLite 仓库，自动处理 JSON 字段序列化。"""
+
+    def __init__(self, table: str, pk: str = "id", json_fields: Optional[List[str]] = None):
+        self.table = table
+        self.pk = pk
+        self.json_fields: List[str] = json_fields or []
+
+    def _encode_json_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(data)
+        for f in self.json_fields:
+            if f in out and isinstance(out[f], (dict, list)):
+                out[f] = json.dumps(out[f], ensure_ascii=False)
+        return out
+
+    def _decode_json_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(data)
+        for f in self.json_fields:
+            raw = out.get(f)
+            if isinstance(raw, str):
+                out[f] = json.loads(raw)
+        return out
+
+    def upsert(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        now = _now_iso()
+        data.setdefault("created_at", now)
+        data.setdefault("updated_at", now)
+        row = self._encode_json_fields(data)
+        cols = list(row.keys())
+        vals = [row[c] for c in cols]
+        with _get_db() as conn:
+            existing = conn.execute(
+                f"SELECT {self.pk} FROM {self.table} WHERE {self.pk} = ?",
+                (data[self.pk],),
+            ).fetchone()
+            if existing:
+                set_clause = ", ".join(f"{c}=?" for c in cols)
+                vals.append(data[self.pk])
+                conn.execute(f"UPDATE {self.table} SET {set_clause} WHERE {self.pk}=?", vals)
+            else:
+                placeholders = ", ".join("?" for _ in cols)
+                col_names = ", ".join(cols)
+                conn.execute(f"INSERT INTO {self.table} ({col_names}) VALUES ({placeholders})", vals)
+        return self.get(data[self.pk])
+
+    def get(self, pk: str) -> Optional[Dict[str, Any]]:
+        with _get_db() as conn:
+            row = conn.execute(
+                f"SELECT * FROM {self.table} WHERE {self.pk} = ?", (pk,)
+            ).fetchone()
+            return self._decode_json_fields(_row_to_dict(row)) if row else None
+
+    def list_all(self, order_by: str = "created_at DESC", limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        with _get_db() as conn:
+            sql = f"SELECT * FROM {self.table} ORDER BY {order_by}"
+            if limit:
+                sql += f" LIMIT {limit}"
+            rows = conn.execute(sql).fetchall()
+            return [self._decode_json_fields(_row_to_dict(r)) for r in rows]
+
+    def delete(self, pk: str) -> bool:
+        with _get_db() as conn:
+            cursor = conn.execute(
+                f"DELETE FROM {self.table} WHERE {self.pk} = ?", (pk,)
+            )
+            return cursor.rowcount > 0
+
+
+# ---- Concrete Repositories ----
+
+_connection_repo = _BaseRepo("connections", json_fields=["config"])
+_schema_repo = _BaseRepo("table_schemas", json_fields=["schema_json"])
+_task_repo = _BaseRepo("tasks", json_fields=["config_json"])
+_bulk_import_repo = _BaseRepo("bulk_imports", json_fields=["config_json"])
+_workflow_repo = _BaseRepo("workflows", json_fields=["workflow_json"])
+_sync_record_repo = _BaseRepo("sync_run_records", json_fields=["config_json"])
+_pipeline_repo = _BaseRepo("pipelines", json_fields=["pipeline_json"])
+_pipeline_run_repo = _BaseRepo("pipeline_runs", json_fields=["config_json"])
+_credential_repo = _BaseRepo("credentials", json_fields=["config"])
+_kline_source_repo = _BaseRepo("kline_sources", json_fields=["config"])
+
+
+# ---- Schema initialization ----
+
 def init_db():
     with _get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS connections (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                config TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL,
+                config TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS table_schemas (
-                id TEXT PRIMARY KEY,
-                table_name TEXT NOT NULL,
-                database_type TEXT NOT NULL,
-                schema_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, table_name TEXT NOT NULL, database_type TEXT NOT NULL,
+                schema_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                task_type TEXT NOT NULL,
-                source_connection_id TEXT NOT NULL,
-                target_connection_id TEXT NOT NULL,
-                target_table TEXT NOT NULL,
-                config_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending',
-                cron_expression TEXT,
-                last_run_at TEXT,
-                next_run_at TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, task_type TEXT NOT NULL,
+                source_connection_id TEXT NOT NULL, target_connection_id TEXT NOT NULL,
+                target_table TEXT NOT NULL, config_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending', cron_expression TEXT,
+                last_run_at TEXT, next_run_at TEXT,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bulk_imports (
-                id TEXT PRIMARY KEY,
-                source_connection_id TEXT NOT NULL,
-                target_connection_id TEXT NOT NULL,
-                target_table TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                file_md5 TEXT NOT NULL,
-                config_json TEXT NOT NULL,
-                total_rows INTEGER NOT NULL,
-                imported_rows INTEGER DEFAULT 0,
-                last_imported_index INTEGER DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'pending',
-                error_at_row INTEGER,
-                error_message TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                started_at TEXT,
-                completed_at TEXT
+                id TEXT PRIMARY KEY, source_connection_id TEXT NOT NULL,
+                target_connection_id TEXT NOT NULL, target_table TEXT NOT NULL,
+                file_path TEXT NOT NULL, file_md5 TEXT NOT NULL, config_json TEXT NOT NULL,
+                total_rows INTEGER NOT NULL, imported_rows INTEGER DEFAULT 0,
+                last_imported_index INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending',
+                error_at_row INTEGER, error_message TEXT, created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL, started_at TEXT, completed_at TEXT
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS workflows (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT DEFAULT '',
-                workflow_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '',
+                workflow_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sync_run_records (
-                id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL,
+                id TEXT PRIMARY KEY, task_id TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'running',
-                rows_read INTEGER DEFAULT 0,
-                rows_written INTEGER DEFAULT 0,
-                rows_skipped INTEGER DEFAULT 0,
-                error_message TEXT,
-                started_at TEXT NOT NULL,
-                finished_at TEXT,
-                config_json TEXT NOT NULL
+                rows_read INTEGER DEFAULT 0, rows_written INTEGER DEFAULT 0,
+                rows_skipped INTEGER DEFAULT 0, error_message TEXT,
+                started_at TEXT NOT NULL, finished_at TEXT, config_json TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS pipelines (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                pipeline_json TEXT NOT NULL,
-                enabled INTEGER NOT NULL DEFAULT 1,
-                cron_expression TEXT,
-                status TEXT NOT NULL DEFAULT 'pending',
-                last_run_at TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+                pipeline_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+                cron_expression TEXT, status TEXT NOT NULL DEFAULT 'pending',
+                last_run_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS pipeline_runs (
-                id TEXT PRIMARY KEY,
-                pipeline_id TEXT NOT NULL,
+                id TEXT PRIMARY KEY, pipeline_id TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'running',
-                rows_read INTEGER DEFAULT 0,
-                rows_written INTEGER DEFAULT 0,
-                rows_skipped INTEGER DEFAULT 0,
-                error_message TEXT,
-                duration REAL DEFAULT 0,
-                started_at TEXT NOT NULL,
-                finished_at TEXT,
-                config_json TEXT NOT NULL,
-                FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
+                rows_read INTEGER DEFAULT 0, rows_written INTEGER DEFAULT 0,
+                rows_skipped INTEGER DEFAULT 0, error_message TEXT,
+                duration REAL DEFAULT 0, started_at TEXT NOT NULL, finished_at TEXT,
+                config_json TEXT NOT NULL, FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS metadata (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS credentials (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                config TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL,
+                config TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS llm_config (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL DEFAULT 'default',
+                id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT 'default',
                 provider TEXT NOT NULL DEFAULT 'cloud_demo',
                 base_url TEXT NOT NULL DEFAULT 'https://api.siliconflow.cn/v1',
-                api_key TEXT NOT NULL,
-                model TEXT NOT NULL DEFAULT 'Qwen/Qwen2.5-7B-Instruct',
+                api_key TEXT NOT NULL, model TEXT NOT NULL DEFAULT '[redacted]/Qwen2.5-7B-Instruct',
                 system_prompt TEXT NOT NULL DEFAULT '你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。',
-                stream_mode TEXT NOT NULL DEFAULT 'normal',
-                enabled INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                stream_mode TEXT NOT NULL DEFAULT 'normal', enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
-        # 兼容旧版本数据库：补充 stream_mode 列，用于控制全局 LLM 调用模式（普通/SSE）。
         llm_cols = [r["name"] for r in conn.execute("PRAGMA table_info(llm_config)").fetchall()]
         if "stream_mode" not in llm_cols:
             conn.execute("ALTER TABLE llm_config ADD COLUMN stream_mode TEXT NOT NULL DEFAULT 'normal'")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS kline_sources (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                credential_id TEXT,
-                config TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL,
+                credential_id TEXT, config TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             )
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ai_assistant_events (
-                id TEXT PRIMARY KEY,
-                event_name TEXT NOT NULL,
-                scene TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                id TEXT PRIMARY KEY, event_name TEXT NOT NULL, scene TEXT NOT NULL,
+                payload_json TEXT NOT NULL, created_at TEXT NOT NULL
             )
         """)
-        # 首次初始化：自动写入本地免费模型默认配置，确保新用户开箱可体验 AI 辅助。
+        # 默认 LLM 配置：确保新用户开箱可体验 AI 辅助
         llm_count_row = conn.execute("SELECT COUNT(1) AS cnt FROM llm_config").fetchone()
-        if (llm_count_row is None) or (int(llm_count_row["cnt"]) == 0):
+        if llm_count_row is None or int(llm_count_row["cnt"]) == 0:
             now = _now_iso()
             conn.execute(
-                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, stream_mode, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    "default",
-                    "default",
-                    "cloud_demo",
-                    "https://api.siliconflow.cn/v1",
-                    "",
-                    "Qwen/Qwen2.5-7B-Instruct",
-                    "你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。",
-                    "normal",
-                    1,
-                    now,
-                    now,
-                ),
+                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, "
+                "system_prompt, stream_mode, enabled, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ("default", "default", "cloud_demo",
+                 "https://api.siliconflow.cn/v1", "",
+                 "Qwen/Qwen2.5-7B-Instruct",
+                 "你是一个量化交易 ETL 系统的技术顾问，帮助用户排查数据源配置、连接问题。",
+                 "normal", 1, now, now),
             )
         else:
-            # 兼容旧版本：若仍是 openai 且未填 key，则自动迁移到云端免费体验默认配置。
             legacy = conn.execute(
-                "SELECT id, provider, api_key FROM llm_config ORDER BY updated_at DESC, created_at DESC LIMIT 1"
+                "SELECT id, provider, api_key FROM llm_config "
+                "ORDER BY updated_at DESC, created_at DESC LIMIT 1"
             ).fetchone()
             if legacy and str(legacy["provider"]).lower() == "openai" and not str(legacy["api_key"] or "").strip():
                 now = _now_iso()
                 conn.execute(
-                    "UPDATE llm_config SET provider=?, base_url=?, model=?, stream_mode=?, enabled=?, updated_at=? WHERE id=?",
-                    ("cloud_demo", "https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct", "normal", 1, now, legacy["id"]),
+                    "UPDATE llm_config SET provider=?, base_url=?, model=?, "
+                    "stream_mode=?, enabled=?, updated_at=? WHERE id=?",
+                    ("cloud_demo", "https://api.siliconflow.cn/v1",
+                     "Qwen/Qwen2.5-7B-Instruct", "normal", 1, now, legacy["id"]),
                 )
-
-
-def _row_to_dict(row: sqlite3.Row) -> dict:
-    return dict(row)
 
 
 # ---- Connection CRUD ----
 
 def save_connection(conn_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM connections WHERE id = ?", (conn_data["id"],)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE connections SET name=?, type=?, config=?, updated_at=? WHERE id=?",
-                (conn_data["name"], conn_data["type"], json.dumps(conn_data["config"]), now, conn_data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO connections (id, name, type, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (conn_data["id"], conn_data["name"], conn_data["type"], json.dumps(conn_data["config"]), now, now),
-            )
-    return get_connection(conn_data["id"])
+    return _connection_repo.upsert(conn_data)
 
 
 def get_connection(conn_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM connections WHERE id = ?", (conn_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["config"] = json.loads(data["config"])
-            return data
-    return None
+    return _connection_repo.get(conn_id)
 
 
 def list_connections() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM connections ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["config"] = json.loads(d["config"])
-            result.append(d)
-        return result
+    return _connection_repo.list_all()
 
 
 def delete_connection(conn_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM connections WHERE id = ?", (conn_id,))
-        return cursor.rowcount > 0
+    return _connection_repo.delete(conn_id)
 
 
 # ---- Schema CRUD ----
 
 def save_schema(schema_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM table_schemas WHERE id = ?", (schema_data["id"],)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE table_schemas SET table_name=?, database_type=?, schema_json=?, updated_at=? WHERE id=?",
-                (schema_data["table_name"], schema_data["database_type"],
-                 json.dumps(schema_data["schema_json"]), now, schema_data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO table_schemas (id, table_name, database_type, schema_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (schema_data["id"], schema_data["table_name"], schema_data["database_type"],
-                 json.dumps(schema_data["schema_json"]), now, now),
-            )
-    return get_schema(schema_data["id"])
+    return _schema_repo.upsert(schema_data)
 
 
 def get_schema(schema_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM table_schemas WHERE id = ?", (schema_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["schema_json"] = json.loads(data["schema_json"])
-            return data
-    return None
+    return _schema_repo.get(schema_id)
 
 
 def list_schemas() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM table_schemas ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["schema_json"] = json.loads(d["schema_json"])
-            result.append(d)
-        return result
+    return _schema_repo.list_all()
 
 
 def delete_schema(schema_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM table_schemas WHERE id = ?", (schema_id,))
-        return cursor.rowcount > 0
+    return _schema_repo.delete(schema_id)
 
 
 # ---- Task CRUD ----
 
 def save_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM tasks WHERE id = ?", (task_data["id"],)
-        ).fetchone()
-        if existing:
-            updates = []
-            vals = []
-            for key in ["name", "task_type", "source_connection_id", "target_connection_id",
-                        "target_table", "config_json", "status", "cron_expression",
-                        "last_run_at", "next_run_at", "updated_at"]:
-                if key in task_data:
-                    updates.append(f"{key}=?")
-                    vals.append(task_data.get(key))
-            vals.append(task_data["id"])
-            conn.execute(f"UPDATE tasks SET {', '.join(updates)} WHERE id=?", vals)
-        else:
-            conn.execute(
-                """INSERT INTO tasks (id, name, task_type, source_connection_id, target_connection_id,
-                   target_table, config_json, status, cron_expression, last_run_at, next_run_at, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (task_data["id"], task_data["name"], task_data["task_type"],
-                 task_data["source_connection_id"], task_data["target_connection_id"],
-                 task_data["target_table"], json.dumps(task_data.get("config_json", {})),
-                 task_data.get("status", "pending"), task_data.get("cron_expression"),
-                 task_data.get("last_run_at"), task_data.get("next_run_at"), now, now),
-            )
-    return get_task(task_data["id"])
+    return _task_repo.upsert(task_data)
 
 
 def get_task(task_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["config_json"] = json.loads(data["config_json"]) if data["config_json"] else {}
-            return data
-    return None
+    return _task_repo.get(task_id)
 
 
 def list_tasks() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            result.append(d)
-        return result
+    return _task_repo.list_all()
 
 
 def delete_task(task_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
-        return cursor.rowcount > 0
+    return _task_repo.delete(task_id)
 
 
 # ---- Bulk Import CRUD ----
 
 def save_bulk_import(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM bulk_imports WHERE id = ?", (data["id"],)
-        ).fetchone()
-        if existing:
-            updates = []
-            vals = []
-            for key in ["source_connection_id", "target_connection_id", "target_table",
-                        "file_path", "file_md5", "config_json", "total_rows", "imported_rows",
-                        "last_imported_index", "status", "error_at_row", "error_message",
-                        "started_at", "completed_at", "updated_at"]:
-                if key in data:
-                    updates.append(f"{key}=?")
-                    vals.append(data.get(key))
-            vals.append(data["id"])
-            conn.execute(f"UPDATE bulk_imports SET {', '.join(updates)} WHERE id=?", vals)
-        else:
-            conn.execute(
-                """INSERT INTO bulk_imports (id, source_connection_id, target_connection_id,
-                   target_table, file_path, file_md5, config_json, total_rows, imported_rows,
-                   last_imported_index, status, error_at_row, error_message, created_at, updated_at,
-                   started_at, completed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (data["id"], data["source_connection_id"], data["target_connection_id"],
-                 data["target_table"], data["file_path"], data["file_md5"],
-                 json.dumps(data.get("config_json", {})), data.get("total_rows", 0),
-                 data.get("imported_rows", 0), data.get("last_imported_index", 0),
-                 data.get("status", "pending"), data.get("error_at_row"),
-                 data.get("error_message"), now, now, data.get("started_at"),
-                 data.get("completed_at")),
-            )
-    return get_bulk_import(data["id"])
+    return _bulk_import_repo.upsert(data)
 
 
 def get_bulk_import(import_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM bulk_imports WHERE id = ?", (import_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["config_json"] = json.loads(data["config_json"]) if data["config_json"] else {}
-            return data
-    return None
+    return _bulk_import_repo.get(import_id)
 
 
 def list_bulk_imports() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM bulk_imports ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            result.append(d)
-        return result
+    return _bulk_import_repo.list_all()
 
 
 def delete_bulk_import(import_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM bulk_imports WHERE id = ?", (import_id,))
-        return cursor.rowcount > 0
+    return _bulk_import_repo.delete(import_id)
 
 
 # ---- Workflow CRUD ----
 
 def save_workflow(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute("SELECT id FROM workflows WHERE id = ?", (data["id"],)).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE workflows SET name=?, description=?, workflow_json=?, updated_at=? WHERE id=?",
-                (data["name"], data.get("description", ""), json.dumps(data["workflow_json"]),
-                 now, data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO workflows (id, name, description, workflow_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (data["id"], data["name"], data.get("description", ""),
-                 json.dumps(data["workflow_json"]), now, now),
-            )
-    return get_workflow(data["id"])
+    return _workflow_repo.upsert(data)
 
 
 def get_workflow(workflow_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM workflows WHERE id = ?", (workflow_id,)).fetchone()
-        if row:
-            d = _row_to_dict(row)
-            d["workflow_json"] = json.loads(d["workflow_json"]) if d["workflow_json"] else {}
-            return d
-    return None
+    return _workflow_repo.get(workflow_id)
 
 
 def list_workflows() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM workflows ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["workflow_json"] = json.loads(d["workflow_json"]) if d["workflow_json"] else {}
-            result.append(d)
-        return result
+    return _workflow_repo.list_all()
 
 
 def delete_workflow(workflow_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM workflows WHERE id = ?", (workflow_id,))
-        return cursor.rowcount > 0
+    return _workflow_repo.delete(workflow_id)
 
 
 # ---- Sync Run Records CRUD ----
 
 def save_sync_record(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute("SELECT id FROM sync_run_records WHERE id = ?", (data["id"],)).fetchone()
-        if existing:
-            updates = []
-            vals = []
-            for key in ["task_id", "status", "rows_read", "rows_written", "rows_skipped",
-                        "error_message", "finished_at", "config_json"]:
-                if key in data:
-                    updates.append(f"{key}=?")
-                    vals.append(data.get(key))
-            vals.append(data["id"])
-            conn.execute(f"UPDATE sync_run_records SET {', '.join(updates)} WHERE id=?", vals)
-        else:
-            conn.execute(
-                """INSERT INTO sync_run_records (id, task_id, status, rows_read, rows_written,
-                   rows_skipped, error_message, started_at, finished_at, config_json)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (data["id"], data["task_id"], data.get("status", "running"),
-                 data.get("rows_read", 0), data.get("rows_written", 0), data.get("rows_skipped", 0),
-                 data.get("error_message"), data.get("started_at", now),
-                 data.get("finished_at"), json.dumps(data.get("config_json", {}))),
-            )
-    return get_sync_record(data["id"])
+    return _sync_record_repo.upsert(data)
 
 
 def get_sync_record(record_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM sync_run_records WHERE id = ?", (record_id,)).fetchone()
-        if row:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            return d
-    return None
+    return _sync_record_repo.get(record_id)
 
 
 def list_sync_records(task_id: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -573,119 +381,55 @@ def list_sync_records(task_id: str, limit: int = 20) -> List[Dict[str, Any]]:
             "SELECT * FROM sync_run_records WHERE task_id = ? ORDER BY started_at DESC LIMIT ?",
             (task_id, limit)
         ).fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            result.append(d)
-        return result
+        return [_sync_record_repo._decode_json_fields(_row_to_dict(r)) for r in rows]
 
 
 # ---- Pipeline CRUD ----
 
 def save_pipeline(data: Dict[str, Any]) -> Dict[str, Any]:
     now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id, status, last_run_at FROM pipelines WHERE id = ?", (data["id"],)
-        ).fetchone()
-        if existing:
-            # 更新时保留已有状态字段；仅当调用方显式传入时才覆盖。
-            status_val = data["status"] if "status" in data else existing["status"]
-            last_run_at_val = data["last_run_at"] if "last_run_at" in data else existing["last_run_at"]
-            conn.execute(
-                "UPDATE pipelines SET name=?, description=?, pipeline_json=?, enabled=?, "
-                "cron_expression=?, status=?, last_run_at=?, updated_at=? WHERE id=?",
-                (data["name"], data.get("description", ""), json.dumps(data.get("pipeline_json", {})),
-                 1 if data.get("enabled", True) else 0, data.get("cron_expression"),
-                 status_val, last_run_at_val, now, data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO pipelines (id, name, description, pipeline_json, enabled, "
-                "cron_expression, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (data["id"], data["name"], data.get("description", ""),
-                 json.dumps(data.get("pipeline_json", {})),
-                 1 if data.get("enabled", True) else 0, data.get("cron_expression"),
-                 data.get("status", "pending"), now, now),
-            )
-    return get_pipeline(data["id"])
+    # 更新时保留已有状态字段
+    if "id" in data:
+        with _get_db() as conn:
+            existing = conn.execute(
+                "SELECT status, last_run_at FROM pipelines WHERE id = ?", (data["id"],)
+            ).fetchone()
+            if existing:
+                data.setdefault("status", existing["status"])
+                data.setdefault("last_run_at", existing["last_run_at"])
+    if "enabled" in data and not isinstance(data["enabled"], int):
+        data["enabled"] = 1 if data["enabled"] else 0
+    return _pipeline_repo.upsert(data)
 
 
 def get_pipeline(pipeline_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM pipelines WHERE id = ?", (pipeline_id,)).fetchone()
-        if row:
-            d = _row_to_dict(row)
-            d["pipeline_json"] = json.loads(d["pipeline_json"]) if d["pipeline_json"] else {}
-            return d
-    return None
+    return _pipeline_repo.get(pipeline_id)
 
 
 def list_pipelines() -> List[Dict[str, Any]]:
-    with _get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM pipelines ORDER BY created_at DESC"
-        ).fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["pipeline_json"] = json.loads(d["pipeline_json"]) if d["pipeline_json"] else {}
-            result.append(d)
-        return result
+    return _pipeline_repo.list_all()
 
 
 def delete_pipeline(pipeline_id: str) -> bool:
     with _get_db() as conn:
         conn.execute("DELETE FROM pipeline_runs WHERE pipeline_id = ?", (pipeline_id,))
-        conn.execute("DELETE FROM pipelines WHERE id = ?", (pipeline_id,))
-        return conn.total_changes > 0
+    return _pipeline_repo.delete(pipeline_id)
 
 
 def save_pipeline_run(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM pipeline_runs WHERE id = ?", (data["id"],)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE pipeline_runs SET status=?, rows_read=?, rows_written=?, "
-                "rows_skipped=?, error_message=?, duration=?, finished_at=?, config_json=? WHERE id=?",
-                (data.get("status", "running"), data.get("rows_read", 0), data.get("rows_written", 0),
-                 data.get("rows_skipped", 0), data.get("error_message"),
-                 data.get("duration", 0), data.get("finished_at"),
-                 json.dumps(data.get("config_json", {})), data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO pipeline_runs (id, pipeline_id, status, rows_read, rows_written, "
-                "rows_skipped, error_message, duration, started_at, finished_at, config_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (data["id"], data["pipeline_id"], data.get("status", "running"),
-                 data.get("rows_read", 0), data.get("rows_written", 0), data.get("rows_skipped", 0),
-                 data.get("error_message"), data.get("duration", 0),
-                 data.get("started_at", now), data.get("finished_at"),
-                 json.dumps(data.get("config_json", {}))),
-            )
-    return get_pipeline_run(data["id"])
+    return _pipeline_run_repo.upsert(data)
 
 
 def get_pipeline_run(record_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM pipeline_runs WHERE id = ?", (record_id,)).fetchone()
-        if row:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            return d
-    return None
+    return _pipeline_run_repo.get(record_id)
 
 
 def list_pipeline_runs(pipeline_id: str = None, limit: int = 20) -> List[Dict[str, Any]]:
     with _get_db() as conn:
         if pipeline_id:
             rows = conn.execute(
-                "SELECT * FROM pipeline_runs WHERE pipeline_id = ? ORDER BY started_at DESC LIMIT ?",
+                "SELECT * FROM pipeline_runs WHERE pipeline_id = ? "
+                "ORDER BY started_at DESC LIMIT ?",
                 (pipeline_id, limit)
             ).fetchall()
         else:
@@ -693,12 +437,8 @@ def list_pipeline_runs(pipeline_id: str = None, limit: int = 20) -> List[Dict[st
                 "SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT ?",
                 (limit,)
             ).fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            d["config_json"] = json.loads(d["config_json"]) if d["config_json"] else {}
-            result.append(d)
-        return result
+        return [_pipeline_run_repo._decode_json_fields(_row_to_dict(r)) for r in rows]
+
 
 # ---- Metadata CRUD ----
 
@@ -727,91 +467,39 @@ def delete_metadata(key: str) -> bool:
 # ---- Credential CRUD ----
 
 def save_credential(data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM credentials WHERE id = ?", (data["id"],)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE credentials SET name=?, type=?, config=?, updated_at=? WHERE id=?",
-                (data["name"], data["type"], json.dumps(data["config"]), now, data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO credentials (id, name, type, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (data["id"], data["name"], data["type"], json.dumps(data["config"]), now, now),
-            )
-    return get_credential(data["id"])
+    return _credential_repo.upsert(data)
 
 
 def get_credential(credential_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM credentials WHERE id = ?", (credential_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["config"] = json.loads(data["config"])
-            return data
-    return None
+    return _credential_repo.get(credential_id)
 
 
 def list_credentials() -> List[Dict[str, Any]]:
     from app.core.credential_manager import mask_sensitive
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM credentials ORDER BY created_at DESC").fetchall()
-        result = []
-        for row in rows:
-            d = _row_to_dict(row)
-            cfg = json.loads(d["config"])
-            d["config"] = mask_sensitive(cfg)
-            result.append(d)
-        return result
+    raw = _credential_repo.list_all()
+    for item in raw:
+        item["config"] = mask_sensitive(item["config"])
+    return raw
 
 
 def list_credentials_for_select() -> List[Dict[str, Any]]:
-    """Return only id, name, type for dropdown selection."""
     with _get_db() as conn:
         rows = conn.execute("SELECT id, name, type FROM credentials ORDER BY created_at DESC").fetchall()
         return [_row_to_dict(r) for r in rows]
 
 
 def delete_credential(credential_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM credentials WHERE id = ?", (credential_id,))
-        return cursor.rowcount > 0
+    return _credential_repo.delete(credential_id)
 
 
-# ---- Kline Source CRUD (independent from connections) ----
+# ---- Kline Source CRUD ----
 
 def save_kline_source(source_data: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM kline_sources WHERE id = ?", (source_data["id"],)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE kline_sources SET name=?, type=?, credential_id=?, config=?, updated_at=? WHERE id=?",
-                (source_data["name"], source_data["type"], source_data.get("credential_id", ""),
-                 json.dumps(source_data["config"]), now, source_data["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO kline_sources (id, name, type, credential_id, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (source_data["id"], source_data["name"], source_data["type"],
-                 source_data.get("credential_id", ""), json.dumps(source_data["config"]), now, now),
-            )
-    return get_kline_source(source_data["id"])
+    return _kline_source_repo.upsert(source_data)
 
 
 def get_kline_source(source_id: str) -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM kline_sources WHERE id = ?", (source_id,)).fetchone()
-        if row:
-            data = _row_to_dict(row)
-            data["config"] = json.loads(data["config"])
-            return data
-    return None
+    return _kline_source_repo.get(source_id)
 
 
 def list_kline_sources() -> List[Dict[str, Any]]:
@@ -819,9 +507,8 @@ def list_kline_sources() -> List[Dict[str, Any]]:
         rows = conn.execute("SELECT * FROM kline_sources ORDER BY created_at DESC").fetchall()
         results = []
         for row in rows:
-            data = _row_to_dict(row)
-            data["config"] = json.loads(data["config"])
-            # Attach credential info (name + type only, not the token)
+            data = _kline_source_repo._decode_json_fields(_row_to_dict(row))
+            # Attach credential info (name + type only)
             if data.get("credential_id"):
                 cred = conn.execute(
                     "SELECT id, name, type FROM credentials WHERE id = ?",
@@ -834,67 +521,62 @@ def list_kline_sources() -> List[Dict[str, Any]]:
 
 
 def delete_kline_source(source_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM kline_sources WHERE id = ?", (source_id,))
-        return cursor.rowcount > 0
+    return _kline_source_repo.delete(source_id)
 
 
 # ---- LLM Config CRUD ----
 
+def _encrypt_api_key(key: str) -> str:
+    if not key:
+        return ""
+    try:
+        from app.core.credential_manager import encrypt_credential
+        return encrypt_credential({"k": key})
+    except Exception:
+        return key
+
+
+def _decrypt_api_key(encrypted: str) -> str:
+    if not encrypted:
+        return ""
+    try:
+        from app.core.credential_manager import decrypt_credential
+        data = decrypt_credential(encrypted)
+        return data.get("k", "")
+    except Exception:
+        return encrypted
+
+
 def save_llm_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    now = _now_iso()
-    with _get_db() as conn:
-        existing = conn.execute("SELECT id FROM llm_config WHERE id = ?", (cfg["id"],)).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE llm_config SET name=?, provider=?, base_url=?, api_key=?, model=?, system_prompt=?, stream_mode=?, enabled=?, updated_at=? WHERE id=?",
-                (cfg.get("name", "default"), cfg.get("provider", "cloud_demo"), cfg.get("base_url", "https://api.siliconflow.cn/v1"),
-                 cfg.get("api_key", ""), cfg.get("model", "Qwen/Qwen2.5-7B-Instruct"),
-                 cfg.get("system_prompt", ""), cfg.get("stream_mode", "normal"), cfg.get("enabled", 0), now, cfg["id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO llm_config (id, name, provider, base_url, api_key, model, system_prompt, stream_mode, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (cfg.get("id", "default"), cfg.get("name", "default"), cfg.get("provider", "cloud_demo"),
-                 cfg.get("base_url", "https://api.siliconflow.cn/v1"), cfg.get("api_key", ""),
-                 cfg.get("model", "Qwen/Qwen2.5-7B-Instruct"), cfg.get("system_prompt", ""),
-                 cfg.get("stream_mode", "normal"), cfg.get("enabled", 0), now, now),
-            )
-    return get_llm_config(cfg["id"])
+    cfg = dict(cfg)
+    cfg["api_key"] = _encrypt_api_key(cfg.get("api_key", ""))
+    return _BaseRepo("llm_config").upsert(cfg)
 
 
 def get_llm_config(cfg_id: str = "default") -> Optional[Dict[str, Any]]:
-    with _get_db() as conn:
-        row = conn.execute("SELECT * FROM llm_config WHERE id = ?", (cfg_id,)).fetchone()
-        if row:
-            return _row_to_dict(row)
-    return None
+    repo = _BaseRepo("llm_config")
+    data = repo.get(cfg_id)
+    if data:
+        data["api_key"] = _decrypt_api_key(data.get("api_key", ""))
+    return data
 
 
 def list_ll_configs() -> List[Dict[str, Any]]:
-    """List all LLM configs, with api_key masked."""
-    with _get_db() as conn:
-        rows = conn.execute("SELECT * FROM llm_config ORDER BY created_at DESC").fetchall()
-        results = []
-        for row in rows:
-            data = _row_to_dict(row)
-            # Mask API key in list
-            key = data.get("api_key", "")
-            if not key:
-                # 空 key 保持为空，避免前端回填成“****”造成误保存。
-                data["api_key"] = ""
-            elif len(key) > 8:
-                data["api_key"] = key[:4] + "****" + key[-4:]
-            else:
-                data["api_key"] = "****"
-            results.append(data)
-        return results
+    repo = _BaseRepo("llm_config")
+    rows = repo.list_all()
+    for data in rows:
+        key = _decrypt_api_key(data.get("api_key", ""))
+        if not key:
+            data["api_key"] = ""
+        elif len(key) > 8:
+            data["api_key"] = key[:4] + "****" + key[-4:]
+        else:
+            data["api_key"] = "****"
+    return rows
 
 
 def delete_llm_config(cfg_id: str) -> bool:
-    with _get_db() as conn:
-        cursor = conn.execute("DELETE FROM llm_config WHERE id = ?", (cfg_id,))
-        return cursor.rowcount > 0
+    return _BaseRepo("llm_config").delete(cfg_id)
 
 
 def get_active_llm_config() -> Optional[Dict[str, Any]]:
@@ -904,33 +586,31 @@ def get_active_llm_config() -> Optional[Dict[str, Any]]:
             "SELECT * FROM llm_config ORDER BY enabled DESC, updated_at DESC, created_at DESC LIMIT 1"
         ).fetchone()
         if row:
-            return _row_to_dict(row)
+            data = _row_to_dict(row)
+            data["api_key"] = _decrypt_api_key(data.get("api_key", ""))
+            return data
     return None
 
 
 # ---- AI Assistant Event ----
 
 def save_ai_assistant_event(event: Dict[str, Any]) -> Dict[str, Any]:
-    """保存 AI 交互助手事件，供产品埋点和体验分析使用。"""
     now = _now_iso()
     with _get_db() as conn:
         conn.execute(
-            "INSERT INTO ai_assistant_events (id, event_name, scene, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            (
-                event["id"],
-                event["event_name"],
-                event["scene"],
-                json.dumps(event.get("payload", {}), ensure_ascii=False),
-                now,
-            ),
+            "INSERT INTO ai_assistant_events (id, event_name, scene, payload_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (event["id"], event["event_name"], event["scene"],
+             json.dumps(event.get("payload", {}), ensure_ascii=False), now),
         )
     return get_ai_assistant_event(event["id"])
 
 
 def get_ai_assistant_event(event_id: str) -> Optional[Dict[str, Any]]:
-    """按 ID 获取单条 AI 助手事件。"""
     with _get_db() as conn:
-        row = conn.execute("SELECT * FROM ai_assistant_events WHERE id = ?", (event_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM ai_assistant_events WHERE id = ?", (event_id,)
+        ).fetchone()
         if not row:
             return None
         data = _row_to_dict(row)
@@ -940,7 +620,6 @@ def get_ai_assistant_event(event_id: str) -> Optional[Dict[str, Any]]:
 
 
 def list_ai_assistant_events(limit: int = 200) -> List[Dict[str, Any]]:
-    """按时间倒序获取 AI 助手事件，默认返回最近 200 条。"""
     safe_limit = max(1, min(limit, 1000))
     with _get_db() as conn:
         rows = conn.execute(

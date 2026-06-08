@@ -59,15 +59,20 @@ async def get_all_workflows():
 async def list_workflow_presets():
     """列出内置预制工作流清单。"""
     presets = get_workflow_presets()
-    return [
-        {
+    result = []
+    for item in presets:
+        nodes = item.get("workflow_json", {}).get("nodes", [])
+        types = {n.get("type") for n in nodes}
+        result.append({
             "key": item["key"],
             "name": item["name"],
             "description": item["description"],
             "sample_rows": len(item.get("sample_data", [])),
-        }
-        for item in presets
-    ]
+            "has_source": "source_fetch" in types,
+            "has_target": "target_write" in types,
+            "node_count": len(nodes),
+        })
+    return result
 
 
 @router.post("/seed-presets")
@@ -122,15 +127,8 @@ async def list_node_types():
 
 @router.post("/seed-demo")
 async def seed_demo_workflow():
-    """兼容旧接口：写入第一套预制工作流。"""
-    first = get_workflow_presets()[0]
-    wf = _upsert_workflow_by_name(
-        name=first["name"],
-        description=first["description"],
-        workflow_json=first["workflow_json"],
-        overwrite_existing=False,
-    )
-    return {"id": wf["id"], "message": "示例工作流已创建"}
+    """兼容旧接口：写入全部预制工作流。"""
+    return await seed_workflow_presets(overwrite_existing=False)
 
 
 @router.post("/create-plugin")

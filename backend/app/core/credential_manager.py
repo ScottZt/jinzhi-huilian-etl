@@ -1,7 +1,7 @@
 """凭证管理器 — 密钥派生 + Fernet 对称加密。
 
 专业做法：
-- 首次启动时从机器硬件指纹生成密钥，保存到本地密钥文件
+- 首次启动时从机器硬件指纹 + PBKDF2-HMAC-SHA256 派生密钥，保存到本地密钥文件
 - 凭证 config 加密后存入数据库
 - 列表返回遮蔽值，详情返回解密后的明文
 """
@@ -12,7 +12,12 @@ import uuid
 from pathlib import Path
 from typing import Optional
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
 
+# PBKDF2 参数 — 平衡安全性与启动性能
+_PBKDF2_ITERATIONS = 200_000
+_PBKDF2_SALT_LENGTH = 16
 
 KEY_DIR: Optional[Path] = None
 _fernet: Optional[Fernet] = None
@@ -43,21 +48,33 @@ def _get_or_create_key() -> bytes:
     key_path = _get_key_path()
     if key_path.exists():
         with open(key_path, "rb") as f:
-            return f.read()
-    # Derive key from machine fingerprint (MAC address + CPU UUID)
-    mac = uuid.getnode().to_bytes(6, byteorder="big").hex()
-    cpu_id = os.environ.get("PROCESSOR_IDENTIFIER", "unknown")
-    fingerprint = f"{mac}:{cpu_id}"
-    raw = fingerprint.encode("utf-8")
-    # Use PBKDF2-like derivation via base64
-    import hashlib
-    key_material = hashlib.sha256(raw).digest()
+            content = f.read()
+        # New format: "salt\nkey" or legacy: just "key"
+        if b"\n" in content:
+            _, key = content.split(b"\n", 1)
+            return key
+        return content
+    # Derive key from machine fingerprint using PBKDF2-HMAC-SHA256
+    mac = uuid.getnode().to_bytes(6, byteorder="big")
+    cpu_id = os.environ.get("PROCESSOR_IDENTIFIER", "unknown").encode("utf-8")
+    salt = os.urandom(_PBKDF2_SALT_LENGTH)
+    raw = mac + cpu_id
+
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=_PBKDF2_ITERATIONS,
+    )
+    key_material = kdf.derive(raw)
     key = base64.urlsafe_b64encode(key_material)
+
+    # Store key file with salt prepended (needed for re-derivation if key file is lost)
     with open(key_path, "wb") as f:
-        f.write(key)
+        f.write(salt + b"\n" + key)
+
     # Restrict permissions on Windows
     try:
-        import ctypes
         os.chmod(key_path, 0o600)
     except Exception:
         pass

@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 
 from app.core.transform_engine import get_transform_engine, TransformEngine
+from app.core.secure_exec import validate_code_ast
 
 router = APIRouter()
 transform_engine = get_transform_engine()
@@ -74,9 +75,13 @@ async def validate_expression(data: Dict[str, Any]):
 @router.post("/custom-funcs")
 async def register_custom_func(body: CustomFuncRegister):
     """Register a custom Python transformation function from source code."""
+    # AST-level security validation before registration
+    ok, err = validate_code_ast(body.code)
+    if not ok:
+        return {"success": False, "error": f"Code rejected: {err}"}
     try:
         local_ns = {}
-        exec(body.code, {}, local_ns)
+        exec(body.code, {"__builtins__": {}}, local_ns)
         func = local_ns.get(body.name)
         if not func:
             return {"success": False, "error": f"Function '{body.name}' not found in code"}

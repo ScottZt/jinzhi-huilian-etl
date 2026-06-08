@@ -22,10 +22,14 @@ class ResampleNode(BaseNode):
         if time_col not in df.columns:
             return df
 
+        # 根据DataFrame实际存在的列动态构建聚合字典
         agg = {
             'open': 'first', 'high': 'max', 'low': 'min',
             'close': 'last', 'vol': 'sum', 'amount': 'sum',
         }
+        agg = {k: v for k, v in agg.items() if k in df.columns}
+        if not agg:
+            return df
 
         work = df.copy()
         work[time_col] = pd.to_datetime(work[time_col], errors='coerce')

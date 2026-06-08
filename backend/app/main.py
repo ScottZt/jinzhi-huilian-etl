@@ -17,6 +17,7 @@ logger.info(f"[BOOT] main.py import start (t=0)")
 
 from app.api import connections; logger.info(f"[BOOT] app.api.connections loaded (t={_t():.1f}s)")
 from app.api import schemas; logger.info(f"[BOOT] app.api.schemas loaded (t={_t():.1f}s)")
+from app.api import auth; logger.info(f"[BOOT] app.api.auth loaded (t={_t():.1f}s)")
 from app.api import tasks; logger.info(f"[BOOT] app.api.tasks loaded (t={_t():.1f}s)")
 from app.api import bulk_import; logger.info(f"[BOOT] app.api.bulk_import loaded (t={_t():.1f}s)")
 from app.api import monitor; logger.info(f"[BOOT] app.api.monitor loaded (t={_t():.1f}s)")
@@ -37,22 +38,15 @@ from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_rep
 logger.info(f"[BOOT] All imports done")
 
 
+from app.config import DEFAULT_PORT, PORT_RANGE, resource_path, find_free_port; logger.info(f"[BOOT] app.config loaded (t={_t():.1f}s)")
+
 def _resource_path(relative: str) -> str:
     """Get absolute path to resource, works for dev and PyInstaller."""
-    if getattr(sys, 'frozen', False):
-        base = Path(sys._MEIPASS)
-        candidate = base / "app" / relative
-        if not candidate.exists():
-            candidate = base / relative
-        return str(candidate)
-    else:
-        base = Path(__file__).parent
-    return str(base / relative)
+    return resource_path(relative)
 
 
 # Prefer unified env naming for port, keep legacy env naming fallback.
-DEFAULT_PORT = int(os.environ.get("JINZHIHUILIAN_PORT", os.environ.get("JINZHIHUI_PORT", "8080")))
-MAX_PORT = DEFAULT_PORT + 19
+# Port range is defined in app.config (DEFAULT_PORT, PORT_RANGE).
 
 # Note: init_db() and init_audit_db() are handled in lifespan().
 
@@ -100,6 +94,10 @@ async def lifespan(app: FastAPI):
     init_db()
     _init_audit_db()
     _check_optional_deps()
+    # Pre-generate API key and log path for Electron/frontend
+    api_key_path = get_api_key_path()
+    api_key = get_or_create_api_key()
+    logger.info(f"[AUTH] API key stored at: {api_key_path}")
     _broadcast_task = asyncio.create_task(_periodic_broadcast())
     yield
     if _broadcast_task:
@@ -128,8 +126,13 @@ app.add_middleware(RateLimiterMiddleware, max_requests=500, window_seconds=60)
 from app.middleware.api_audit import ApiAuditMiddleware, _init_audit_db
 app.add_middleware(ApiAuditMiddleware)
 
+# API 鉴权中间件
+from app.middleware.auth import ApiAuthMiddleware, get_or_create_api_key, get_api_key_path
+app.add_middleware(ApiAuthMiddleware)
+
 app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
 app.include_router(schemas.router, prefix="/api/schemas", tags=["schemas"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(bulk_import.router, prefix="/api/bulk-import", tags=["bulk-import"])
 app.include_router(monitor.router, prefix="/api/monitor", tags=["monitor"])

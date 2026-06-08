@@ -16,6 +16,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from app.config import DEFAULT_PORT, PORT_RANGE, resource_path, find_free_port
+
 logger = logging.getLogger(__name__)
 
 # ─── Tray Icon Manager ─────────────────────────────────────────
@@ -200,11 +202,8 @@ class _TrayIcon:
     def destroy(self):
         self.hide()
 
-DEFAULT_PORT = 8080
-MAX_PORT = 8099
-
 # ─── Global state ──────────────────────────────────────────────
-_tray_port = [8080]
+_tray_port = [DEFAULT_PORT]
 _tray_shutdown_fn = [None]
 _tray_server_ref = [None]
 _tray_hwnd = [None]
@@ -235,18 +234,18 @@ def _is_port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def _find_any_port_in_use(start: int = DEFAULT_PORT, max_port: int = MAX_PORT) -> bool:
+def _find_any_port_in_use(start: int = DEFAULT_PORT, end: int = PORT_RANGE[1]) -> bool:
     """Check all ports in range in parallel — returns as soon as first found."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
     with ThreadPoolExecutor(max_workers=20) as executor:
-        futures = [executor.submit(_is_port_in_use, p) for p in range(start, max_port + 1)]
+        futures = [executor.submit(_is_port_in_use, p) for p in range(start, end + 1)]
         for future in as_completed(futures):
             if future.result():
                 return True
     return False
 
 
-def _find_free_port(start: int = DEFAULT_PORT, max_port: int = MAX_PORT) -> int:
+def _find_free_port(start: int = DEFAULT_PORT, end: int = PORT_RANGE[1]) -> int:
     """Find first free port in range using parallel scan."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
     ports = list(range(start, max_port + 1))
@@ -302,18 +301,6 @@ def _setup_logging(data_dir: Path):
         ch = logging.StreamHandler()
         ch.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
         root_logger.addHandler(ch)
-
-
-def _resource_path(relative: str) -> str:
-    if getattr(sys, 'frozen', False):
-        base = Path(sys._MEIPASS)
-        candidate = base / "app" / relative
-        if not candidate.exists():
-            candidate = base / relative
-        return str(candidate)
-    else:
-        base = Path(__file__).parent
-    return str(base / relative)
 
 
 # ─── Loading Window ────────────────────────────────────────────
@@ -499,8 +486,9 @@ def _show_instance_dialog(root) -> str:
     dlg.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
 
     # Find existing port for display
-    existing_port = "8080"
-    for p in range(8080, 8100):
+    existing_port = str(DEFAULT_PORT)
+    start, end = PORT_RANGE
+    for p in range(start, end + 1):
         if _is_port_in_use(p):
             existing_port = str(p)
             break
@@ -579,21 +567,6 @@ def _get_menu_items(on_open, on_logs, on_exit):
 
 
 # ─── Tray Icon ─────────────────────────────────────────────────
-
-def _resource_path(relative: str) -> str:
-    """Get absolute path to resource, works for dev and PyInstaller."""
-    if getattr(sys, 'frozen', False):
-        base = Path(sys._MEIPASS)
-        candidate = base / "app" / relative
-        if candidate.exists():
-            return str(candidate)
-        candidate = base / relative
-        if candidate.exists():
-            return str(candidate)
-        return ""
-    else:
-        base = Path(__file__).parent
-    return str(base / relative)
 
 
 def _create_tray_icon():
@@ -991,7 +964,7 @@ def run_tray_app():
                 if choice == "cancel":
                     return
                 elif choice == "open":
-                    for p in range(DEFAULT_PORT, MAX_PORT + 1):
+                    for p in range(DEFAULT_PORT, PORT_RANGE[1] + 1):
                         if _is_port_in_use(p):
                             _open_browser(p)
                             return

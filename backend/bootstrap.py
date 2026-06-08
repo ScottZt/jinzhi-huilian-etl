@@ -5,7 +5,6 @@ Electron 启动时会 spawn 此 exe，然后 BrowserWindow 访问其服务。"""
 import os
 import sys
 import logging
-import socket
 import time
 import traceback
 import threading
@@ -77,6 +76,9 @@ def _diag_info(message: str, *args):
     logger.info(message, *args)
 
 
+from app.config import resource_path, find_free_port, DEFAULT_PORT
+
+
 def _diag_exception(message: str, exc: BaseException):
     """统一记录异常详情（含 traceback）。"""
     err_text = f"{message}: {exc}"
@@ -84,31 +86,6 @@ def _diag_exception(message: str, exc: BaseException):
         _startup_logger.error(err_text)
         _startup_logger.error(traceback.format_exc())
     logger.exception(err_text)
-
-
-def _resource_path(relative: str) -> str:
-    """Get absolute path to resource, works for dev and PyInstaller."""
-    if getattr(sys, 'frozen', False):
-        base = Path(sys._MEIPASS)
-        return str(base / relative)
-    else:
-        return str(Path(__file__).parent / relative)
-
-
-def _is_port_in_use(port: int, host: str = '127.0.0.1') -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind((host, port))
-            return False
-        except OSError:
-            return True
-
-
-def _find_free_port(start: int = 8080, end: int = 8099) -> int:
-    for p in range(start, end + 1):
-        if not _is_port_in_use(p):
-            return p
-    raise RuntimeError(f"No free port in range {start}-{end}")
 
 
 def main():
@@ -149,14 +126,14 @@ def main():
 
     # 端口检测 — 复用已有后端
     try:
-        port = _find_free_port(8080, 8099)
+        port = find_free_port()
     except Exception as e:
         _diag_exception("[BOOT] Find free port failed", e)
         raise
-    if port != 8080:
-        _diag_info("[BOOT] Port 8080 in use, using %s", port)
+    if port != DEFAULT_PORT:
+        _diag_info("[BOOT] Port %d in use, using %d", DEFAULT_PORT, port)
     else:
-        _diag_info("[BOOT] Using default port %s", port)
+        _diag_info("[BOOT] Using default port %d", port)
 
     # 将 backend 目录加入 sys.path 以便后续 import
     if str(backend_dir) not in sys.path:
