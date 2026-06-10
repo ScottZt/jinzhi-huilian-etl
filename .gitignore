@@ -59,3 +59,13 @@ backend/build/
 frontend/dist/
 frontend/node_modules/
 
+
+hyperframes-video/renders/
+hyperframes-video/1111.mp4
+
+hyperframes-video/2222.mp4
+hyperframes-video/飞书20260608-211342.mp4
+
+hyperframes-video/.thumbnails/
+renders/
+hyperframes-video/

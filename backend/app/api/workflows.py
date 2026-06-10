@@ -182,20 +182,41 @@ class CustomNode(BaseNode):
 # ---------- /{workflow_id} 通配路由（必须放在静态路由之后） ----------
 
 
-def _execute_workflow_preview(workflow_json: dict, df: Optional[pd.DataFrame]):
-    """执行工作流并返回结果。"""
+def _execute_workflow_preview(workflow_json: dict, df: Optional[pd.DataFrame], max_rows: int = 50):
+    """执行工作流并返回结果，包含每个节点的中间输出。"""
     if df is None:
         df = pd.DataFrame()
     engine = get_workflow_engine()
     engine.register_all()
     try:
-        result_df, timings = engine.execute(workflow_json, df)
-        preview_records = _json_safe(result_df.head(50).to_dict("records"))
+        result_df, timings, all_outputs = engine.execute(
+            workflow_json, df, return_intermediate=True
+        )
+        preview_records = _json_safe(result_df.head(max_rows).to_dict("records"))
+
+        # 收集每个节点的中间输出（供前端数据预览面板使用）
+        node_outputs = {}
+        nodes = workflow_json.get("nodes", [])
+        for node_def in nodes:
+            nid = node_def.get("id", "")
+            name = node_def.get("name", nid)
+            ndf = all_outputs.get(nid)
+            if ndf is not None and not ndf.empty:
+                node_outputs[nid] = {
+                    "name": name,
+                    "type": node_def.get("type", ""),
+                    "rows": len(ndf),
+                    "columns": list(ndf.columns),
+                    "preview": _json_safe(ndf.head(max_rows).to_dict("records")),
+                    "time_seconds": timings.get(name, 0),
+                }
+
         return {
             "rows": len(result_df),
             "columns": list(result_df.columns),
             "preview": preview_records,
             "timings": _json_safe(timings),
+            "node_outputs": node_outputs,
         }
     except Exception as e:
         return {"error": str(e)}
