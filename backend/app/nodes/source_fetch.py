@@ -44,6 +44,9 @@ def _get_adapter(source_type: str, cfg: dict):
     elif source_type == "yfinance":
         from app.adapters.source_adapters.yfinance_adapter import YfinanceAdapter
         return YfinanceAdapter()
+    elif source_type == "tqsdk":
+        from app.adapters.source_adapters.tqsdk_adapter import TqsdkAdapter
+        return TqsdkAdapter()
     else:
         raise ValueError(f"不支持的数据源类型: {source_type}")
 
@@ -56,7 +59,7 @@ class SourceFetchNode(BaseNode):
         "source_type": {
             "type": "select",
             "label": "数据源类型",
-            "options": ["tdx", "mootdx", "akshare", "tushare", "binance", "yfinance"],
+            "options": ["tdx", "mootdx", "akshare", "tushare", "binance", "yfinance", "tqsdk"],
             "default": "tdx",
         },
         "source_config": {

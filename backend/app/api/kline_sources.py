@@ -84,6 +84,13 @@ def _inject_credential(cfg: dict) -> dict:
             headers[key_name] = api_key
         if api_secret:
             headers[f"{key_name}-Secret"] = api_secret
+    elif cred_type == "tqsdk_auth":
+        user = cred_cfg.get("username", "")
+        pwd = cred_cfg.get("password", "")
+        if user:
+            cfg["tqsdk_user"] = user
+        if pwd:
+            cfg["tqsdk_password"] = pwd
 
     cfg["headers"] = headers
     return cfg
@@ -271,6 +278,9 @@ def _get_adapter_for_source(source_type: str, cfg: dict):
     elif source_type == "yfinance":
         from app.adapters.source_adapters.yfinance_adapter import YfinanceAdapter
         return YfinanceAdapter()
+    elif source_type == "tqsdk":
+        from app.adapters.source_adapters.tqsdk_adapter import TqsdkAdapter
+        return TqsdkAdapter()
     else:
         raise ValueError(f"Unsupported source type: {source_type}")
 
@@ -417,6 +427,8 @@ async def preview_source_data(source_id: str, request: Request):
             default_preview_code = "BTCUSDT"
         elif source_type == "yfinance":
             default_preview_code = "AAPL"
+        elif source_type == "tqsdk":
+            default_preview_code = "IF0"
         elif source_type == "http":
             req_tmpl = cfg.get("request_template", {})
             if isinstance(req_tmpl, str):

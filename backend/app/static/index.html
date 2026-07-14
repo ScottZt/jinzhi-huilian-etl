@@ -1196,12 +1196,14 @@ const KLINE_SOURCE_TYPE_LABEL_MAP = {
   mootdx: 'Mootdx 私有分钟线',
   binance: 'Binance 加密货币',
   yfinance: 'Yahoo Finance',
+  tqsdk: '天勤量化 TqSdk',
 };
 const CREDENTIAL_TYPE_LABEL_MAP = {
   tushare_token: 'Tushare Token',
   http_bearer: 'HTTP Bearer',
   basic_auth: '基础认证',
   apikey: 'API Key',
+  tqsdk_auth: '天勤量化账号',
 };
 const TASK_TYPE_LABEL_MAP = {
   incremental: '增量同步',
@@ -3743,6 +3745,9 @@ function openKlineSourceModal(editId = null) {
         <div class="kline-type-card" data-type="yfinance" onclick="selectKsType(this,'yfinance')">
           <div class="icon">📈</div><div class="label">Yahoo Finance</div><div class="desc">美股/外汇/期货免费数据</div>
         </div>
+        <div class="kline-type-card" data-type="tqsdk" onclick="selectKsType(this,'tqsdk')">
+          <div class="icon">📊</div><div class="label">天勤量化 TqSdk</div><div class="desc">期货/A股/基金/指数/期权全市场</div>
+        </div>
       </div>
       <input type="hidden" id="ks-type" value="">
       <input type="hidden" id="ks-cfg-selected_api" value="">
@@ -4064,6 +4069,72 @@ function selectKsType(el, type) {
       </div>
       <div class="text-dim" style="font-size:12px;margin-top:4px">Yahoo Finance 免费数据源，无需 API Key。注意: 部分市场数据可能有15分钟延迟。</div>
     `;
+  } else if (type === 'tqsdk') {
+    fields.innerHTML = `
+      <div class="form-group">
+        <label>天勤凭证（推荐使用凭证系统管理账号）</label>
+        <select class="form-control" id="ks-cfg-credential_id" onchange="onCredSelectChange(this.value)">
+          <option value="">— 不使用凭证，手动填写 —</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>天勤账号（手机号）</label>
+          <input class="form-control" id="ks-cfg-tqsdk_user" value="" placeholder="注册天勤量化时使用的手机号">
+        </div>
+        <div class="form-group">
+          <label>天勤密码</label>
+          <input class="form-control" id="ks-cfg-tqsdk_password" type="password" value="" placeholder="天勤量化登录密码">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>市场类型</label>
+          <select class="form-control" id="ks-cfg-market_type">
+            <option value="auto" selected>自动识别</option>
+            <option value="futures">期货（CFFEX/SHFE/DCE/CZCE/INE）</option>
+            <option value="stock">沪深A股</option>
+            <option value="index">大盘指数</option>
+            <option value="fund">ETF/基金</option>
+            <option value="option">期权</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>K线周期</label>
+          <select class="form-control" id="ks-cfg-interval">
+            <option value="1min" selected>1分钟</option>
+            <option value="5min">5分钟</option>
+            <option value="15min">15分钟</option>
+            <option value="30min">30分钟</option>
+            <option value="60min">60分钟</option>
+            <option value="D">日线</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>连接超时（秒）</label>
+          <input class="form-control" id="ks-cfg-timeout" value="15" placeholder="15">
+        </div>
+        <div class="form-group">
+          <label>最大拉取K线数</label>
+          <input class="form-control" id="ks-cfg-data_length" value="8000" placeholder="最大8000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>合约/股票代码（逗号分隔）</label>
+        <input class="form-control" id="ks-cfg-preview_codes" value="IF0" placeholder="期货: IF0,rb2510 | 股票: 000001,600000 | 指数: SSE.000001">
+        <div class="text-dim" style="font-size:12px;margin-top:4px">
+          <strong>代码格式:</strong>
+          期货主力: IF0/IC0/rb0 | 期货合约: IF2506/rb2510 |
+          股票: 000001/600000 | 指数: SSE.000001/SZSE.399001 |
+          基金: 510050/159919
+        </div>
+      </div>
+      <div class="text-dim" style="font-size:12px;margin-top:4px">需要天勤量化账号（免费注册 <a href="https://www.shinnytech.com" target="_blank">shinnytech.com</a>）。建议在「凭证管理」中创建天勤凭证后关联使用。</div>
+    `;
+    // 加载凭证下拉列表
+    loadCredentialSelect();
   } else if (type === 'tdx') {
     fields.innerHTML = `
       <div class="form-group">
@@ -4154,6 +4225,13 @@ async function onCredSelectChange(credId) {
         tmpl.token = cfg.token;
         reqTmpl.value = JSON.stringify(tmpl, null, 2);
       }
+    }
+    // 天勤凭证：注入 username/password 到 tqsdk_user/tqsdk_password 字段
+    if (credType === 'tqsdk_auth') {
+      const userEl = document.getElementById('ks-cfg-tqsdk_user');
+      const pwdEl = document.getElementById('ks-cfg-tqsdk_password');
+      if (userEl && cfg.username) userEl.value = cfg.username;
+      if (pwdEl && cfg.password) pwdEl.value = cfg.password;
     }
   } catch(e) { console.error('credential inject error:', e); }
 }
@@ -4603,6 +4681,13 @@ function selectCredType(el, type) {
     </div>
     <div class="form-group"><label>API Secret（可选）</label>
       <input class="form-control" id="cred-cfg-api_secret" type="password"></div>`;
+  } else if (type === 'tqsdk_auth') {
+    fields.innerHTML = `
+      <div class="form-group"><label>天勤账号（手机号）</label>
+        <input class="form-control" id="cred-cfg-username" placeholder="注册天勤量化时使用的手机号"></div>
+      <div class="form-group"><label>天勤密码</label>
+        <input class="form-control" id="cred-cfg-password" type="password" placeholder="天勤量化登录密码"></div>
+      <div class="text-dim" style="font-size:12px;margin-top:4px">免费注册: <a href="https://www.shinnytech.com" target="_blank">shinnytech.com</a>。支持期货/A股/基金/指数/期权全市场数据。</div>`;
   } else {
     fields.innerHTML = '';
   }
@@ -5281,7 +5366,7 @@ const yfinanceApis = [
 // All APIs merged for "全部" tab
 const allApis = [...tushareApis, ...akshareApis, ...tdxApis, ...binanceApis, ...yfinanceApis];
 
-const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信', mootdx: '🔒 Mootdx', binance: '🪙 Binance', yfinance: '📈 Yahoo' };
+const srcLabels = { tushare: '🔵 Tushare', akshare: '🟢 AkShare', tdx: '🟠 通达信', mootdx: '🔒 Mootdx', binance: '🪙 Binance', yfinance: '📈 Yahoo', tqsdk: '📊 天勤' };
 const catLabels = { market:'行情', finance:'财务', fund:'基金', index:'指数', flow:'资金', sector:'板块' };
 
 // 分组标签由 getSourceTabMap() 动态生成：支持运行时注入“自定义模板”分组。
@@ -5467,7 +5552,7 @@ function useApi(apiName) {
     openKlineSourceModal();
     setTimeout(() => {
       // Select the correct type card based on src
-      const typeMap = { tushare: 'http', akshare: 'http', tdx: 'tdx', binance: 'binance', yfinance: 'yfinance' };
+      const typeMap = { tushare: 'http', akshare: 'http', tdx: 'tdx', binance: 'binance', yfinance: 'yfinance', tqsdk: 'tqsdk' };
       const cardType = typeMap[src] || 'http';
       const typeCard = document.querySelector(`.kline-type-card[data-type="${cardType}"]`);
       if (typeCard) selectKsType(typeCard, cardType);

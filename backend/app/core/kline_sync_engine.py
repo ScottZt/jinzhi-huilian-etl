@@ -160,6 +160,9 @@ class KLineSyncEngine:
         elif conn_type == "tushare":
             from app.adapters.source_adapters.tushare_adapter import HttpAdapter
             adapter = HttpAdapter()
+        elif conn_type == "tqsdk":
+            from app.adapters.source_adapters.tqsdk_adapter import TqsdkAdapter
+            adapter = TqsdkAdapter()
         else:
             raise ValueError(f"Unsupported source type: {conn_type}")
 

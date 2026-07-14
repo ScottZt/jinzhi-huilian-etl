@@ -246,6 +246,9 @@ def _build_codes_df(source_data: dict) -> pd.DataFrame:
     elif source_type == "tushare":
         from app.adapters.source_adapters.tushare_adapter import HttpAdapter
         adapter = HttpAdapter()
+    elif source_type == "tqsdk":
+        from app.adapters.source_adapters.tqsdk_adapter import TqsdkAdapter
+        adapter = TqsdkAdapter()
     else:
         return pd.DataFrame()
     codes = adapter.list_codes(cfg) or []

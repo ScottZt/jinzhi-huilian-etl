@@ -245,6 +245,13 @@
     // ---------- Global state ----------
     let editor;
     const NODE_CATEGORIES = {
+      '数据接入': [
+        { type: 'source_fetch', label: '数据源拉取', icon: '📥' },
+        { type: 'contract_list', label: '合约列表', icon: '📋' },
+      ],
+      '数据输出': [
+        { type: 'target_write', label: '写入目标库', icon: '💾' },
+      ],
       '指标计算': [
         { type: 'resample', label: '周期重采样', icon: '📊' },
         { type: 'ma', label: '移动平均', icon: '📈' },
@@ -292,6 +299,7 @@
       condition: { condition: "df['close'] > 0", branch: 'true' },
       custom_python: { code: 'def process(df):\n    return df' },
       source_fetch: { source_type: 'tdx', codes: '000001,600000', interval: '1min', time_mode: 'lookback', lookback_days: 30, session_only: true, parallel: false, max_workers: 4 },
+      contract_list: { market_type: 'all', product: '', exchange: '', search: '', limit: 500, auto_sync: false },
       target_write: { target_type: 'duckdb', target_table: 'stock_minute_kline', batch_size: 5000, on_duplicate: 'ignore' },
       dedup: { mode: 'keep_last', columns: 'code,dt' },
       time_window: { window_size: 7, window_step: 7, time_column: 'dt', sort_first: true },
@@ -301,7 +309,7 @@
       resample: '#6366f1', ma: '#22c55e', macd: '#f59e0b', rsi: '#38bdf8', boll: '#ec4899',
       filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e', column_rename: '#f59e0b',
       expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
-      source_fetch: '#06b6d4', target_write: '#8b5cf6', dedup: '#14b8a6', time_window: '#f97316',
+      source_fetch: '#06b6d4', contract_list: '#14b8a6', target_write: '#8b5cf6', dedup: '#14b8a6', time_window: '#f97316',
     };
 
     let workflowId = null;
@@ -610,7 +618,7 @@
           { id: 'code', label: 'Python 代码', type: 'textarea' },
         ],
         source_fetch: [
-          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare','binance','yfinance'] },
+          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare','binance','yfinance','tqsdk'] },
           { id: 'source_config', label: '数据源配置(JSON)', type: 'textarea' },
           { id: 'codes', label: '交易对/股票代码(逗号分隔)', type: 'text' },
           { id: 'interval', label: 'K线周期', type: 'select', opts: ['1min','5min','15min','30min','60min','D'] },
@@ -619,6 +627,14 @@
           { id: 'parallel', label: '并行拉取', type: 'checkbox' },
           { id: 'max_workers', label: '最大并发数', type: 'number' },
           { id: 'session_only', label: '仅交易时段', type: 'checkbox' },
+        ],
+        contract_list: [
+          { id: 'market_type', label: '合约类型', type: 'select', opts: ['all','futures','main_continuous'] },
+          { id: 'product', label: '品种前缀(逗号分隔)', type: 'text' },
+          { id: 'exchange', label: '交易所', type: 'select', opts: ['','CFFEX','SHFE','DCE','CZCE','INE','GFEX'] },
+          { id: 'search', label: '搜索关键词', type: 'text' },
+          { id: 'limit', label: '最大数量', type: 'number' },
+          { id: 'auto_sync', label: '自动从TqSdk同步', type: 'checkbox' },
         ],
         target_write: [
           { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse'] },

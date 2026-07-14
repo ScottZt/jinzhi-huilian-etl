@@ -33,6 +33,7 @@ from app.api import license; logger.info(f"[BOOT] app.api.license loaded (t={_t(
 from app.api import ai_script; logger.info(f"[BOOT] app.api.ai_script loaded (t={_t():.1f}s)")
 from app.api import llm; logger.info(f"[BOOT] app.api.llm loaded (t={_t():.1f}s)")
 from app.api import file_utils; logger.info(f"[BOOT] app.api.file_utils loaded (t={_t():.1f}s)")
+from app.api import contracts; logger.info(f"[BOOT] app.api.contracts loaded (t={_t():.1f}s)")
 from app.core.websocket_manager import get_ws_manager; logger.info(f"[BOOT] websocket_manager loaded (t={_t():.1f}s)")
 from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_repo.init_db loaded (t={_t():.1f}s)")
 logger.info(f"[BOOT] All imports done")
@@ -58,6 +59,7 @@ _OPTIONAL_DEPS = {
     "akshare": ("akshare", "AkShare A股/期货/外汇数据源"),
     "tushare": ("tushare", "Tushare A股数据源"),
     "mootdx": ("mootdx", "Mootdx 分钟线数据源"),
+    "tqsdk": ("tqsdk", "天勤量化全市场数据源"),
 }
 
 
@@ -148,6 +150,7 @@ app.include_router(license.router, prefix="/api/license", tags=["license"])
 app.include_router(ai_script.router, prefix="/api/ai-script", tags=["ai-script"])
 app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 app.include_router(file_utils.router, prefix="/api/files", tags=["files"])
+app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 
 static_dir = _resource_path("static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")

@@ -65,6 +65,16 @@ CREDENTIAL_TYPES = {
             {"key": "api_key", "label": "API Key", "type": "text", "required": True},
             {"key": "api_secret", "label": "API Secret（可选）", "type": "text", "required": False}
         ]
+    },
+    "tqsdk_auth": {
+        "label": "天勤量化账号",
+        "icon": "📊",
+        "fields": [
+            {"key": "username", "label": "天勤账号（手机号）", "type": "text", "required": True,
+             "placeholder": "注册天勤量化时使用的手机号"},
+            {"key": "password", "label": "天勤密码", "type": "password", "required": True,
+             "placeholder": "天勤量化登录密码"}
+        ]
     }
 }
 
@@ -217,6 +227,37 @@ async def test_credential(credential_id: str):
                 return {"success": resp.status_code < 400, "message": f"✅ 状态码 {resp.status_code}" if resp.status_code < 400 else f"❌ HTTP {resp.status_code}"}
             else:
                 return {"success": False, "message": "❌ 未配置 base_url"}
+        elif cred_type == "tqsdk_auth":
+            user = cfg.get("username", "")
+            pwd = cfg.get("password", "")
+            if not user or not pwd:
+                return {"success": False, "message": "❌ 天勤账号或密码未填写"}
+            try:
+                from tqsdk import TqApi, TqAuth
+                import time as _time
+                api = TqApi(auth=TqAuth(user, pwd))
+                try:
+                    klines = api.get_kline_serial("KQ.m@CFFEX.IF", 60, data_length=5)
+                    deadline = _time.time() + 10
+                    while True:
+                        try:
+                            import pandas as _pd
+                            if not klines.empty and _pd.notna(klines.iloc[-1].get("datetime")):
+                                break
+                        except Exception:
+                            if not klines.empty:
+                                break
+                        if not api.wait_update(deadline=deadline):
+                            break
+                    if not klines.empty:
+                        return {"success": True, "message": f"✅ 天勤连接成功，验证数据 {len(klines)} 条"}
+                    return {"success": False, "message": "❌ 天勤连接成功但返回数据为空"}
+                finally:
+                    api.close()
+            except ImportError:
+                return {"success": False, "message": "❌ tqsdk 未安装，请执行: pip install tqsdk"}
+            except Exception as e:
+                return {"success": False, "message": f"❌ 天勤连接失败: {e}"}
         else:
             return {"success": False, "message": f"❌ 未知凭证类型：{cred_type}"}
     except Exception as e:
