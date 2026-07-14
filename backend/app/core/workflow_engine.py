@@ -43,15 +43,20 @@ class WorkflowEngine:
             for node_type in NodeRegistry.list_types()
         }
 
-    def execute(self, workflow_json: dict, initial_df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    def execute(self, workflow_json: dict, initial_df: pd.DataFrame,
+                return_intermediate: bool = False) -> tuple:
         """
         执行工作流。
-        返回: (最终 DataFrame, {节点执行统计})
+        返回:
+          return_intermediate=False: (最终 DataFrame, {节点执行统计})
+          return_intermediate=True:  (最终 DataFrame, {节点执行统计}, {node_id: DataFrame})
         """
         nodes = workflow_json.get("nodes", [])
         connections = workflow_json.get("connections", {})
 
         if not nodes:
+            if return_intermediate:
+                return initial_df, {}, {}
             return initial_df, {}
 
         node_map = {n["id"]: n for n in nodes}
@@ -81,7 +86,10 @@ class WorkflowEngine:
             node_outputs[node_id] = output_df
 
         final = self._get_final_output(node_outputs, connections)
-        return final if final is not None else initial_df, node_timings
+        final_df = final if final is not None else initial_df
+        if return_intermediate:
+            return final_df, node_timings, node_outputs
+        return final_df, node_timings
 
     def _topological_sort(self, node_map: dict, connections: dict) -> list:
         """Kahn 算法拓扑排序。"""

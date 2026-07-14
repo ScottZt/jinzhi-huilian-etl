@@ -159,6 +159,69 @@
     .assistant-title { font-size: 14px; font-weight: 600; color: var(--accent); }
     .assistant-body { display: grid; grid-template-columns: 1fr; gap: 10px; }
     .assistant-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+    /* Data preview panel */
+    .data-preview-panel {
+      display: none; flex-direction: column;
+      height: 280px; flex-shrink: 0;
+      background: var(--card); border-top: 2px solid var(--accent);
+    }
+    .data-preview-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .node-chips {
+      display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 2px 0;
+    }
+    .node-chips::-webkit-scrollbar { height: 4px; }
+    .node-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .node-chip {
+      padding: 3px 10px; border-radius: 12px; font-size: 11px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text-dim);
+      cursor: pointer; white-space: nowrap; transition: all 0.15s;
+      display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+    }
+    .node-chip:hover { border-color: var(--accent); color: var(--text); }
+    .node-chip.active {
+      background: rgba(99,102,241,0.15); border-color: var(--accent);
+      color: var(--accent); font-weight: 600;
+    }
+    .node-chip .chip-rows {
+      font-size: 10px; opacity: 0.7; margin-left: 2px;
+    }
+    .data-preview-meta {
+      font-size: 11px; color: var(--text-dim); white-space: nowrap;
+    }
+    .data-preview-body {
+      flex: 1; overflow: auto; padding: 0;
+    }
+    .preview-data-table {
+      width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap;
+    }
+    .preview-data-table th {
+      position: sticky; top: 0; z-index: 2;
+      text-align: left; padding: 5px 10px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      color: var(--text-dim); font-weight: 600; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .preview-data-table td {
+      padding: 4px 10px; border-bottom: 1px solid var(--border);
+      color: var(--text); max-width: 200px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .preview-data-table tr:hover td { background: var(--card-hover); }
+    .preview-empty {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; color: var(--text-dim); font-size: 12px;
+    }
+    /* Drawflow node highlight after preview */
+    .drawflow .drawflow-node.preview-highlight {
+      border-color: var(--success) !important;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.3);
+    }
+    .drawflow .drawflow-node.preview-empty-node {
+      opacity: 0.5;
+    }
   </style>
 </head>
 <body>
@@ -173,6 +236,7 @@
       <span style="color:var(--text-dim);font-size:11px;margin-right:4px" title="滚轮缩放，中键拖拽画布">🖱️ 滚轮缩放 / 中键拖拽</span>
       <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
       <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
+      <button class="btn btn-secondary" id="preview-btn" onclick="runWorkflowPreview()">▶ 预览</button>
       <button class="btn btn-primary" onclick="saveWorkflow()">保存工作流</button>
       <button class="btn" onclick="window.close()">关闭</button>
     </div>
@@ -187,6 +251,17 @@
     </div>
     <div class="props-panel" id="props-panel">
       <div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>
+    </div>
+  </div>
+
+  <!-- 节点间数据预览面板 -->
+  <div class="data-preview-panel" id="data-preview-panel">
+    <div class="data-preview-header">
+      <div class="node-chips" id="node-chips"></div>
+      <div class="data-preview-meta" id="data-preview-meta"></div>
+      <button class="btn btn-sm" onclick="closeDataPreview()">✕</button>
+    </div>
+    <div class="data-preview-body" id="data-preview-body">
     </div>
   </div>
 
@@ -315,6 +390,9 @@
     let workflowId = null;
     let nodeTypeList = [];
     let currentSelectedNodeId = null;  // 保存当前选中的节点ID
+    let _origIdToDfId = null;  // 预览后缓存 orig_id → drawflow_id 映射，用于高亮画布节点
+    let _lastPreviewResult = null;  // 缓存预览结果
+    let _activePreviewNodeId = null;  // 当前查看的节点 orig_id
 
     // 读取与主界面一致的主题设置（默认深色）
     function getTheme() {
@@ -745,58 +823,58 @@
     }
 
     // ---------- Save / Load ----------
+    /**
+     * 从画布导出当前工作流 JSON（不保存）。
+     * 返回 { workflowJson, origIdToDfId } — origIdToDfId 用于预览后高亮画布节点。
+     */
+    function buildCurrentWorkflowJson() {
+      const exportData = editor.export();
+      const nodes = [];
+      const connections = {};
+      const idMap = {};
+      const origIdToDfId = {};
+
+      if (exportData.drawflow && exportData.drawflow.Home && exportData.drawflow.Home.data) {
+        const dfNodes = exportData.drawflow.Home.data;
+        for (const [key, dfNode] of Object.entries(dfNodes)) {
+          const drawflowId = key.replace('node-', '');
+          const origId = dfNode.data.origId || drawflowId;
+          idMap[drawflowId] = origId;
+          origIdToDfId[origId] = drawflowId;
+        }
+        for (const [key, dfNode] of Object.entries(dfNodes)) {
+          const drawflowId = key.replace('node-', '');
+          const origId = dfNode.data.origId || drawflowId;
+          nodes.push({
+            id: origId,
+            type: dfNode.data.nodeType,
+            name: dfNode.data.label || dfNode.data.nodeType,
+            parameters: dfNode.data.parameters || {},
+          });
+          if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
+            const targets = dfNode.outputs.output_1.connections
+              .filter(c => c.node)
+              .map(c => idMap[String(c.node)])
+              .filter(Boolean);
+            if (targets.length) {
+              connections[origId] = targets;
+            }
+          }
+        }
+      }
+      return { workflowJson: { nodes, connections }, origIdToDfId };
+    }
+
     async function saveWorkflow() {
       const name = document.getElementById('wf-name-input').value.trim();
       if (!name) { alert('请输入工作流名称'); return; }
       const description = document.getElementById('wf-desc-input').value.trim();
 
-      const exportData = editor.export();
-      const nodes = [];
-      const connections = {};
-
-      // Map: drawflow_id -> orig_id for saving, orig_id -> drawflow_id for connecting
-      const idMap = {};
-
-      if (exportData.drawflow && exportData.drawflow.Home && exportData.drawflow.Home.data) {
-        const dfNodes = exportData.drawflow.Home.data;
-        // 先完整建立 drawflow_id -> orig_id 映射，避免单遍保存时出现“目标节点还未入表”的情况。
-        for (const [key, dfNode] of Object.entries(dfNodes)) {
-          const drawflowId = key.replace('node-', '');
-          const origId = dfNode.data.origId || drawflowId;
-          idMap[drawflowId] = origId;
-        }
-        // 再写节点和连接，确保连接里落库的是稳定的 orig_id。
-        for (const [key, dfNode] of Object.entries(dfNodes)) {
-          const drawflowId = key.replace('node-', '');
-          const origId = dfNode.data.origId || drawflowId;
-
-          nodes.push({
-            id: origId,
-            type: dfNode.data.nodeType,
-            parameters: dfNode.data.parameters || {},
-          });
-          // Build connections using orig_ids
-          if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
-            const targets = dfNode.outputs.output_1.connections
-              .filter(c => c.node)
-              .map(c => {
-                const tgtDfId = String(c.node);
-                // 目标节点不存在映射时丢弃该边，避免把临时 drawflow_id 持久化到 workflow_json。
-                return idMap[tgtDfId];
-              });
-            // 过滤掉无效边，避免“保存后连线丢失/断边”。
-            const validTargets = targets.filter(Boolean);
-            if (validTargets.length) {
-              connections[origId] = validTargets;
-            }
-          }
-        }
-      }
-
+      const { workflowJson } = buildCurrentWorkflowJson();
       const body = {
         name,
         description,
-        workflow_json: { nodes, connections },
+        workflow_json: workflowJson,
       };
 
       try {
@@ -1016,6 +1094,130 @@
           triggerBtn.textContent = originalBtnText || '生成引导建议';
         }
       }
+    }
+
+    // ---------- Workflow Preview (节点间数据预览) ----------
+    async function runWorkflowPreview() {
+      const { workflowJson, origIdToDfId } = buildCurrentWorkflowJson();
+      if (!workflowJson.nodes.length) {
+        toast('画布为空，请先添加节点', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('preview-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 执行中...';
+
+      try {
+        const res = await api('/api/workflows/preview', {
+          method: 'POST',
+          body: JSON.stringify({ workflow_json: workflowJson }),
+        });
+
+        if (res.error) { toast('预览失败: ' + res.error, 'error'); return; }
+
+        _lastPreviewResult = res;
+        _origIdToDfId = origIdToDfId;
+
+        const nodeOutputs = res.node_outputs || {};
+        const nodeIds = Object.keys(nodeOutputs);
+
+        if (!nodeIds.length) {
+          toast('所有节点均无输出数据', 'error');
+          return;
+        }
+
+        renderNodeChips(nodeOutputs, workflowJson);
+        showNodeOutput(nodeIds[0]);
+
+        document.getElementById('data-preview-panel').style.display = 'flex';
+        const totalRows = nodeIds.reduce((s, id) => s + (nodeOutputs[id].rows || 0), 0);
+        toast(`预览完成 — ${nodeIds.length} 个节点，共 ${totalRows} 行`, 'success');
+      } catch (e) {
+        toast('预览失败: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ 预览';
+      }
+    }
+
+    function renderNodeChips(nodeOutputs, workflowJson) {
+      const container = document.getElementById('node-chips');
+      // 按工作流节点顺序排列芯片（与 DAG 执行顺序一致）
+      const nodeOrder = (workflowJson.nodes || []).map(n => n.id);
+      let html = '';
+      for (const nid of nodeOrder) {
+        const output = nodeOutputs[nid];
+        if (!output) continue;
+        const color = NODE_COLORS[output.type] || '#6366f1';
+        const meta = findNodeMeta(output.type);
+        const icon = meta ? meta.icon : '⬢';
+        html += `<div class="node-chip" data-node-id="${escapeHtml(nid)}"
+                      onclick="showNodeOutput('${escapeHtml(nid)}')"
+                      style="border-left: 3px solid ${color}">
+                   <span>${icon} ${escapeHtml(output.name)}</span>
+                   <span class="chip-rows">${output.rows}行</span>
+                 </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function showNodeOutput(nodeId) {
+      const output = _lastPreviewResult?.node_outputs?.[nodeId];
+      if (!output) return;
+
+      _activePreviewNodeId = nodeId;
+
+      // 高亮选中的芯片
+      document.querySelectorAll('.node-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.nodeId === nodeId);
+      });
+
+      // 高亮画布上对应的节点
+      document.querySelectorAll('.drawflow-node.preview-highlight')
+        .forEach(el => el.classList.remove('preview-highlight'));
+      const dfId = _origIdToDfId?.[nodeId];
+      if (dfId) {
+        const el = document.getElementById('node-' + dfId);
+        if (el) el.classList.add('preview-highlight');
+      }
+
+      // 更新统计信息
+      const meta = document.getElementById('data-preview-meta');
+      meta.innerHTML = `<span style="color:var(--accent)">${escapeHtml(output.name)}</span> · ${output.rows} 行 · ${output.columns.length} 列 · ${output.time_seconds}s`;
+
+      // 渲染数据表
+      const body = document.getElementById('data-preview-body');
+      if (!output.preview || !output.preview.length) {
+        body.innerHTML = '<div class="preview-empty">该节点输出为空（0 行）</div>';
+        return;
+      }
+      body.innerHTML = renderDataTable(output.columns, output.preview);
+    }
+
+    function closeDataPreview() {
+      document.getElementById('data-preview-panel').style.display = 'none';
+      document.querySelectorAll('.drawflow-node.preview-highlight')
+        .forEach(el => el.classList.remove('preview-highlight'));
+      _lastPreviewResult = null;
+      _activePreviewNodeId = null;
+      _origIdToDfId = null;
+    }
+
+    function renderDataTable(columns, rows) {
+      let h = '<table class="preview-data-table"><thead><tr>';
+      for (const col of columns) h += `<th>${escapeHtml(col)}</th>`;
+      h += '</tr></thead><tbody>';
+      for (const row of rows) {
+        h += '<tr>';
+        for (const col of columns) {
+          const val = row[col];
+          h += `<td title="${escapeHtml(String(val ?? ''))}">${escapeHtml(String(val ?? ''))}</td>`;
+        }
+        h += '</tr>';
+      }
+      h += '</tbody></table>';
+      return h;
     }
 
     // ---------- Toast ----------
