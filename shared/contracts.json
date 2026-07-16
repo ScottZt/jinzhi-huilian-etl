@@ -1,0 +1,2240 @@
+{
+  "contracts": [
+    {
+      "symbol": "KQ.m@DCE.a",
+      "product": "A",
+      "exchange": "DCE",
+      "name": "豆一",
+      "type": "main_continuous",
+      "main_symbol": "DCE.a2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.ag",
+      "product": "AG",
+      "exchange": "SHFE",
+      "name": "白银",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.ag2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.al",
+      "product": "AL",
+      "exchange": "SHFE",
+      "name": "铝",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.al2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.ao",
+      "product": "AO",
+      "exchange": "SHFE",
+      "name": "氧化铝",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.ao2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.AP",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.AP610",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP610",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.AP611",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP612",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP701",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP703",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP704",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.AP705",
+      "product": "AP",
+      "exchange": "CZCE",
+      "name": "苹果",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.au",
+      "product": "AU",
+      "exchange": "SHFE",
+      "name": "黄金",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.au2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@INE.bc",
+      "product": "BC",
+      "exchange": "INE",
+      "name": "国际铜",
+      "type": "main_continuous",
+      "main_symbol": "INE.bc2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.bu",
+      "product": "BU",
+      "exchange": "SHFE",
+      "name": "石油沥青",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.bu2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.c",
+      "product": "C",
+      "exchange": "DCE",
+      "name": "玉米",
+      "type": "main_continuous",
+      "main_symbol": "DCE.c2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.CF",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.CF609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CF609",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.CF611",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CF701",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CF703",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CF705",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CF707",
+      "product": "CF",
+      "exchange": "CZCE",
+      "name": "棉花",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.CJ",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.CJ609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CJ609",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.CJ612",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CJ701",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CJ703",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CJ705",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CJ707",
+      "product": "CJ",
+      "exchange": "CZCE",
+      "name": "红枣",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.cs",
+      "product": "CS",
+      "exchange": "DCE",
+      "name": "玉米淀粉",
+      "type": "main_continuous",
+      "main_symbol": "DCE.cs2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.cu",
+      "product": "CU",
+      "exchange": "SHFE",
+      "name": "铜",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.cu2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.CY",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.CY609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY608",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY609",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.CY610",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY611",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY612",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY701",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY702",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY703",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY704",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY705",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY706",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.CY707",
+      "product": "CY",
+      "exchange": "CZCE",
+      "name": "棉纱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.eb",
+      "product": "EB",
+      "exchange": "DCE",
+      "name": "苯乙烯",
+      "type": "main_continuous",
+      "main_symbol": "DCE.eb2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@INE.ec",
+      "product": "EC",
+      "exchange": "INE",
+      "name": "集运指数(欧线)",
+      "type": "main_continuous",
+      "main_symbol": "INE.ec2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.eg",
+      "product": "EG",
+      "exchange": "DCE",
+      "name": "乙二醇",
+      "type": "main_continuous",
+      "main_symbol": "DCE.eg2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.FG",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.FG609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG608",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG609",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.FG610",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG611",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG612",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG701",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG702",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG703",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG704",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG705",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG706",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.FG707",
+      "product": "FG",
+      "exchange": "CZCE",
+      "name": "玻璃",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.fu",
+      "product": "FU",
+      "exchange": "SHFE",
+      "name": "燃料油",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.fu2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.hc",
+      "product": "HC",
+      "exchange": "SHFE",
+      "name": "热轧卷板",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.hc2610",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.i",
+      "product": "I",
+      "exchange": "DCE",
+      "name": "铁矿石",
+      "type": "main_continuous",
+      "main_symbol": "DCE.i2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.IC",
+      "product": "IC",
+      "exchange": "CFFEX",
+      "name": "中证500股指",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.IC2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IC2607",
+      "product": "IC",
+      "exchange": "CFFEX",
+      "name": "中证500股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IC2608",
+      "product": "IC",
+      "exchange": "CFFEX",
+      "name": "中证500股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IC2609",
+      "product": "IC",
+      "exchange": "CFFEX",
+      "name": "中证500股指",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.IC2612",
+      "product": "IC",
+      "exchange": "CFFEX",
+      "name": "中证500股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.IF",
+      "product": "IF",
+      "exchange": "CFFEX",
+      "name": "沪深300股指",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.IF2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IF2607",
+      "product": "IF",
+      "exchange": "CFFEX",
+      "name": "沪深300股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IF2608",
+      "product": "IF",
+      "exchange": "CFFEX",
+      "name": "沪深300股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IF2609",
+      "product": "IF",
+      "exchange": "CFFEX",
+      "name": "沪深300股指",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.IF2612",
+      "product": "IF",
+      "exchange": "CFFEX",
+      "name": "沪深300股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.IH",
+      "product": "IH",
+      "exchange": "CFFEX",
+      "name": "上证50股指",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.IH2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IH2607",
+      "product": "IH",
+      "exchange": "CFFEX",
+      "name": "上证50股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IH2608",
+      "product": "IH",
+      "exchange": "CFFEX",
+      "name": "上证50股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IH2609",
+      "product": "IH",
+      "exchange": "CFFEX",
+      "name": "上证50股指",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.IH2612",
+      "product": "IH",
+      "exchange": "CFFEX",
+      "name": "上证50股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.IM",
+      "product": "IM",
+      "exchange": "CFFEX",
+      "name": "中证1000股指",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.IM2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IM2607",
+      "product": "IM",
+      "exchange": "CFFEX",
+      "name": "中证1000股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IM2608",
+      "product": "IM",
+      "exchange": "CFFEX",
+      "name": "中证1000股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.IM2609",
+      "product": "IM",
+      "exchange": "CFFEX",
+      "name": "中证1000股指",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.IM2612",
+      "product": "IM",
+      "exchange": "CFFEX",
+      "name": "中证1000股指",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.j",
+      "product": "J",
+      "exchange": "DCE",
+      "name": "焦炭",
+      "type": "main_continuous",
+      "main_symbol": "DCE.j2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.jd",
+      "product": "JD",
+      "exchange": "DCE",
+      "name": "鸡蛋",
+      "type": "main_continuous",
+      "main_symbol": "DCE.jd2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.jm",
+      "product": "JM",
+      "exchange": "DCE",
+      "name": "焦煤",
+      "type": "main_continuous",
+      "main_symbol": "DCE.jm2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.l",
+      "product": "L",
+      "exchange": "DCE",
+      "name": "塑料(LLDPE)",
+      "type": "main_continuous",
+      "main_symbol": "DCE.l2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@GFEX.lc",
+      "product": "LC",
+      "exchange": "GFEX",
+      "name": "碳酸锂",
+      "type": "main_continuous",
+      "main_symbol": "GFEX.lc2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.lh",
+      "product": "LH",
+      "exchange": "DCE",
+      "name": "生猪",
+      "type": "main_continuous",
+      "main_symbol": "DCE.lh2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@INE.lu",
+      "product": "LU",
+      "exchange": "INE",
+      "name": "低硫燃料油",
+      "type": "main_continuous",
+      "main_symbol": "INE.lu2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.m",
+      "product": "M",
+      "exchange": "DCE",
+      "name": "豆粕",
+      "type": "main_continuous",
+      "main_symbol": "DCE.m2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.MA",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.MA609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA608",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA609",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.MA610",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA611",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA612",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA701",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA702",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA703",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA704",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA705",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA706",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.MA707",
+      "product": "MA",
+      "exchange": "CZCE",
+      "name": "甲醇",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.ni",
+      "product": "NI",
+      "exchange": "SHFE",
+      "name": "镍",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.ni2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@INE.nr",
+      "product": "NR",
+      "exchange": "INE",
+      "name": "20号胶",
+      "type": "main_continuous",
+      "main_symbol": "INE.nr2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.OI",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.OI609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.OI609",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.OI611",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.OI701",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.OI703",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.OI705",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.OI707",
+      "product": "OI",
+      "exchange": "CZCE",
+      "name": "菜籽油",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.p",
+      "product": "P",
+      "exchange": "DCE",
+      "name": "棕榈油",
+      "type": "main_continuous",
+      "main_symbol": "DCE.p2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.pb",
+      "product": "PB",
+      "exchange": "SHFE",
+      "name": "铅",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.pb2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.PF",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.PF609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF608",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF609",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.PF610",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF611",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF612",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF701",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF702",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF703",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF704",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF705",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF706",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PF707",
+      "product": "PF",
+      "exchange": "CZCE",
+      "name": "涤纶短纤",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.pg",
+      "product": "PG",
+      "exchange": "DCE",
+      "name": "液化石油气",
+      "type": "main_continuous",
+      "main_symbol": "DCE.pg2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.PK",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.PK610",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK610",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.PK611",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK612",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK701",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK703",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK704",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PK705",
+      "product": "PK",
+      "exchange": "CZCE",
+      "name": "花生",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.pp",
+      "product": "PP",
+      "exchange": "DCE",
+      "name": "聚丙烯",
+      "type": "main_continuous",
+      "main_symbol": "DCE.pp2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.PX",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.PX609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX608",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX609",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.PX610",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX611",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX612",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX701",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX702",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX703",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX704",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX705",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX706",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.PX707",
+      "product": "PX",
+      "exchange": "CZCE",
+      "name": "对二甲苯",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.rb",
+      "product": "RB",
+      "exchange": "SHFE",
+      "name": "螺纹钢",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.rb2610",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.RM",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.RM609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM608",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM609",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.RM611",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM701",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM703",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM705",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.RM707",
+      "product": "RM",
+      "exchange": "CZCE",
+      "name": "菜粕",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.ru",
+      "product": "RU",
+      "exchange": "SHFE",
+      "name": "橡胶",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.ru2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.SA",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.SA609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA608",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA609",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.SA610",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA611",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA612",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA701",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA702",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA703",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA704",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA705",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA706",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SA707",
+      "product": "SA",
+      "exchange": "CZCE",
+      "name": "纯碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@INE.sc",
+      "product": "SC",
+      "exchange": "INE",
+      "name": "原油",
+      "type": "main_continuous",
+      "main_symbol": "INE.sc2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.SF",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.SF609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF608",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF609",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.SF610",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF611",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF612",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF701",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF702",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF703",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF704",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF705",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF706",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SF707",
+      "product": "SF",
+      "exchange": "CZCE",
+      "name": "硅铁",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.SH",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.SH609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH608",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH609",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.SH610",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH611",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH612",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH701",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH702",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH703",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH704",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH705",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH706",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SH707",
+      "product": "SH",
+      "exchange": "CZCE",
+      "name": "烧碱",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@GFEX.si",
+      "product": "SI",
+      "exchange": "GFEX",
+      "name": "工业硅",
+      "type": "main_continuous",
+      "main_symbol": "GFEX.si2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.SM",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.SM609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM608",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM609",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.SM610",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM611",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM612",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM701",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM702",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM703",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM704",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM705",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM706",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SM707",
+      "product": "SM",
+      "exchange": "CZCE",
+      "name": "锰硅",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.sn",
+      "product": "SN",
+      "exchange": "SHFE",
+      "name": "锡",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.sn2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.sp",
+      "product": "SP",
+      "exchange": "SHFE",
+      "name": "纸浆",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.sp2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.SR",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.SR609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SR609",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.SR611",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SR701",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SR703",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SR705",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.SR707",
+      "product": "SR",
+      "exchange": "CZCE",
+      "name": "白糖",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.ss",
+      "product": "SS",
+      "exchange": "SHFE",
+      "name": "不锈钢",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.ss2608",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.T",
+      "product": "T",
+      "exchange": "CFFEX",
+      "name": "10年期国债",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.T2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.T2609",
+      "product": "T",
+      "exchange": "CFFEX",
+      "name": "10年期国债",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.T2612",
+      "product": "T",
+      "exchange": "CFFEX",
+      "name": "10年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.T2703",
+      "product": "T",
+      "exchange": "CFFEX",
+      "name": "10年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.TA",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.TA609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA608",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA609",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.TA610",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA611",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA612",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA701",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA702",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA703",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA704",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA705",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA706",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.TA707",
+      "product": "TA",
+      "exchange": "CZCE",
+      "name": "PTA",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.TF",
+      "product": "TF",
+      "exchange": "CFFEX",
+      "name": "5年期国债",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.TF2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TF2609",
+      "product": "TF",
+      "exchange": "CFFEX",
+      "name": "5年期国债",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.TF2612",
+      "product": "TF",
+      "exchange": "CFFEX",
+      "name": "5年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TF2703",
+      "product": "TF",
+      "exchange": "CFFEX",
+      "name": "5年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.TL",
+      "product": "TL",
+      "exchange": "CFFEX",
+      "name": "30年期国债",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.TL2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TL2609",
+      "product": "TL",
+      "exchange": "CFFEX",
+      "name": "30年期国债",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.TL2612",
+      "product": "TL",
+      "exchange": "CFFEX",
+      "name": "30年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TL2703",
+      "product": "TL",
+      "exchange": "CFFEX",
+      "name": "30年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CFFEX.TS",
+      "product": "TS",
+      "exchange": "CFFEX",
+      "name": "2年期国债",
+      "type": "main_continuous",
+      "main_symbol": "CFFEX.TS2609",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TS2609",
+      "product": "TS",
+      "exchange": "CFFEX",
+      "name": "2年期国债",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CFFEX.TS2612",
+      "product": "TS",
+      "exchange": "CFFEX",
+      "name": "2年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CFFEX.TS2703",
+      "product": "TS",
+      "exchange": "CFFEX",
+      "name": "2年期国债",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@CZCE.UR",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "main_continuous",
+      "main_symbol": "CZCE.UR609",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR608",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR609",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": true
+    },
+    {
+      "symbol": "CZCE.UR610",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR611",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR612",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR701",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR702",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR703",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR704",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR705",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR706",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "CZCE.UR707",
+      "product": "UR",
+      "exchange": "CZCE",
+      "name": "尿素",
+      "type": "futures",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.v",
+      "product": "V",
+      "exchange": "DCE",
+      "name": "PVC",
+      "type": "main_continuous",
+      "main_symbol": "DCE.v2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@DCE.y",
+      "product": "Y",
+      "exchange": "DCE",
+      "name": "豆油",
+      "type": "main_continuous",
+      "main_symbol": "DCE.y2609",
+      "is_main": false
+    },
+    {
+      "symbol": "KQ.m@SHFE.zn",
+      "product": "ZN",
+      "exchange": "SHFE",
+      "name": "锌",
+      "type": "main_continuous",
+      "main_symbol": "SHFE.zn2608",
+      "is_main": false
+    }
+  ],
+  "synced_at": "2026-07-15 19:46:00",
+  "count": 271
+}

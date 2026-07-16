@@ -152,6 +152,10 @@ def sync_contracts(tqsdk_user: str = "", tqsdk_password: str = "") -> Dict[str, 
     except ImportError:
         return {"status": "error", "msg": "tqsdk 未安装，请执行: pip install tqsdk"}
 
+    # 屏蔽天勤 SDK 的冗余日志（模拟账户初始化信息等）
+    import logging
+    logging.getLogger("tqsdk").setLevel(logging.WARNING)
+
     all_contracts: List[Dict[str, Any]] = []
     seen_symbols: set = set()
     products_main: Dict[str, str] = {}

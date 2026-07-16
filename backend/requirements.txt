@@ -32,3 +32,9 @@ akshare>=1.16.98
 tushare>=1.2.10
 # Used by app.adapters.source_adapters.mootdx_adapter for private minute K-line fetching.
 mootdx>=0.11.7
+# Used by app.adapters.source_adapters.tqsdk_adapter for full-market data (futures/stocks/funds/indices).
+tqsdk>=3.7.0
+# Used by app.adapters.source_adapters.yfinance_adapter for Yahoo Finance data.
+yfinance>=0.2.40
+# Used by app.adapters.source_adapters.binance_adapter for crypto market data.
+python-binance>=1.0.19

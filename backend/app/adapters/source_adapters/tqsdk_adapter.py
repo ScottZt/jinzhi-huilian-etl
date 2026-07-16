@@ -258,6 +258,10 @@ class TqsdkAdapter(KLineSourceAdapter):
 
     def _ensure_api(self, config: dict) -> bool:
         """确保 TqSdk API 已连接。带线程超时保护，避免阻塞。"""
+        # 屏蔽天勤 SDK 的冗余日志
+        import logging
+        logging.getLogger("tqsdk").setLevel(logging.WARNING)
+
         with self._api_lock:
             if self._api is not None:
                 return True

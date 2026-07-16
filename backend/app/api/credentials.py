@@ -232,6 +232,9 @@ async def test_credential(credential_id: str):
             pwd = cfg.get("password", "")
             if not user or not pwd:
                 return {"success": False, "message": "❌ 天勤账号或密码未填写"}
+            # 屏蔽天勤 SDK 的冗余日志
+            import logging
+            logging.getLogger("tqsdk").setLevel(logging.WARNING)
             try:
                 from tqsdk import TqApi, TqAuth
                 import time as _time

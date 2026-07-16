@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import json
 import os
@@ -34,6 +35,7 @@ from app.api import ai_script; logger.info(f"[BOOT] app.api.ai_script loaded (t=
 from app.api import llm; logger.info(f"[BOOT] app.api.llm loaded (t={_t():.1f}s)")
 from app.api import file_utils; logger.info(f"[BOOT] app.api.file_utils loaded (t={_t():.1f}s)")
 from app.api import contracts; logger.info(f"[BOOT] app.api.contracts loaded (t={_t():.1f}s)")
+from app.api import deps; logger.info(f"[BOOT] app.api.deps loaded (t={_t():.1f}s)")
 from app.core.websocket_manager import get_ws_manager; logger.info(f"[BOOT] websocket_manager loaded (t={_t():.1f}s)")
 from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_repo.init_db loaded (t={_t():.1f}s)")
 logger.info(f"[BOOT] All imports done")
@@ -53,28 +55,21 @@ def _resource_path(relative: str) -> str:
 
 _broadcast_task = None
 
-_OPTIONAL_DEPS = {
-    "python-binance": ("binance", "Binance 加密货币数据源"),
-    "yfinance": ("yfinance", "Yahoo Finance 多市场数据源"),
-    "akshare": ("akshare", "AkShare A股/期货/外汇数据源"),
-    "tushare": ("tushare", "Tushare A股数据源"),
-    "mootdx": ("mootdx", "Mootdx 分钟线数据源"),
-    "tqsdk": ("tqsdk", "天勤量化全市场数据源"),
-}
+from app.dep_utils import OPTIONAL_DEPS, check_all_deps
 
 
 def _check_optional_deps():
-    """启动时检查可选依赖包，缺失时给出安装提示。"""
-    missing = []
-    for pkg_name, (import_name, desc) in _OPTIONAL_DEPS.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            missing.append(f"  - {pkg_name}（用于 {desc}）")
+    """启动时检查可选依赖包，缺失时自动安装或给出安装提示。"""
+    import logging
+    _logger = logging.getLogger(__name__)
+    installed_new, missing = check_all_deps()
+    if installed_new:
+        _logger.info("[启动检查] 已自动安装: %s", ", ".join(installed_new))
     if missing:
-        logger.warning(
+        _logger.warning(
             "[启动检查] 以下可选依赖未安装，对应数据源将不可用:\n%s\n"
-            "可通过以下命令安装:\n  pip install %s",
+            "可通过以下命令安装:\n  pip install %s\n"
+            "或设置环境变量 AUTO_INSTALL_DEPS=true 启用自动安装",
             "\n".join(missing),
             " ".join(m[2:].split("（")[0].strip().replace("- ", "") for m in missing),
         )
@@ -132,6 +127,20 @@ app.add_middleware(ApiAuditMiddleware)
 from app.middleware.auth import ApiAuthMiddleware, get_or_create_api_key, get_api_key_path
 app.add_middleware(ApiAuthMiddleware)
 
+
+# 静态 HTML 文件 no-cache 中间件 — 确保浏览器始终获取最新版本
+class StaticNoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.endswith(".html") or path.endswith(".js"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
+
+app.add_middleware(StaticNoCacheMiddleware)
+
 app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
 app.include_router(schemas.router, prefix="/api/schemas", tags=["schemas"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -151,14 +160,35 @@ app.include_router(ai_script.router, prefix="/api/ai-script", tags=["ai-script"]
 app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 app.include_router(file_utils.router, prefix="/api/files", tags=["files"])
 app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
+app.include_router(deps.router, prefix="/api/deps", tags=["deps"])
 
 static_dir = _resource_path("static")
+
+# HTML 文件使用 no-cache 确保浏览器始终获取最新版本
+_NO_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
+
+
+@app.get("/static/workflow-editor.html")
+async def workflow_editor_static():
+    return FileResponse(f"{static_dir}/workflow-editor.html", headers=_NO_CACHE_HEADERS)
+
+
+@app.get("/static/index.html")
+async def index_html_static():
+    return FileResponse(f"{static_dir}/index.html", headers=_NO_CACHE_HEADERS)
+
+
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/")
 async def root():
-    return FileResponse(_resource_path("static/index.html"))
+    return FileResponse(_resource_path("static/index.html"), headers=_NO_CACHE_HEADERS)
+
+
+@app.get("/workflow-editor.html")
+async def workflow_editor():
+    return FileResponse(_resource_path("static/workflow-editor.html"), headers=_NO_CACHE_HEADERS)
 
 
 @app.get("/health")
