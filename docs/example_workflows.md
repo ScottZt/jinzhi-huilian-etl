@@ -1,7 +1,7 @@
 # ETL 工作流示例集合
 
 用于测试各个节点是否正常工作。每个示例包含：
-- **workflow_json**: 可直接导入工作流编辑器
+- **workflow_json**: 工作流 JSON，可通过 `POST /api/workflows/` 导入（见下方「如何把示例导入到工作流编辑器」）
 - **sample_data**: 用于测试的初始样本数据（Python 格式）
 - **预期输出**: 帮助判断节点运行是否正确
 
@@ -671,6 +671,248 @@ sample_data = pd.DataFrame({
 
 ---
 
+## 11. TDX 本地日 K 复权（前复权 / 后复权）
+
+**测试节点**: `source_fetch(tdx)` → `custom_python(复权)` → `target_write`
+**说明**: 通达信本地 `.day` 文件读出的是**未复权**原始价。本示例演示如何基于用户自维护的「复权因子表」，在同一支流水里产出前复权 + 后复权两套价格，并写入 DuckDB 的两张表。
+
+### 11.1 复权原理
+
+通达信本地只存未复权 OHLC。复权必须依赖一个外部「**复权因子**」序列（等价于每日累计除权比例），通常来源于：
+- 用户自行从交易所/数据商导出并维护的 CSV/Excel（本项目合规约束：**不内置**任何第三方私有协议，复权因子由用户自备）；
+- 或用 `custom_python` 基于除权除息事件手工推算。
+
+设 `factor[i]` 为第 i 日的复权因子（数值越大代表累计稀释越多）：
+
+| 模式 | 公式 | 特点 |
+|------|------|------|
+| 后复权 | `price_adj = price_raw × factor[i]` | 历史价格被抬升，时间序列连续向上，适合计算长期收益 |
+| 前复权 | `price_adj = price_raw × factor[i] / factor[last]` | 最新一日价格不变，历史价格被向下压，适合技术形态观察 |
+
+`factor` 是同一套，只是基准不同，因此 **一次计算同时出两张表**，无需重复拉取。
+
+### 11.2 工作流 JSON
+
+```json
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "拉取TDX日K",
+      "type": "source_fetch",
+      "parameters": {
+        "source_type": "tdx",
+        "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+        "codes": "000001,600000",
+        "interval": "D",
+        "time_mode": "lookback",
+        "lookback_days": 3650,
+        "parallel": false,
+        "session_only": false
+      }
+    },
+    {
+      "id": "n2",
+      "name": "复权计算",
+      "type": "custom_python",
+      "parameters": {
+        "code": "def process(df):\n    import pandas as pd, os\n    # 0) 防御：上游 source_fetch 未产出标准 K 线（预览模式 / 本地无 TDX 数据）→ 造一份 sample\n    if df.empty or 'dt' not in df.columns or 'code' not in df.columns:\n        import numpy as np\n        dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=1200)\n        rows = []\n        for c in ['000001', '600000']:\n            p = 10.0 if c == '000001' else 8.0\n            for d in dates:\n                p *= (1 + np.random.normal(0, 0.02))\n                rows.append({'code': c, 'dt': d, 'open': round(p*0.999,3),\n                             'high': round(p*1.01,3), 'low': round(p*0.99,3),\n                             'close': round(p,3), 'vol': int(np.random.randint(500,5000)),\n                             'amount': round(p*np.random.randint(500,5000),2)})\n        df = pd.DataFrame(rows)\n    # 1) 加载用户自维护的复权因子表；若 Excel 未准备，预览时自动回落到 baostock\n    fp = r'D:/data/adj_factor.xlsx'\n    if os.path.exists(fp):\n        adj = pd.read_excel(fp, sheet_name='复权因子', parse_dates=['dt'])\n        df = df.merge(adj[['code', 'dt', 'factor']], on=['code', 'dt'], how='left')\n        df['factor'] = df.groupby('code')['factor'].ffill().bfill()\n    else:\n        import baostock as bs\n        bs.login()\n        def to_bs(c):\n            s = str(c).zfill(6)\n            return ('sh.' + s) if s.startswith(('6','9')) else ('sz.' + s)\n        rows = []\n        code_min = (df['dt'].min() - pd.Timedelta(days=3650)).strftime('%Y-%m-%d')\n        code_max = df['dt'].max().strftime('%Y-%m-%d')\n        for c in df['code'].unique():\n            rs = bs.query_adjust_factor(code=to_bs(c), start_date=code_min, end_date=code_max)\n            while rs.next():\n                r = rs.get_row_data()\n                rows.append({'code': c, 'dt': r[1], 'fore': float(r[2]), 'back': float(r[3])})\n        bs.logout()\n        adj = pd.DataFrame(rows); adj['dt'] = pd.to_datetime(adj['dt'])\n        df = df.sort_values('dt'); adj = adj.sort_values('dt')\n        df = pd.merge_asof(df, adj, on='dt', by='code', direction='backward')\n        first = adj.groupby('code')[['fore','back']].first()\n        df = df.set_index('code')\n        for col in ['fore','back']:\n            df[col] = df[col].fillna(df.index.to_series().map(first[col]))\n        df = df.reset_index()\n        # 复用 factor 列的统一计算路径：fore 即前复权因子；后复权单独走 back\n        df['factor'] = df['fore']\n        df['back'] = df['back']\n    # 2) 计算前复权 / 后复权\n    cols = ['open', 'high', 'low', 'close']\n    if 'back' in df.columns:\n        # baostock 回落分支：fore/back 都齐\n        for c in cols:\n            df[c + '_qfq'] = (df[c] * df['fore']).round(3)\n            df[c + '_hfq'] = (df[c] * df['back']).round(3)\n    else:\n        # Excel 分支：factor 单列，last = 每 code 最后一个 factor\n        def _adj(g):\n            last = g['factor'].iloc[-1]\n            for c in cols:\n                g[c + '_hfq'] = (g[c] * g['factor']).round(3)\n                g[c + '_qfq'] = (g[c] * g['factor'] / last).round(3)\n            return g\n        df = df.groupby('code', group_keys=False).apply(_adj)\n    return df"
+      }
+    },
+    {
+      "id": "n3",
+      "name": "写入后复权表",
+      "type": "target_write",
+      "parameters": {
+        "target_type": "duckdb",
+        "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+        "target_table": "kline_hfq",
+        "batch_size": 5000,
+        "on_duplicate": "replace",
+        "columns": "code,dt,open_hfq,high_hfq,low_hfq,close_hfq,vol,amount"
+      }
+    },
+    {
+      "id": "n4",
+      "name": "写入前复权表",
+      "type": "target_write",
+      "parameters": {
+        "target_type": "duckdb",
+        "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+        "target_table": "kline_qfq",
+        "batch_size": 5000,
+        "on_duplicate": "replace",
+        "columns": "code,dt,open_qfq,high_qfq,low_qfq,close_qfq,vol,amount"
+      }
+    }
+  ],
+  "connections": {"n1": ["n2"], "n2": ["n3"], "n2": ["n4"]}
+}
+```
+
+### 11.3 复权因子 Excel (`adj_factor.xlsx`)
+
+工作表名：`复权因子`（对应 `sheet_name='复权因子'`，也可改为 `0` 取第一个 sheet）。
+
+| code | dt | factor |
+|------|-----|--------|
+| 000001 | 2024-01-02 | 1.0000 |
+| 000001 | 2024-06-15 | 1.0200 |
+| 000001 | 2025-06-14 | 1.0510 |
+| ... | ... | ... |
+
+- 只需在**除权除息日**填写一行，非除权日可留空（代码里用 `groupby+ffill` 自动向下填充）；
+- `dt` 列单元格格式用「日期」即可，`pd.read_excel(parse_dates=['dt'])` 会自动解析；
+- `factor` 计算口径建议：`factor[t] = factor[t-1] × (1 + 送转比例) / 除权比例`，与主流行情软件保持一致；
+- **多股票场景**：同一个 sheet 里按 `code` 列区分即可，`groupby('code')` 会分别处理；
+- 该 Excel 由用户自行维护，**本工具不内置**任何获取复权因子的第三方接口（合规约束：不内置私有协议/SDK/密钥）。
+
+### 11.4 验证方式
+
+- **前复权验证**：最新交易日的 `close_qfq` 应等于 TDX 原始 `close`（因为除以了 `factor[last]` 归一化）；
+- **后复权验证**：长期持有收益 = `close_hfq[今日] / close_hfq[买入日] - 1`，应与券商复权计算器一致；
+- **跨除权日连续性**：以 `000001` 为例，画出 `close_qfq` 时间序列，除权日处不应出现断崖。
+
+---
+
+## 12. TDX 本地日 K + baostock 自动复权（免维护 Excel）
+
+**测试节点**: `source_fetch(tdx)` → `custom_python(baostock 复权)` → `target_write`
+**说明**: 如果不想自维护复权因子 Excel，可用免费开源库 [baostock](http://baostock.com)（BSD 协议，无需注册/token）在线查询复权因子。本示例与示例 11 等价，区别是因子来源从 Excel 换成 baostock API。
+
+> 合规说明：baostock 是开源免费接口，本项目不内置其 SDK，由用户在 `custom_python` 中按需 `import`。运行环境需自行 `pip install baostock`。
+
+### 12.1 baostock 复权因子口径（实测）
+
+`bs.query_adjust_factor` 返回字段：`code, dividOperateDate, foreAdjustFactor, backAdjustFactor, adjustFactor`。
+
+| 字段 | 含义 | 最新值 |
+|------|------|--------|
+| `foreAdjustFactor` | 前复权因子 | **1.0**（基准） |
+| `backAdjustFactor` | 后复权因子 | ≈ 十几（随年份累乘） |
+| `adjustFactor` | 累计复权因子 | **等于 `backAdjustFactor`** |
+
+公式：
+
+```
+前复权价 = 原始价 × foreAdjustFactor
+后复权价 = 原始价 × backAdjustFactor
+```
+
+**注意事项**：
+- 复权因子**仅在除权除息日**有记录，非除权日查不到——需用「≤ 该 K 线日期的最近一个因子」做前向填充（`ffill`）；
+- baostock 股票代码格式为 `sh.600000` / `sz.000001`，需在代码里做 `code` → `bs_code` 的映射；
+- 接口返回是字符串，需转 `float`。
+
+### 12.2 工作流 JSON
+
+```json
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "拉取TDX日K",
+      "type": "source_fetch",
+      "parameters": {
+        "source_type": "tdx",
+        "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+        "codes": "000001,600000",
+        "interval": "D",
+        "time_mode": "lookback",
+        "lookback_days": 3650,
+        "parallel": false,
+        "session_only": false
+      }
+    },
+    {
+      "id": "n2",
+      "name": "baostock 复权",
+      "type": "custom_python",
+      "parameters": {
+        "code": "def process(df):\n    import pandas as pd, numpy as np\n    # 0) 防御：上游 source_fetch 未产出标准 K 线（预览模式 / 本地无 TDX 数据）→ 造一份 sample\n    if df.empty or 'dt' not in df.columns or 'code' not in df.columns:\n        # 拉长到 1200 个交易日（约 5 年），以覆盖足够多的除权事件\n        dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=1200)\n        codes = ['000001', '600000']\n        rows = []\n        for c in codes:\n            p = 10.0 if c == '000001' else 8.0\n            for d in dates:\n                p *= (1 + np.random.normal(0, 0.02))\n                rows.append({'code': c, 'dt': d, 'open': round(p*0.999,3),\n                             'high': round(p*1.01,3), 'low': round(p*0.99,3),\n                             'close': round(p,3), 'vol': int(np.random.randint(500,5000)),\n                             'amount': round(p*np.random.randint(500,5000),2)})\n        df = pd.DataFrame(rows)\n    import baostock as bs\n    bs.login()\n    # 1) 代码映射：6 位纯数字 -> sh./sz. 前缀\n    def to_bs(c):\n        s = str(c).zfill(6)\n        return ('sh.' + s) if s.startswith(('6','9')) else ('sz.' + s)\n    # 2) 按股票批量拉取复权因子（扩大查询窗口到近 10 年，以覆盖上市早期事件）\n    code_min = (df['dt'].min() - pd.Timedelta(days=3650)).strftime('%Y-%m-%d')\n    code_max = df['dt'].max().strftime('%Y-%m-%d')\n    rows = []\n    for c in df['code'].unique():\n        rs = bs.query_adjust_factor(code=to_bs(c),\n                                    start_date=code_min, end_date=code_max)\n        while rs.next():\n            r = rs.get_row_data()\n            rows.append({'code': c, 'dt': r[1],\n                         'fore': float(r[2]), 'back': float(r[3])})\n    bs.logout()\n    if not rows:\n        raise RuntimeError('baostock 未返回任何复权因子，请检查代码格式或网络')\n    adj = pd.DataFrame(rows)\n    adj['dt'] = pd.to_datetime(adj['dt'])\n    # 3) merge_asof 要求 on 列全局有序（不是按 by 分组有序），两边都先按 dt 排序\n    df = df.sort_values('dt')\n    adj = adj.sort_values('dt')\n    df = pd.merge_asof(df, adj, on='dt', by='code', direction='backward')\n    # 4) 防御：df 最早一段（早于该 code 第一个除权日）会 NaN，用该 code 最早因子填充\n    first = adj.groupby('code')[['fore', 'back']].first()\n    df = df.set_index('code')\n    for col in ['fore', 'back']:\n        df[col] = df[col].fillna(df.index.to_series().map(first[col]))\n    df = df.reset_index()\n    # 5) 应用复权公式\n    cols = ['open', 'high', 'low', 'close']\n    for c in cols:\n        df[c + '_qfq'] = (df[c] * df['fore']).round(3)\n        df[c + '_hfq'] = (df[c] * df['back']).round(3)\n    return df"
+      }
+    },
+    {
+      "id": "n3",
+      "name": "写入前复权表",
+      "type": "target_write",
+      "parameters": {
+        "target_type": "duckdb",
+        "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+        "target_table": "kline_qfq",
+        "batch_size": 5000,
+        "on_duplicate": "replace",
+        "columns": "code,dt,open_qfq,high_qfq,low_qfq,close_qfq,vol,amount"
+      }
+    }
+  ],
+  "connections": {"n1": ["n2"], "n2": ["n3"]}
+}
+```
+
+> 💡 上一步 `custom_python` 同时产出了 `_qfq` 和 `_hfq` 两套列。如果也需要后复权表，在编辑器里**复制 n3 节点**，把 `target_table` 改成 `kline_hfq`，`columns` 改成 `code,dt,open_hfq,high_hfq,low_hfq,close_hfq,vol,amount`，再从 n2 连一条线过去即可（画布会呈现一分二的双路写入结构）。
+
+### 12.3 与示例 11 的对比
+
+| 维度 | 示例 11（Excel） | 示例 12（baostock） |
+|------|----------------|-------------------|
+| 因子来源 | 用户自维护 `adj_factor.xlsx` | baostock API 自动查询 |
+| 离线可用 | ✅ | ❌ 需联网 |
+| 数据覆盖 | 仅用户维护的标的 | A 股全市场（含指数/基金） |
+| 额外依赖 | `openpyxl`（项目已有） | `pip install baostock` |
+| 适用场景 | 内网/保密环境、因子口径自定义 | 个人量化、快速验证 |
+
+### 12.4 验证方式
+
+与示例 11 相同；另可直接与通达信客户端的「前复权/后复权」显示值逐日比对，误差应在 1e-3 以内。
+
+---
+
+## 如何把示例导入到工作流编辑器
+
+### 方式一：UI 按钮（推荐）
+
+打开工作流编辑器，点击工具栏上的 **「📥 导入示例」** 按钮，在弹出列表中勾选需要的示例（支持全选），点击「导入选中」即可批量创建到工作流列表。
+
+### 方式二：API 脚本（批量 / 自动化场景）
+
+也可以通过 `POST /api/workflows/` 写入后端，适合 CI 或批量初始化：
+
+```python
+import requests
+
+BASE = "http://localhost:8000"
+API_KEY = ""  # 如开启了鉴权，填主面板右上角 API Key
+
+workflow = {
+    "name": "示例12: TDX+baostock 复权",
+    "description": "本地 TDX 日 K + baostock 自动前/后复权",
+    "workflow_json": {
+        "nodes": [
+            # ... 把示例 11/12 的 nodes 数组粘贴到这里
+        ],
+        "connections": {"n1": ["n2"], "n2": ["n3"], "n2": ["n4"]}
+    }
+}
+
+headers = {"Content-Type": "application/json"}
+if API_KEY:
+    headers["Authorization"] = f"Bearer {API_KEY}"
+
+res = requests.post(f"{BASE}/api/workflows/", json=workflow, headers=headers)
+print(res.status_code, res.json())
+```
+
+### 维护说明
+
+编辑器中「📥 导入示例」弹框读取的是 `backend/app/static/example_workflows.js`，由 `docs/example_workflows.md` 自动生成。若修改了 md 中的示例 JSON，需要重新生成 JS：
+
+```bash
+python scripts/regen_example_workflows_js.py
+```
+
+---
+
 ## 快速测试脚本
 
 如果要通过 Python 直接测试节点（不走前端），可运行以下脚本：
@@ -723,15 +965,15 @@ print(result.head(5).to_string())
 
 | 节点类型 | 显示名称 | 覆盖示例 |
 |---------|---------|---------|
-| `source_fetch` | 数据源拉取 | 1, 2, 3, 7 |
-| `target_write` | 写入目标数据库 | 1, 2, 3, 7, 8 |
+| `source_fetch` | 数据源拉取 | 1, 2, 3, 7, 11, 12 |
+| `target_write` | 写入目标数据库 | 1, 2, 3, 7, 8, 11, 12 |
 | `column_rename` | 列重命名 | 2 |
 | `expression` | 表达式计算 | 4, 6 |
 | `filter` | 数据过滤 | 3, 5, 7, 9 |
 | `sort` | 排序 | 5 |
 | `group_by` | 分组聚合 | 5, 7 |
 | `condition` | 条件分支 | 4, 6, 10 |
-| `custom_python` | 自定义 Python 脚本 | 4, 10 |
+| `custom_python` | 自定义 Python 脚本 | 4, 10, 11, 12 |
 | `resample` | 周期重采样 | 2, 3, 7 |
 | `ma` | 移动平均(MA/EMA) | 3, 6, 9 |
 | `macd` | MACD 指标 | 2, 6, 9 |

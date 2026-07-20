@@ -160,6 +160,35 @@
     .assistant-body { display: grid; grid-template-columns: 1fr; gap: 10px; }
     .assistant-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 
+    /* Import-examples modal */
+    .import-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 130;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .import-overlay.open { display: flex; }
+    .import-modal {
+      width: min(720px, 96vw); max-height: 86vh; display: flex; flex-direction: column;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    }
+    .import-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .import-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+    .import-toolbar { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+    .import-toolbar label { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .import-list { overflow: auto; padding-right: 4px; }
+    .import-item {
+      display: grid; grid-template-columns: auto 40px 1fr auto; gap: 10px; align-items: flex-start;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+      background: var(--bg); cursor: pointer; transition: border-color .15s;
+    }
+    .import-item:hover { border-color: var(--accent); }
+    .import-item input[type="checkbox"] { margin-top: 3px; cursor: pointer; }
+    .import-item .idx { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .import-item .meta .t { font-size: 13px; color: var(--text); }
+    .import-item .meta .d { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .import-item .nodes { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+    .import-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+    .import-foot .hint { font-size: 11px; color: var(--text-dim); }
+
     /* Data preview panel */
     .data-preview-panel {
       display: none; flex-direction: column;
@@ -234,6 +263,7 @@
     </div>
     <div class="topbar-actions">
       <span style="color:var(--text-dim);font-size:11px;margin-right:4px" title="滚轮缩放，中键拖拽画布">🖱️ 滚轮缩放 / 中键拖拽</span>
+      <button class="btn btn-secondary" onclick="openImportExamplesModal()">📥 导入示例</button>
       <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
       <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
       <button class="btn btn-secondary" id="preview-btn" onclick="runWorkflowPreview()">▶ 预览</button>
@@ -267,6 +297,30 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- 导入示例工作流多选弹框 -->
+  <div class="import-overlay" id="import-overlay" onclick="if(event.target===this)closeImportExamplesModal()">
+    <div class="import-modal">
+      <div class="import-head">
+        <div class="import-title">📥 导入示例工作流</div>
+        <button class="btn btn-sm" onclick="closeImportExamplesModal()">✕</button>
+      </div>
+      <div class="import-toolbar">
+        <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选</label>
+        <span class="text-dim" style="font-size:11px" id="import-count">已选 0 项</span>
+        <span style="flex:1"></span>
+        <span class="text-dim" style="font-size:11px">勾选后点右下「导入选中」批量创建</span>
+      </div>
+      <div class="import-list" id="import-list"></div>
+      <div class="import-foot">
+        <div class="hint">数据来源：docs/example_workflows.md</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="closeImportExamplesModal()">取消</button>
+          <button class="btn btn-primary" onclick="importSelectedExamples()">导入选中</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="assistant-overlay" id="assistant-overlay">
     <div class="assistant-modal">
       <div class="assistant-head">
@@ -298,6 +352,7 @@
     </div>
   </div>
 
+  <script src="example_workflows.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/drawflow@0.0.59/dist/drawflow.min.js"></script>
   <script>
     // ---------- API Key auto-fetch ----------
@@ -1231,6 +1286,88 @@
         applyTheme(event.newValue || 'dark');
       }
     });
+
+    // ---------- 导入示例工作流（多选弹框） ----------
+    async function openImportExamplesModal() {
+      // 兜底：若 <script src="example_workflows.js"> 未加载（缓存了旧 HTML），动态拉取一次
+      if (!Array.isArray(window.EXAMPLE_WORKFLOWS) || window.EXAMPLE_WORKFLOWS.length === 0) {
+        try {
+          const res = await fetch('example_workflows.js', { cache: 'no-store' });
+          if (res.ok) {
+            (0, eval)(await res.text());
+            console.info('[import] 动态加载 example_workflows.js 成功，共',
+              (window.EXAMPLE_WORKFLOWS || []).length, '条');
+          }
+        } catch (e) {
+          console.warn('[import] 动态加载 example_workflows.js 异常:', e);
+        }
+      }
+      const overlay = document.getElementById('import-overlay');
+      renderImportList();
+      overlay.classList.add('open');
+    }
+    function closeImportExamplesModal() {
+      document.getElementById('import-overlay').classList.remove('open');
+    }
+    function renderImportList() {
+      const list = document.getElementById('import-list');
+      const examples = window.EXAMPLE_WORKFLOWS || [];
+      if (!examples.length) {
+        list.innerHTML = '<div class="text-dim" style="padding:20px;text-align:center">未加载到示例数据（example_workflows.js）</div>';
+        return;
+      }
+      list.innerHTML = examples.map(ex => {
+        const nodes = (ex.workflow && ex.workflow.nodes) || [];
+        const types = nodes.map(n => n.type).join(' → ') || '(无节点)';
+        const desc = (ex.description || '').slice(0, 80);
+        return `
+          <label class="import-item" data-id="${ex.id}">
+            <input type="checkbox" class="import-cb" value="${ex.id}" onchange="updateImportCount()">
+            <div class="idx">#${ex.id}</div>
+            <div class="meta">
+              <div class="t">${escapeHtml(ex.title)}</div>
+              <div class="d">${escapeHtml(desc)}</div>
+            </div>
+            <div class="nodes" title="${escapeHtml(types)}">${escapeHtml(types)}</div>
+          </label>`;
+      }).join('');
+      updateImportCount();
+    }
+    function toggleAllImport(checked) {
+      document.querySelectorAll('.import-cb').forEach(cb => { cb.checked = checked; });
+      updateImportCount();
+    }
+    function updateImportCount() {
+      const n = document.querySelectorAll('.import-cb:checked').length;
+      document.getElementById('import-count').textContent = `已选 ${n} 项`;
+      document.getElementById('import-select-all').indeterminate =
+        n > 0 && n < document.querySelectorAll('.import-cb').length;
+    }
+    async function importSelectedExamples() {
+      const ids = Array.from(document.querySelectorAll('.import-cb:checked')).map(cb => Number(cb.value));
+      if (!ids.length) { toast('请先勾选要导入的示例', 'error'); return; }
+      const examples = (window.EXAMPLE_WORKFLOWS || []).filter(ex => ids.includes(ex.id));
+      let ok = 0, fail = 0;
+      for (const ex of examples) {
+        const body = {
+          name: `示例${ex.id}: ${ex.title}`,
+          description: ex.description || '',
+          workflow_json: ex.workflow,
+        };
+        try {
+          await api('/api/workflows/', { method: 'POST', body: JSON.stringify(body) });
+          ok++;
+        } catch (e) {
+          fail++;
+          console.error(`导入示例 ${ex.id} 失败:`, e);
+        }
+      }
+      toast(`导入完成：成功 ${ok} 项${fail ? `，失败 ${fail} 项` : ''}`, ok ? 'success' : 'error');
+      if (ok > 0 && window.opener && typeof window.opener.refreshWorkflows === 'function') {
+        window.opener.refreshWorkflows();
+      }
+      closeImportExamplesModal();
+    }
   </script>
 </body>
 </html>

@@ -206,6 +206,23 @@
       color: var(--text);
     }
 
+    .pl-capability-hint {
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px dashed rgba(99, 102, 241, 0.4);
+      color: var(--accent);
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 4px 0 10px;
+    }
+
+    .pl-disabled-block {
+      opacity: 0.45;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
     /* Stats grid */
     .stats-grid {
       display: grid;
@@ -713,6 +730,22 @@
     .api-ref-desc { font-size: 12px; color: var(--text-dim); margin-left: 8px; }
     .api-ref-params, .api-ref-fields { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
 
+    /* Import-examples list */
+    .import-toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border, #2a2a2a); }
+    .import-toolbar label { font-size: 12px; color: var(--text-dim, #888); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .import-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow: auto; padding-right: 4px; }
+    .import-item {
+      display: grid; grid-template-columns: auto 40px 1fr auto; gap: 10px; align-items: flex-start;
+      padding: 8px 10px; border: 1px solid var(--border, #2a2a2a); border-radius: 6px;
+      background: var(--bg, #0f0f0f); cursor: pointer; transition: border-color .15s;
+    }
+    .import-item:hover { border-color: var(--accent, #6366f1); }
+    .import-item input[type="checkbox"] { margin-top: 3px; cursor: pointer; }
+    .import-item .idx { font-size: 11px; color: var(--text-dim, #888); font-variant-numeric: tabular-nums; padding-top: 2px; }
+    .import-item .meta .t { font-size: 13px; color: var(--text, #e5e5e5); }
+    .import-item .meta .d { font-size: 11px; color: var(--text-dim, #888); margin-top: 2px; }
+    .import-item .nodes { font-size: 11px; color: var(--text-dim, #888); white-space: nowrap; padding-top: 2px; }
+
     /* Responsive */
     @media (max-width: 768px) {
       #sidebar { width: 60px; }
@@ -721,6 +754,7 @@
       .nav-section-label { display: none; }
     }
   </style>
+  <script src="example_workflows.js"></script>
 </head>
 <body>
 
@@ -1718,7 +1752,7 @@ overview: async () => ({
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
           <button class="btn btn-secondary" onclick="openAIAssistantModal('workflow', { mode: 'wizard' })">🤖 AI 辅助</button>
-          <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入全部示例(6个)</button>
+          <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入示例</button>
           <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
           <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
         </div>
@@ -5739,6 +5773,8 @@ function ensurePipelineModalInputsEditable() {
   if (!root) return;
   root.querySelectorAll('[id^="pl-"], #pl-sources-list input, #pl-sources-list select').forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
+    // 被工作流能力禁用的区块，尊重其禁用状态，不要强制恢复。
+    if (node.closest('.pl-disabled-block')) return;
     // 在部分 Electron/Windows 环境中，动态渲染后控件可能残留不可编辑状态，这里统一恢复。
     if ('disabled' in node) node.disabled = false;
     if ('readOnly' in node) node.readOnly = false;
@@ -5958,6 +5994,78 @@ function addPipelineSource(cfg = null) {
   refreshPipelineSourceFieldOptions();
 }
 
+// 分析指定工作流是否自带数据源拉取 / 写入目标库节点，用于动态启停 Pipeline 表单字段。
+function analyzePipelineWorkflowCapabilities(workflowId) {
+  const caps = { source_fetch: false, target_write: false };
+  if (!workflowId) return caps;
+  const workflows = (_pipelineModalData && _pipelineModalData.workflows) || [];
+  const wf = workflows.find(w => w.id === workflowId);
+  if (!wf || !wf.workflow_json) return caps;
+  const types = new Set((wf.workflow_json.nodes || []).map(n => n && n.type));
+  caps.source_fetch = types.has('source_fetch');
+  caps.target_write = types.has('target_write');
+  return caps;
+}
+
+// 工作流下拉变化时，按工作流能力禁用/启用数据源、目标存储区块，并给出明确提示。
+function onPipelineWorkflowChange() {
+  const workflowId = document.getElementById('pl-workflow')?.value || '';
+  const caps = analyzePipelineWorkflowCapabilities(workflowId);
+
+  const sourceWrapper = document.getElementById('pl-sources-wrapper');
+  const sourceHint = document.getElementById('pl-source-hint');
+  const targetRow = document.getElementById('pl-target-row');
+  const targetHint = document.getElementById('pl-target-hint');
+
+  if (sourceWrapper) {
+    if (caps.source_fetch) {
+      sourceWrapper.classList.add('pl-disabled-block');
+      sourceWrapper.querySelectorAll('input, select, button').forEach(el => {
+        el.dataset.plPrevDisabled = el.disabled ? '1' : '0';
+        el.disabled = true;
+      });
+      if (sourceHint) {
+        sourceHint.style.display = 'block';
+        sourceHint.innerHTML = '💡 当前工作流已包含「数据源拉取」节点，此处配置将被忽略，由工作流独立完成拉取。';
+      }
+    } else {
+      sourceWrapper.classList.remove('pl-disabled-block');
+      sourceWrapper.querySelectorAll('input, select, button').forEach(el => {
+        if (el.dataset.plPrevDisabled === '0') el.disabled = false;
+        delete el.dataset.plPrevDisabled;
+      });
+      if (sourceHint) {
+        sourceHint.style.display = 'none';
+        sourceHint.innerHTML = '';
+      }
+    }
+  }
+
+  if (targetRow) {
+    if (caps.target_write) {
+      targetRow.classList.add('pl-disabled-block');
+      targetRow.querySelectorAll('input, select').forEach(el => {
+        el.dataset.plPrevDisabled = el.disabled ? '1' : '0';
+        el.disabled = true;
+      });
+      if (targetHint) {
+        targetHint.style.display = 'block';
+        targetHint.innerHTML = '💡 当前工作流已包含「写入目标库」节点，此处目标配置将被忽略，由工作流独立完成写入。';
+      }
+    } else {
+      targetRow.classList.remove('pl-disabled-block');
+      targetRow.querySelectorAll('input, select').forEach(el => {
+        if (el.dataset.plPrevDisabled === '0') el.disabled = false;
+        delete el.dataset.plPrevDisabled;
+      });
+      if (targetHint) {
+        targetHint.style.display = 'none';
+        targetHint.innerHTML = '';
+      }
+    }
+  }
+}
+
 async function openPipelineModal(editId = null) {
   const [sources, connections, workflows] = await Promise.all([
     api('/api/kline-sources/'),
@@ -5979,19 +6087,23 @@ async function openPipelineModal(editId = null) {
     <div class="form-group"><label>描述</label><input class="form-control" id="pl-desc" value="${cfg?.description || ''}" placeholder="简要描述此数据流用途"></div>
 
     <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">数据源</div>
-    <div id="pl-sources-list"></div>
-    <button class="btn btn-secondary btn-sm" onclick="addPipelineSource()">+ 添加数据源</button>
+    <div id="pl-source-hint" class="pl-capability-hint" style="display:none"></div>
+    <div id="pl-sources-wrapper">
+      <div id="pl-sources-list"></div>
+      <button class="btn btn-secondary btn-sm" id="pl-add-source-btn" onclick="addPipelineSource()">+ 添加数据源</button>
+    </div>
 
     <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">ETL工作流（可选）</div>
     <div class="form-group">
-      <select class="form-control" id="pl-workflow">
+      <select class="form-control" id="pl-workflow" onchange="onPipelineWorkflowChange()">
         <option value="">不使用工作流</option>
         ${workflows.map(w => `<option value="${w.id}" ${pjson.workflow_id === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
       </select>
     </div>
 
     <div class="panel-title" style="margin:16px 0 8px;font-size:13px;color:var(--accent)">目标存储</div>
-    <div class="form-row">
+    <div id="pl-target-hint" class="pl-capability-hint" style="display:none"></div>
+    <div class="form-row" id="pl-target-row">
       <div class="form-group">
         <label>目标数据库连接</label>
         <select class="form-control" id="pl-target-conn" onchange="refreshPipelineTargetTables()">
@@ -6053,6 +6165,8 @@ async function openPipelineModal(editId = null) {
   await refreshPipelineTargetTables();
   await refreshPipelineSourceFieldOptions();
   await refreshPipelineTargetFieldOptions();
+  // 按已选工作流能力，禁用/启用数据源和目标区块（编辑态也要立即生效）。
+  onPipelineWorkflowChange();
 }
 
 let plMapId = 0;
@@ -6080,24 +6194,29 @@ async function savePipeline() {
   const dup = document.getElementById('pl-dup').value;
   const cron = document.getElementById('pl-cron').value;
 
+  // 按工作流能力决定哪些字段必填、哪些留空，与后端执行分支保持一致。
+  const caps = analyzePipelineWorkflowCapabilities(workflowId);
+
   if (!name) { alert('请填写数据流名称'); return; }
-  if (!targetConnId) { alert('请选择目标数据库连接'); return; }
+  if (!caps.target_write && !targetConnId) { alert('请选择目标数据库连接'); return; }
 
   // Collect sources
   const sources = [];
-  document.querySelectorAll('[id^="pl-src-conn-"]').forEach(el => {
-    const idx = el.id.replace('pl-src-conn-', '');
-    const codesStr = document.getElementById(`pl-src-codes-${idx}`)?.value || '';
-    const codes = codesStr ? codesStr.split(',').map(c => c.trim()).filter(c => c) : [];
-    sources.push({
-      connection_id: el.value,
-      params: {
-        codes,
-        interval: document.getElementById(`pl-src-interval-${idx}`)?.value || '1min',
-        lookback_days: parseInt(document.getElementById(`pl-src-lookback-${idx}`)?.value) || 10,
-      }
+  if (!caps.source_fetch) {
+    document.querySelectorAll('[id^="pl-src-conn-"]').forEach(el => {
+      const idx = el.id.replace('pl-src-conn-', '');
+      const codesStr = document.getElementById(`pl-src-codes-${idx}`)?.value || '';
+      const codes = codesStr ? codesStr.split(',').map(c => c.trim()).filter(c => c) : [];
+      sources.push({
+        connection_id: el.value,
+        params: {
+          codes,
+          interval: document.getElementById(`pl-src-interval-${idx}`)?.value || '1min',
+          lookback_days: parseInt(document.getElementById(`pl-src-lookback-${idx}`)?.value) || 10,
+        }
+      });
     });
-  });
+  }
 
   // Collect field mappings
   const fieldMappings = [];
@@ -6110,7 +6229,7 @@ async function savePipeline() {
 
   const pipelineJson = {
     sources,
-    target: { connection_id: targetConnId, table: targetTable },
+    target: caps.target_write ? {} : { connection_id: targetConnId, table: targetTable },
     field_mappings: fieldMappings,
     batch_size: batch,
     on_duplicate: dup,
@@ -6976,12 +7095,142 @@ async function clearAiConfig() {
 
 // ---------- 工作流 ----------
 async function seedDemoWorkflow() {
+  // 旧入口兼容：原行为是一次性导入全部，现改为弹出多选列表
+  openImportExamplesModal();
+}
+
+// ---------- 导入示例工作流（多选弹框） ----------
+async function openImportExamplesModal() {
+  // 0) 兜底：若 <script src="example_workflows.js"> 未加载（如浏览器缓存了旧 HTML），
+  //    这里主动 fetch 一次并执行，确保 window.EXAMPLE_WORKFLOWS 存在。
+  if (!Array.isArray(window.EXAMPLE_WORKFLOWS) || window.EXAMPLE_WORKFLOWS.length === 0) {
+    try {
+      const res = await fetch('/static/example_workflows.js', { cache: 'no-store' });
+      if (res.ok) {
+        const text = await res.text();
+        // 脚本只含一条赋值语句，执行后即可挂到 window
+        (0, eval)(text);
+        console.info('[import] 动态加载 example_workflows.js 成功，共',
+          (window.EXAMPLE_WORKFLOWS || []).length, '条');
+      } else {
+        console.warn('[import] 拉 example_workflows.js 失败:', res.status);
+      }
+    } catch (e) {
+      console.warn('[import] 动态加载 example_workflows.js 异常:', e);
+    }
+  }
+  // 1) 拉后端 preset（6 个内置 transform 流水线）
+  let presets = [];
   try {
-    const res = await api('/api/workflows/seed-presets', { method: 'POST', body: JSON.stringify({}) });
-    const count = res.count || 0;
-    alert(`✅ 已导入 ${count} 个示例工作流`);
-    refreshWorkflows();
-  } catch(e) { alert('创建失败: ' + e.message); }
+    presets = await api('/api/workflows/presets');
+  } catch (e) {
+    console.warn('拉 preset 失败:', e);
+  }
+  // 2) 取前端文档示例（12 个）
+  const docExamples = Array.isArray(window.EXAMPLE_WORKFLOWS) ? window.EXAMPLE_WORKFLOWS : [];
+
+  const presetBody = presets.map((p, i) => {
+    const nodes = (p.workflow_json?.nodes || []).length;
+    const desc = (p.description || '').slice(0, 80);
+    return `
+      <label class="import-item">
+        <input type="checkbox" class="import-cb" data-source="preset" data-idx="${i}" data-name="${escapeHtml(p.name)}">
+        <div class="idx">P${i + 1}</div>
+        <div class="meta">
+          <div class="t">${escapeHtml(p.name)}</div>
+          <div class="d">${escapeHtml(desc)}</div>
+        </div>
+        <div class="nodes">${nodes} 节点 · 内置</div>
+      </label>`;
+  }).join('');
+
+  const docBody = docExamples.map(ex => {
+    const nodes = (ex.workflow?.nodes || []).length;
+    const types = (ex.workflow?.nodes || []).map(n => n.type).join(' → ') || '';
+    const desc = (ex.description || '').slice(0, 80);
+    return `
+      <label class="import-item">
+        <input type="checkbox" class="import-cb" data-source="doc" data-id="${ex.id}" data-name="${escapeHtml('示例' + ex.id + ': ' + ex.title)}">
+        <div class="idx">#${ex.id}</div>
+        <div class="meta">
+          <div class="t">${escapeHtml(ex.title)}</div>
+          <div class="d">${escapeHtml(desc)}</div>
+        </div>
+        <div class="nodes" title="${escapeHtml(types)}">${nodes} 节点 · 文档</div>
+      </label>`;
+  }).join('');
+
+  const body = `
+    <div class="import-toolbar">
+      <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选</label>
+      <span class="text-dim" style="font-size:12px" id="import-count">已选 0 / ${presets.length + docExamples.length} 项</span>
+      <span style="flex:1"></span>
+      <span class="text-dim" style="font-size:12px">勾选后点下方「导入选中」批量创建</span>
+    </div>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:8px">🧩 内置预设（${presets.length} 个）</div>
+      <div class="import-list" id="import-list-presets">${presetBody || '<div class="text-dim">未加载到内置预设</div>'}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="margin-bottom:8px">📖 文档示例（${docExamples.length} 个）</div>
+      <div class="import-list" id="import-list-docs">${docBody || '<div class="text-dim">未加载到文档示例</div>'}</div>
+    </div>
+  `;
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-primary" onclick="importSelectedExamples()">导入选中</button>
+  `;
+  openModal('💡 导入示例工作流', body, footer);
+  // 把 preset 数据暂存到 modal-body，供 importSelectedExamples 读取
+  document.getElementById('modal-body').dataset.presetsCache = JSON.stringify(presets);
+  // 重新绑定计数
+  document.querySelectorAll('#modal-body .import-cb').forEach(cb =>
+    cb.addEventListener('change', updateImportCount));
+  updateImportCount();
+}
+function toggleAllImport(checked) {
+  document.querySelectorAll('#modal-body .import-cb').forEach(cb => { cb.checked = checked; });
+  updateImportCount();
+}
+function updateImportCount() {
+  const all = document.querySelectorAll('#modal-body .import-cb');
+  const sel = document.querySelectorAll('#modal-body .import-cb:checked');
+  const el = document.getElementById('import-count');
+  if (el) el.textContent = `已选 ${sel.length} / ${all.length} 项`;
+  const sa = document.getElementById('import-select-all');
+  if (sa) sa.indeterminate = sel.length > 0 && sel.length < all.length;
+}
+async function importSelectedExamples() {
+  const checked = Array.from(document.querySelectorAll('#modal-body .import-cb:checked'));
+  if (!checked.length) { alert('请先勾选要导入的示例'); return; }
+  const presets = JSON.parse(document.getElementById('modal-body').dataset.presetsCache || '[]');
+  const docMap = {};
+  (window.EXAMPLE_WORKFLOWS || []).forEach(ex => { docMap[ex.id] = ex; });
+
+  let ok = 0, fail = 0;
+  for (const cb of checked) {
+    const source = cb.dataset.source;
+    let body;
+    if (source === 'preset') {
+      const p = presets[Number(cb.dataset.idx)];
+      if (!p) continue;
+      body = { name: p.name, description: p.description || '', workflow_json: p.workflow_json };
+    } else {
+      const ex = docMap[Number(cb.dataset.id)];
+      if (!ex) continue;
+      body = { name: `示例${ex.id}: ${ex.title}`, description: ex.description || '', workflow_json: ex.workflow };
+    }
+    try {
+      await api('/api/workflows/', { method: 'POST', body: JSON.stringify(body) });
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('导入失败:', cb.dataset.name, e);
+    }
+  }
+  alert(`✅ 导入完成：成功 ${ok} 项${fail ? `，失败 ${fail} 项` : ''}`);
+  closeModal();
+  refreshWorkflows();
 }
 
 async function refreshWorkflows() {

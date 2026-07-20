@@ -38,7 +38,12 @@ if errorlevel 1 (
 )
 
 echo [3/3] Starting server on http://127.0.0.1:8080 ...
-start "" http://127.0.0.1:8080
+echo       Waiting for backend to become ready, browser will open automatically...
+
+rem Launch health-check script in background: polls backend until ready, then opens browser.
+rem Uses a separate ps1 file to avoid bat inline PowerShell quote/escape issues.
+start "" /b powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%scripts\wait_for_backend.ps1"
+
 cd /d "%BACKEND%"
 call venv\Scripts\python.exe -u run_server.py
 if errorlevel 1 (
