@@ -988,6 +988,11 @@
       <div><h1 style="margin:0;font-size:16px;line-height:1.3">金智汇连ETL</h1>
       <span style="font-size:11px">通用可视化ETL数据同步工具</span></div>
     </div>
+    <div id="sidebar-version-badge" style="margin-top:8px">
+      <span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:600;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3)">
+        🟢 开源版
+      </span>
+    </div>
     <span id="ws-status" style="font-size:10px;color:#6366f1;margin-top:4px">● 连接中</span>
   </div>
   <div class="sidebar-nav">
@@ -2096,7 +2101,7 @@ overview: async () => ({
             <p style="margin-bottom:10px"><strong>第一条 软件定位</strong><br>本软件为本地部署型通用数据ETL处理工具，仅提供数据接入、清洗、转换、入库、任务调度、内网私有API调用等技术能力，不生产、不采集、不转发、不对外分发任何证券、期货、金融行情原始数据，不属于金融数据服务、行情授权服务机构。</p>
             <p style="margin-bottom:10px"><strong>第二条 数据源使用责任</strong><br>1. 本软件支持用户自行配置第三方合规数据源（含Tushare Pro等），由用户自行注册账号、购买会员、填写专属Token/密钥。<br>2. 本软件支持读取用户个人电脑本地已自行下载的通达信客户端数据文件，仅做本地解析加工，不联网抓取官方服务器数据、不破解、不逆向商用接口。<br>3. 所有第三方数据源、本地行情数据的著作权、版权、服务协议合规责任均由用户自行承担，本软件不承担数据源合规、版权纠纷连带责任。</p>
             <p style="margin-bottom:10px"><strong>第三条 使用限制与禁止行为</strong><br>用户承诺不得利用本软件从事以下行为：<br>1. 将通达信、Tushare及其他数据源原始行情、K线、分时、财务数据通过公网API、接口、文件、数据库等形式二次分发、售卖、共享、公开；<br>2. 绕过软件默认安全限制，私自将内网API暴露至公网，对外提供金融数据查询服务；<br>3. 多用户共用同一个Tushare Token、批量爬取、聚合后对外提供数据服务；<br>4. 未取得金融数据相关资质，利用本工具变相从事经营性行情数据服务；<br>5. 逆向工程、篡改软件授权、绕过功能限制破解商用模块。</p>
-            <p style="margin-bottom:10px"><strong>第四条 软件授权规则</strong><br>1. 本软件分免费版、专业版、企业版，采用激活码/序列号授权方式；<br>2. 免费版永久开放基础ETL能力，无时间限制；<br>3. 专业版、企业版为付费授权，仅限单用户/单内网环境使用，禁止转租、转售、多机构共用授权；<br>4. 授权仅限软件功能解锁，不含任何金融数据授权、行情数据使用权。</p>
+            <p style="margin-bottom:10px"><strong>第四条 软件授权规则</strong><br>1. 本工具<strong>完整功能开源</strong>，所有节点、数据源连接、调度、清洗等功能均可免费使用，无任何阉割；<br>2. 专业版内容为<strong>工作流示例模板</strong>（25 个生产级模板 + 6 个高级插件），作为付费内容提供，帮助用户快速上手、节省开发时间；<br>3. 专业版内容采用激活码授权，仅限单用户/单设备使用，禁止转租、转售、多机构共用；<br>4. 授权仅针对工作流模板和插件内容，工具本身的所有功能始终免费开放。</p>
             <p style="margin-bottom:10px"><strong>第五条 隐私与数据安全</strong><br>1. 本软件所有数据处理、文件读取、数据库存储均仅在用户本地设备/内网完成，不会自动上传用户原始行情数据、Token密钥、业务数据至开发者服务器；<br>2. 软件自动留存任务日志、API调用日志，仅用于用户本地审计排查，不上传外泄；<br>3. 用户需自行做好本地数据备份、内网访问权限管控。</p>
             <p style="margin-bottom:10px"><strong>第六条 免责声明</strong><br>1. 本软件仅为技术工具，不构成任何投资建议、金融咨询服务；<br>2. 用户违规使用本工具进行数据分发、商用行情服务、版权侵权等行为，全部法律责任由用户自行承担；<br>3. 因用户自行配置数据源、私自修改网络监听配置、公网暴露接口造成的版权纠纷、监管处罚、经济损失，开发者不承担任何赔偿及连带责任。</p>
             <p style="margin-bottom:10px"><strong>第七条 其他</strong><br>本协议自用户安装、使用本软件之日起生效，开发者有权对协议及软件版本进行更新，更新后将在软件内公示。</p>
@@ -7046,18 +7051,26 @@ async function loadLicenseInfo() {
     if (el) {
       el.textContent = `版本 1.0.0`;
     }
-    // 更新版本徽章
+    // 更新版本徽章（关于页面 + 侧边栏）
+    const isDev = info.dev_mode || false;
+    const typeConfig = {
+      'free': { text: '🟢 开源版 · 完整功能', shortText: '🟢 开源版', bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
+      'personal': { text: '🔵 个人版', shortText: '🔵 个人版', bg: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: 'rgba(59,130,246,0.3)' },
+      'professional': { text: '🟣 专业版', shortText: '🟣 专业版', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
+    };
+    const cfg = isDev ? { text: '🔧 开发者模式', shortText: '🔧 开发', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' } : (typeConfig[info.type] || typeConfig['free']);
+
+    // 更新关于页面的大徽章
     const badge = document.getElementById('about-version-badge');
     if (badge) {
-      const isDev = info.dev_mode || false;
-      const typeConfig = {
-        'free': { text: '🟢 开源版 · 完整功能', bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
-        'personal': { text: '🔵 个人版', bg: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: 'rgba(59,130,246,0.3)' },
-        'professional': { text: '🟣 专业版', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
-      };
-      const cfg = isDev ? { text: '🔧 开发者模式', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' } : (typeConfig[info.type] || typeConfig['free']);
       badge.innerHTML = `<span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:13px;font-weight:600;background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border}">${cfg.text}</span>`;
     }
+    // 更新侧边栏的小徽章
+    const sidebarBadge = document.getElementById('sidebar-version-badge');
+    if (sidebarBadge) {
+      sidebarBadge.innerHTML = `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:600;background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border}">${cfg.shortText}</span>`;
+    }
+
     const licInfo = document.getElementById('about-license-info');
     if (licInfo) {
       const typeNames = { 'free': '开源版（完整功能）', 'personal': '个人版', 'professional': '专业版' };
@@ -7068,7 +7081,7 @@ async function loadLicenseInfo() {
         html += `<p>到期时间：${new Date(info.expires_at).toLocaleDateString()}</p>`;
       }
       if (info.type === 'free') {
-        html += `<p style="margin-top:12px;color:var(--accent)">💡 升级付费版可获得大模型脚本生成（无次数限制）、断点续传、多工作流并发、高级数据库连接等更多功能。</p>`;
+        html += `<p style="margin-top:12px;color:var(--accent)">💡 本工具完整功能免费开源。专业版仅提供工作流示例模板和高级插件，可节省开发时间。</p>`;
       }
       licInfo.innerHTML = html;
     }
