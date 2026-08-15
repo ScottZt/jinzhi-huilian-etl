@@ -2094,9 +2094,13 @@ overview: async () => ({
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📋 版本说明</div>
         <div style="color:var(--text-dim);line-height:1.8;font-size:13px">
-          <p><strong>免费基础版</strong>：包含基础可视化工作流、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV）、简单数据清洗、定时调度等功能。</p>
-          <p style="margin-top:8px"><strong>付费License版</strong>：多工作流并发、高级数据库连接（DuckDB、PG）、断点续传、失败自动重试、大数据量优化、大模型脚本生成（无次数限制）等。</p>
-          <p style="margin-top:8px"><strong>专业版</strong>：分布式任务调度、高级监控告警、数据备份与恢复、批量任务管理、专属技术支持等。</p>
+          <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:12px">
+            <strong style="color:#10b981">💡 开源声明</strong><br>
+            本工具<strong>完整功能开源，无任何阉割</strong>。所有节点、数据源连接、调度功能均可免费使用。<br>
+            <strong>仅工作流示例模板</strong>（25 个生产级模板 + 6 个高级插件）作为专业版内容付费提供。
+          </div>
+          <p><strong>免费版</strong>：完整 ETL 工具功能，包含所有节点、数据源连接、调度、清洗等能力。可自由创建和运行工作流。</p>
+          <p style="margin-top:8px"><strong>专业版内容包</strong>：25 个生产级工作流模板 + 6 个高级官方插件（异常值处理、停牌填充、K线形态等）。适合快速上手、节省开发时间。</p>
         </div>
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">🔑 License 管理</div>
@@ -7105,9 +7109,12 @@ async function openLicenseModal() {
 
     <div class="panel-title mb-16 mt-16">版本说明</div>
     <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
-      <p><strong>免费基础版</strong>：基础可视化工作流（单工作流）、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV、TXT）、简单数据清洗（去重、空值处理）、基础定时调度（每日/hourly）、基础日志记录、单任务运行无并发。</p>
-      <p style="margin-top:8px"><strong>个人版（月卡 ¥69 / 年卡 ¥129 / 永久 ¥199）</strong>：多工作流并发（≤5个）、高级数据库连接（DuckDB、PG）、HTTP接口连接、断点续传、失败自动重试、大模型脚本生成无次数限制。</p>
-      <p style="margin-top:8px"><strong>专业版（年卡 ¥599 / 永久 ¥999）</strong>：多工作流并发（无上限）、分布式任务调度、高级监控告警、数据备份与恢复、专属技术支持。</p>
+      <div style="background:rgba(16,185,129,0.1);border-radius:6px;padding:10px;margin-bottom:10px">
+        <strong style="color:#10b981">💡 本工具完整功能开源，无任何阉割。</strong><br>
+        免费版可正常使用所有节点、数据源连接、调度等功能。专业版仅提供工作流示例模板。
+      </div>
+      <p><strong>免费版</strong>：完整 ETL 工具功能。可自由创建、运行、调试工作流。</p>
+      <p style="margin-top:8px"><strong>专业版内容包</strong>：25 个生产级工作流模板 + 6 个高级官方插件。导入后即可使用，节省开发时间。</p>
     </div>
 
     ${currentType !== 'free' ? `
@@ -7124,9 +7131,17 @@ async function openLicenseModal() {
 // ---------- 购买指南弹框 ----------
 function openPurchaseGuide() {
   openModal('升级专业版', `
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px">
+      <strong style="color:#10b981">💡 开源说明</strong><br>
+      <span style="font-size:13px;color:var(--text-dim)">
+        本工具<strong>完整功能开源，无任何阉割</strong>，所有节点、数据源、调度能力均可免费使用。<br>
+        专业版仅提供<strong>工作流示例模板</strong>（节省开发时间的生产级模板 + 高级插件）。
+      </span>
+    </div>
+
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:14px;color:var(--text-dim);line-height:1.8">
-        专业版包含 <strong>25 个生产级工作流模板</strong> + <strong>6 个高级官方插件</strong>
+        专业版内容包包含 <strong>25 个生产级工作流模板</strong> + <strong>6 个高级官方插件</strong>
       </div>
     </div>
 
@@ -7906,6 +7921,9 @@ async function openImportExamplesModal() {
   const proBody = proExamples.map(renderDocExample).join('');
 
   const body = `
+    <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim)">
+      💡 <strong>工具本身完全开源</strong>，可自由创建和运行工作流。下方的专业版示例是<strong>生产级模板</strong>，购买内容包后可一键导入使用。
+    </div>
     <div class="import-toolbar">
       <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选免费示例</label>
       <span class="text-dim" style="font-size:12px" id="import-count">已选 0 / ${presets.length + freeExamples.length} 项免费</span>
