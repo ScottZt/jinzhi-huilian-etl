@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 
 _scheduler: Optional[BackgroundScheduler] = None
 _job_callbacks: Dict[str, Callable] = {}
+# 按"任务类型"注册默认执行器，用于服务重启后从 DB 恢复定时任务
+# 目前支持： "task" (tasks 表) / "pipeline" (pipelines 表)
+_executors: Dict[str, Callable] = {}
+
+
+def register_executor(kind: str, fn: Callable):
+    """注册某类任务的默认执行器（接收 task_id/pipeline_id 单参数）。"""
+    _executors[kind] = fn
+    logger.info(f"Executor registered for kind={kind!r}")
 
 
 def _on_job_executed(event):
@@ -57,6 +66,7 @@ def init_scheduler():
     _scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     _scheduler.start()
     logger.info("Task scheduler started (Asia/Shanghai timezone)")
+    print(f"[SCHEDULER] 定时任务调度器已启动 (Asia/Shanghai)")
 
     _load_tasks_from_db()
     return _scheduler
@@ -65,10 +75,45 @@ def init_scheduler():
 def _load_tasks_from_db():
     if _scheduler is None:
         return
+
+    # 1) 恢复 tasks 表的定时任务
     tasks = sqlite_repo.list_tasks()
+    task_exec = _executors.get("task")
+    restored_tasks = 0
     for task in tasks:
         if task.get("cron_expression"):
-            schedule_task(task["id"], task["cron_expression"], _job_callbacks.get(task["id"]))
+            cb = _job_callbacks.get(task["id"]) or task_exec
+            if cb and schedule_task(task["id"], task["cron_expression"], cb):
+                restored_tasks += 1
+    if restored_tasks:
+        print(f"[SCHEDULER] 已恢复 {restored_tasks} 个任务的定时执行")
+
+    # 2) 恢复 pipelines 表的定时任务（仅 enabled=1 且 cron_expression 非空）
+    pipeline_exec = _executors.get("pipeline")
+    if not pipeline_exec:
+        print(f"[SCHEDULER] 警告: pipeline executor 未注册，跳过数据流定时恢复")
+        return
+    try:
+        pipelines = sqlite_repo.list_pipelines()
+    except Exception as e:
+        print(f"[SCHEDULER] 错误: 读取数据流列表失败: {e}")
+        return
+    restored_pipelines = 0
+    for p in pipelines:
+        if not p.get("enabled"):
+            continue
+        cron = p.get("cron_expression")
+        if not cron:
+            continue
+        # 若已有 runtime 注册的回调（理论上 pipeline 不会走 _job_callbacks，保留兜底）
+        cb = _job_callbacks.get(p["id"]) or pipeline_exec
+        if schedule_task(p["id"], cron, cb):
+            restored_pipelines += 1
+            print(
+                f"[SCHEDULER] 已恢复数据流定时任务: {p.get('name')!r} "
+                f"(cron={cron.strip()})"
+            )
+    print(f"[SCHEDULER] 数据流定时恢复完成: {restored_pipelines}/{len(pipelines)}")
 
 
 def get_scheduler() -> BackgroundScheduler:
@@ -187,6 +232,16 @@ def get_next_run_times(limit: int = 10) -> list:
                 "next_run": next_time.isoformat(),
             })
     return sorted(result, key=lambda x: x["next_run"])[:limit]
+
+
+def get_next_run_for_id(task_id: str) -> Optional[str]:
+    """获取指定任务的下次执行时间（ISO 格式字符串），未找到返回 None。"""
+    if _scheduler is None:
+        return None
+    job = _scheduler.get_job(task_id)
+    if job and job.next_run_time:
+        return job.next_run_time.isoformat()
+    return None
 
 
 def shutdown_scheduler():

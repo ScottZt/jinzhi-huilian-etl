@@ -23,9 +23,19 @@ class DedupNode(BaseNode):
             "label": "去重字段(逗号分隔)",
             "default": "code,dt",
         },
+        "connection_id": {
+            "type": "text",
+            "label": "目标连接ID(从连接管理选择,仅check_existing需要)",
+            "default": "",
+        },
+        "manual_config": {
+            "type": "checkbox",
+            "label": "手动配置(高级模式)",
+            "default": False,
+        },
         "target_type": {
             "type": "select",
-            "label": "目标类型(仅check_existing需要)",
+            "label": "目标类型(仅check_existing+手动配置)",
             "options": ["duckdb", "mysql", "postgresql", "clickhouse", ""],
             "default": "",
         },
@@ -70,16 +80,31 @@ class DedupNode(BaseNode):
         """从目标数据库查询已有键，排除重复数据。"""
         import json
 
-        target_type = params.get("target_type", "duckdb")
+        from app.persistence import sqlite_repo
+
+        connection_id = (params.get("connection_id") or "").strip()
+        manual_config = params.get("manual_config", False)
+
         target_table = params.get("target_table", "")
         if not target_table:
             return df.drop_duplicates(subset=dedup_cols, keep="last")
 
-        target_config_str = params.get("target_config", "{}")
-        try:
-            cfg = json.loads(target_config_str)
-        except Exception:
-            cfg = {}
+        # 优先从「连接管理」读取已配置的连接
+        if connection_id and not manual_config:
+            conn_record = sqlite_repo.get_connection(connection_id)
+            if not conn_record:
+                # 连接不存在，回退到普通去重
+                return df.drop_duplicates(subset=dedup_cols, keep="last")
+            target_type = conn_record.get("type", "duckdb")
+            cfg = dict(conn_record.get("config", {}))
+        else:
+            # 向后兼容：手动配置模式
+            target_type = params.get("target_type", "duckdb")
+            target_config_str = params.get("target_config", "{}")
+            try:
+                cfg = json.loads(target_config_str)
+            except Exception:
+                cfg = {}
 
         # 获取已有键
         existing_keys = self._fetch_existing(target_type, cfg, target_table, dedup_cols)

@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>操作手册 - 金智汇连ETL</title>
+  <link rel="icon" href="static/logo.png" type="image/png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --sidebar: #1a1d27;
+      --card: #22263a;
+      --card-hover: #2a2f47;
+      --border: #2d3348;
+      --text: #e2e8f0;
+      --text-dim: #8892a4;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f7fa;
+      --sidebar: #ffffff;
+      --card: #ffffff;
+      --card-hover: #f0f2f5;
+      --border: #e2e6ee;
+      --text: #1e293b;
+      --text-dim: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --info: #0ea5e9;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar (TOC) */
+    #sidebar {
+      width: 260px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+    }
+    .sidebar-header .subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .sidebar-header .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .sidebar-header .back-btn:hover { background: var(--card-hover); border-color: var(--accent); }
+
+    .toc {
+      padding: 12px 8px;
+      flex: 1;
+    }
+
+    .toc-group-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 14px 12px 6px;
+      opacity: 0.6;
+    }
+
+    .toc a {
+      display: block;
+      padding: 7px 12px;
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-size: 13px;
+      text-decoration: none;
+      transition: all 0.15s;
+      margin-bottom: 1px;
+    }
+    .toc a:hover { background: var(--card); color: var(--text); }
+    .toc a.active { background: var(--accent); color: #fff; }
+
+    /* Main content */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .content-wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 40px 80px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+
+    /* Section */
+    section {
+      margin-bottom: 48px;
+      scroll-margin-top: 20px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.3px;
+    }
+    h2 .sec-icon { margin-right: 8px; }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 16px 0 8px;
+      color: var(--text);
+    }
+
+    p { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+
+    /* Step cards */
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin: 12px 0;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-title { font-size: 14px; font-weight: 600; }
+
+    .step ol, .step ul {
+      padding-left: 22px;
+      margin: 8px 0;
+    }
+    .step li {
+      font-size: 13px;
+      line-height: 1.7;
+      margin-bottom: 4px;
+    }
+    .step li strong { color: var(--accent); font-weight: 600; }
+
+    /* Screenshot */
+    .screenshot {
+      margin: 14px 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--card);
+    }
+    .screenshot img {
+      width: 100%;
+      display: block;
+    }
+    .screenshot .caption {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 6px 12px;
+      background: var(--card-hover);
+      text-align: center;
+    }
+
+    /* Callouts */
+    .callout {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 12px 0;
+      font-size: 13px;
+      line-height: 1.6;
+      border-left: 3px solid;
+    }
+    .callout.tip {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: var(--success);
+    }
+    .callout.warn {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: var(--warning);
+    }
+    .callout.danger {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: var(--danger);
+    }
+    .callout.info {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: var(--info);
+    }
+    .callout .label {
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    .callout.tip .label { color: var(--success); }
+    .callout.warn .label { color: var(--warning); }
+    .callout.danger .label { color: var(--danger); }
+    .callout.info .label { color: var(--info); }
+
+    /* Code */
+    code {
+      background: var(--card-hover);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      color: var(--accent-hover);
+    }
+
+    pre {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: var(--card);
+      font-weight: 600;
+      color: var(--text);
+    }
+    td { background: var(--card-hover); }
+
+    /* FAQ */
+    details {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0;
+      padding: 10px 14px;
+    }
+    details[open] { border-color: var(--accent); }
+    summary {
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '▶';
+      font-size: 10px;
+      color: var(--accent);
+      transition: transform 0.2s;
+    }
+    details[open] summary::before { transform: rotate(90deg); }
+    details .answer { padding: 10px 0 0 18px; font-size: 13px; line-height: 1.7; }
+
+    /* Concept diagram */
+    .diagram {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 14px 0;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-dim);
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .diagram .hl { color: var(--accent-hover); font-weight: 600; }
+
+    /* Scroll to top */
+    .scroll-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 100;
+    }
+    .scroll-top.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+  <!-- Sidebar TOC -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h1>📘 操作手册</h1>
+      <div class="subtitle">金智汇连 ETL · 小白入门</div>
+      <a href="/" class="back-btn">← 返回主界面</a>
+    </div>
+    <div class="toc">
+      <div class="toc-group-label">开始</div>
+      <a href="#overview">📖 手册简介</a>
+      <a href="#quickstart">⚡ 5 分钟快速上手</a>
+      <a href="#concepts">🧩 核心概念</a>
+
+      <div class="toc-group-label">基础操作</div>
+      <a href="#start-app">🚀 启动应用</a>
+      <a href="#create-connection">🔗 创建连接</a>
+      <a href="#create-source">📡 创建数据源</a>
+      <a href="#create-workflow">🔀 搭建工作流</a>
+      <a href="#create-pipeline">🔄 创建数据流</a>
+      <a href="#run-monitor">▶️ 运行与监控</a>
+
+      <div class="toc-group-label">进阶</div>
+      <a href="#file-import">📥 文件导入</a>
+      <a href="#schemas">🗄️ 表结构 DDL</a>
+      <a href="#ai-script">✨ AI 脚本生成</a>
+      <a href="#examples">📚 预制示例</a>
+      <a href="#flow-control">🔁 流程控制节点</a>
+
+      <div class="toc-group-label">因子库</div>
+      <a href="#factor-overview">🗄️ 因子库简介</a>
+      <a href="#factor-compute">🧮 因子计算节点</a>
+      <a href="#factor-expression">ƒx 因子表达式节点</a>
+      <a href="#factor-write">💾 写入因子库节点</a>
+      <a href="#factor-api">🔌 因子查询 API</a>
+      <a href="#factor-incremental">📈 增量更新策略</a>
+      <a href="#factor-consume">🔗 上游消费方式</a>
+
+      <div class="toc-group-label">帮助</div>
+      <a href="#faq">❓ 常见问题 FAQ</a>
+      <a href="#glossary">📖 术语表</a>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main">
+    <div class="content-wrap">
+      <div class="page-title">金智汇连 ETL · 操作手册</div>
+      <div class="page-subtitle">从零开始，手把手教你把数据「稳定、可观测、可复用」地送到该去的地方。</div>
+
+      <!-- ============ 手册简介 ============ -->
+      <section id="overview">
+        <h2><span class="sec-icon">📖</span>手册简介</h2>
+        <p>这份手册面向<strong>第一次使用金智汇连 ETL 的新手用户</strong>。读完你可以：</p>
+        <ul style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li>独立完成「<strong>数据拉取 → 清洗转换 → 写入数据库</strong>」完整 ETL 流程</li>
+          <li>看懂每个页面的按钮都是干嘛的</li>
+          <li>遇到问题能自己排查，不用到处问人</li>
+        </ul>
+
+        <div class="callout tip">
+          <span class="label">💡 建议阅读顺序</span>
+          如果你赶时间，直接跳到 <a href="#quickstart" style="color:inherit">5 分钟快速上手</a>，照抄一遍流程，做完再回头补概念。
+        </div>
+      </section>
+
+      <!-- ============ 快速上手 ============ -->
+      <section id="quickstart">
+        <h2><span class="sec-icon">⚡</span>5 分钟快速上手</h2>
+        <p>完整 ETL 流程只要 4 步，照抄就能跑通：</p>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">创建 DuckDB 连接</span>
+          </div>
+          <p>这是数据写入的「目标」，你可以理解为一个新的数据库文件。</p>
+          <ol>
+            <li>左侧导航 → <strong>连接管理</strong></li>
+            <li>点击 <strong>+ 新建连接</strong></li>
+            <li>类型选 <code>DuckDB</code>，路径填 <code>D:/data/my_first.db</code>（目录不存在会自动创建）</li>
+            <li>点 <strong>保存</strong>，再点 <strong>测试</strong>，看到绿色 ✅ 就对了</li>
+          </ol>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">创建数据源</span>
+          </div>
+          <p>数据从哪来？这里选一个数据源，比如 TDX（通达信本地数据）或 AkShare（在线 A 股数据）。</p>
+          <ol>
+            <li>左侧导航 → <strong>数据源</strong></li>
+            <li>点击 <strong>+ 新建数据源</strong></li>
+            <li>类型选 <code>AkShare</code>（最容易，无需本地数据）</li>
+            <li>模板选 <code>stock_zh_a_hist</code>，股票代码填 <code>000001</code></li>
+            <li>点 <strong>测试</strong> 看是否能拉到数据</li>
+          </ol>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">导入预制工作流</span>
+          </div>
+          <p>工作流定义数据怎么「加工」。新手直接用预制示例最快：</p>
+          <ol>
+            <li>左侧导航 → <strong>ETL 工作流</strong></li>
+            <li>点 <strong>📥 导入示例</strong></li>
+            <li>勾选「<strong>示例1: 数据源拉取 → 写入 DuckDB</strong>」</li>
+            <li>点 <strong>导入选中</strong></li>
+          </ol>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">4</span>
+            <span class="step-title">创建 Pipeline 一键运行</span>
+          </div>
+          <p>Pipeline 把「数据源 → 工作流 → 目标连接」串成完整流程：</p>
+          <ol>
+            <li>左侧导航 → <strong>数据流 (Pipeline)</strong></li>
+            <li>点 <strong>+ 新建数据流</strong></li>
+            <li>选刚才的数据源、工作流、DuckDB 连接</li>
+            <li>点 <strong>预检查</strong> → <strong>预览</strong> → <strong>执行</strong></li>
+          </ol>
+          <p>看到 <strong style="color:var(--success)">status: success</strong>，数据就落库了！🎉</p>
+        </div>
+      </section>
+
+      <!-- ============ 核心概念 ============ -->
+      <section id="concepts">
+        <h2><span class="sec-icon">🧩</span>核心概念（先搞懂这 5 个词）</h2>
+        <p>整个系统围绕 5 个核心对象运转，理解它们的关系就理解了产品：</p>
+
+        <div class="diagram"><span class="hl">数据源 (Source)</span>  →  <span class="hl">工作流 (Workflow)</span>  →  <span class="hl">数据流 (Pipeline)</span>
+    ↓                        ↓                        ↓
+ 从哪拉数据              怎么加工数据              完整编排 + 执行
+(行情/CSV/API)           (清洗/指标/过滤)          写入到 <span class="hl">连接 (Connection)</span>
+                                                       ↓
+                                                   目标数据库/文件</div>
+
+        <table>
+          <thead>
+            <tr><th>对象</th><th>一句话解释</th><th>类比</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>连接 (Connection)</strong></td><td>数据写入的目标，定义「写到哪个数据库/文件」</td><td>仓库地址</td></tr>
+            <tr><td><strong>数据源 (Source)</strong></td><td>数据读取的来源，定义「从哪拉数据」</td><td>供应商</td></tr>
+            <tr><td><strong>工作流 (Workflow)</strong></td><td>一组加工节点的编排，定义「数据怎么变换」</td><td>加工流水线</td></tr>
+            <tr><td><strong>数据流 (Pipeline)</strong></td><td>把 Source + Workflow + Connection 绑在一起的一次完整任务</td><td>生产订单</td></tr>
+            <tr><td><strong>凭证 (Credential)</strong></td><td>API Key / Token 等敏感信息，安全存储</td><td>钥匙</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout info">
+          <span class="label">🎯 记住</span>
+          <strong>数据流 = 数据源 + 工作流 + 连接</strong>。你只要把这三个东西配好，点「执行」就能跑。
+        </div>
+      </section>
+
+      <!-- ============ 启动应用 ============ -->
+      <section id="start-app">
+        <h2><span class="sec-icon">🚀</span>启动应用</h2>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">双击 start.bat</span>
+          </div>
+          <p>在项目根目录找到 <code>start.bat</code>，双击运行：</p>
+          <pre><code>├── start.bat        ← 双击这个！
+├── backend/
+├── frontend/
+└── docs/</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">等待启动</span>
+          </div>
+          <p>首次运行会自动创建虚拟环境 + 安装依赖，大概 1~3 分钟。后续启动只要 10 秒左右。</p>
+          <p>启动成功后：</p>
+          <ul>
+            <li>命令行会显示 <code>Uvicorn running on http://127.0.0.1:8080</code></li>
+            <li>浏览器会自动打开 Dashboard</li>
+          </ul>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">打开 Dashboard</span>
+          </div>
+          <p>浏览器访问 <code>http://127.0.0.1:8080</code>，看到总览页面就是启动成功：</p>
+          <div class="screenshot">
+            <img src="guide_images/overview.png" alt="总览页面">
+            <div class="caption">Dashboard 总览页 · 左侧是导航栏，右侧是主内容区</div>
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <span class="label">⚠️ 启动常见问题</span>
+          <strong>Q: 双击 start.bat 黑屏后闪退？</strong><br>
+          A: 在项目根目录 <code>Shift + 右键</code> → 「在此处打开 PowerShell」→ 运行 <code>.\start.bat</code>，这样能看到报错信息。
+        </div>
+
+        <div class="callout warn">
+          <span class="label">⚠️</span>
+          <strong>Q: 浏览器打不开 / 访问 127.0.0.1:8080 没反应？</strong><br>
+          A: 等命令行完全启动（看到 <code>Application startup complete</code>）再访问；同时检查 8080 端口是否被其他程序占用（如 Skype、其他 web 服务）。
+        </div>
+      </section>
+
+      <!-- ============ 创建连接 ============ -->
+      <section id="create-connection">
+        <h2><span class="sec-icon">🔗</span>创建连接（数据写入的目标）</h2>
+        <p>连接定义了「数据要写到哪」。最常用的目标：<strong>DuckDB</strong>（轻量本地数据库，推荐新手）和 <strong>SQLite</strong>。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/connections.png" alt="连接管理页">
+          <div class="caption">连接管理页 · 管理所有数据出入的通道</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">点击 + 新建连接</span>
+          </div>
+          <div class="screenshot">
+            <img src="guide_images/connection_new.png" alt="新建连接弹窗">
+            <div class="caption">新建连接弹窗 · 选择类型并填写参数</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">填写参数</span>
+          </div>
+          <table>
+            <thead><tr><th>字段</th><th>填写</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><strong>名称</strong></td><td>如 <code>本地DuckDB</code></td><td>随便起，自己能认出来就行</td></tr>
+              <tr><td><strong>类型</strong></td><td><code>DuckDB</code></td><td>新手强烈推荐 DuckDB，无需安装</td></tr>
+              <tr><td><strong>数据库路径</strong></td><td><code>D:/data/my_etl.db</code></td><td>目录不存在会自动创建；注意 Windows 用正斜杠 <code>/</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">测试连接</span>
+          </div>
+          <p>保存后，在列表里点 <strong>测试</strong> 按钮。看到绿色的 ✅ <strong>已连接 DuckDB</strong> 就完成了。</p>
+        </div>
+
+        <div class="callout tip">
+          <span class="label">💡 小贴士</span>
+          DuckDB 的数据就是一个普通文件，你可以随时复制、备份、用 DuckDB CLI 打开查看。推荐统一放在 <code>D:/data/</code> 下方便管理。
+        </div>
+
+        <details>
+          <summary>❓ 测试连接失败怎么办？</summary>
+          <div class="answer">
+            <p><strong>常见原因：</strong></p>
+            <ul>
+              <li><strong>路径写错</strong>：Windows 路径用正斜杠 <code>D:/data/xxx.db</code>，或双反斜杠 <code>D:\\data\\xxx.db</code></li>
+              <li><strong>目录无权限</strong>：别写到 <code>C:\Program Files</code> 这种受保护目录</li>
+              <li><strong>DuckDB 文件被占用</strong>：同一个 .db 文件同时只能被一个进程写入。关掉其他占用程序再试</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+
+      <!-- ============ 创建数据源 ============ -->
+      <section id="create-source">
+        <h2><span class="sec-icon">📡</span>创建数据源（数据从哪来）</h2>
+        <p>数据源定义了「从哪里拉数据」。系统内置了多种数据源，按你的数据情况选一个：</p>
+
+        <table>
+          <thead><tr><th>数据源类型</th><th>适合场景</th><th>是否需要安装</th></tr></thead>
+          <tbody>
+            <tr><td><strong>TDX 通达信</strong></td><td>本机有通达信客户端 + 历史数据</td><td>无需联网，需要本地数据文件</td></tr>
+            <tr><td><strong>AkShare</strong></td><td>A 股 / 期货 / 外汇 / 宏观等在线数据</td><td>需联网，无需 token（推荐新手）</td></tr>
+            <tr><td><strong>Binance</strong></td><td>加密货币行情</td><td>需联网</td></tr>
+            <tr><td><strong>YFinance</strong></td><td>美股 / 全球市场</td><td>需联网</td></tr>
+            <tr><td><strong>MySQL / PostgreSQL</strong></td><td>已有业务数据库</td><td>需提供连接信息</td></tr>
+          </tbody>
+        </table>
+
+        <div class="screenshot">
+          <img src="guide_images/kline_sources.png" alt="数据源页">
+          <div class="caption">数据源页 · 管理所有数据来源</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">新建数据源</span>
+          </div>
+          <div class="screenshot">
+            <img src="guide_images/kline_source_new.png" alt="新建数据源弹窗">
+            <div class="caption">新建数据源弹窗 · 选择类型后按需填写参数</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">以 AkShare 为例填写</span>
+          </div>
+          <table>
+            <thead><tr><th>字段</th><th>填写</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><strong>名称</strong></td><td>如 <code>平安银行日K</code></td><td>自己能认出来</td></tr>
+              <tr><td><strong>类型</strong></td><td><code>AkShare</code></td><td>在线免费接口</td></tr>
+              <tr><td><strong>request_template</strong></td><td><code>stock_zh_a_hist</code></td><td>A 股日 K 线模板</td></tr>
+              <tr><td><strong>股票代码</strong></td><td><code>000001</code></td><td>6 位股票代码</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">测试 → 预览</span>
+          </div>
+          <ol>
+            <li>点 <strong>测试</strong> → 看到 ✅ 表示数据源可用</li>
+            <li>点 <strong>预览</strong> → 看到 K 线样例数据（datetime / open / high / low / close / volume）</li>
+          </ol>
+        </div>
+
+        <details>
+          <summary>❓ AkShare 拉不到数据 / 报错？</summary>
+          <div class="answer">
+            <ul>
+              <li><strong>网络问题</strong>：AkShare 需要联网。检查代理设置，或关闭 VPN 试试</li>
+              <li><strong>股票代码错</strong>：A 股代码是 6 位数字，如 <code>000001</code>（平安银行）、<code>600519</code>（茅台）</li>
+              <li><strong>接口变更</strong>：AkShare 接口偶尔更新，可以访问 <a href="https://akshare.akfamily.xyz" target="_blank" style="color:var(--accent)">akshare.akfamily.xyz</a> 查最新文档</li>
+            </ul>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 我用 TDX 通达信，数据目录怎么填？</summary>
+          <div class="answer">
+            <p>TDX 数据目录是通达信客户端安装目录下的 <code>vipdoc</code> 文件夹，通常类似：</p>
+            <pre><code>D:/new_tdx64/vipdoc        ← 默认安装
+D:/tdx/vipdoc               ← 你自定义的路径</code></pre>
+            <p>如果找不到，在通达信客户端里「系统工具」→「数据管理」可以看到安装路径。</p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ============ 搭建工作流 ============ -->
+      <section id="create-workflow">
+        <h2><span class="sec-icon">🔀</span>搭建工作流（数据怎么加工）</h2>
+        <p>工作流是「加工流水线」：把多个处理节点串起来，数据依次经过每个节点被清洗、转换、计算。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/workflows.png" alt="ETL工作流页">
+          <div class="caption">ETL 工作流页 · 管理所有加工流水线</div>
+        </div>
+
+        <h3>方式 A：直接用预制示例（新手推荐 ⭐）</h3>
+        <p>系统内置了 13+ 个示例工作流，覆盖常见场景，一键导入就能用。</p>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">点击「📥 导入示例」</span>
+          </div>
+          <p>在工作流页面找到「导入示例」按钮，勾选需要的示例，点「导入选中」即可。</p>
+        </div>
+
+        <h3>方式 B：自己搭建（进阶）</h3>
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">新建工作流 → 进入可视化编辑器</span>
+          </div>
+          <div class="screenshot">
+            <img src="guide_images/workflow_editor.png" alt="工作流编辑器">
+            <div class="caption">工作流可视化编辑器 · 左侧节点库，中间画布，右侧属性面板</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">拖拽节点到画布</span>
+          </div>
+          <p>常用节点：</p>
+          <table>
+            <thead><tr><th>节点</th><th>用途</th><th>示例</th></tr></thead>
+            <tbody>
+              <tr><td><strong>source_fetch</strong></td><td>从数据源拉数据</td><td>拉 TDX / AkShare / Binance</td></tr>
+              <tr><td><strong>filter</strong></td><td>按条件过滤行</td><td>去掉成交量=0 的行</td></tr>
+              <tr><td><strong>resample</strong></td><td>周期转换</td><td>1 分钟线 → 30 分钟线</td></tr>
+              <tr><td><strong>ma</strong></td><td>移动均线</td><td>计算 MA5 / MA10 / MA20</td></tr>
+              <tr><td><strong>macd / rsi / boll</strong></td><td>技术指标</td><td>MACD、RSI、布林带</td></tr>
+              <tr><td><strong>expression</strong></td><td>自定义表达式</td><td>计算涨跌幅 = (close-open)/open*100</td></tr>
+              <tr><td><strong>custom_python</strong></td><td>Python 脚本</td><td>复杂自定义逻辑</td></tr>
+              <tr><td><strong>target_write</strong></td><td>写入目标</td><td>写 DuckDB / SQLite / CSV</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">连线节点</span>
+          </div>
+          <p>从一个节点的输出端口拖到下一个节点的输入端口，形成数据流向。例如：</p>
+          <pre><code>source_fetch  →  filter  →  ma  →  target_write</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">4</span>
+            <span class="step-title">配置节点参数 + 保存</span>
+          </div>
+          <p>点击节点，在右侧面板配置参数。每个节点都有参数提示，鼠标悬停可看说明。</p>
+        </div>
+
+        <details>
+          <summary>❓ 节点运行报错「列不存在」？</summary>
+          <div class="answer">
+            <p>最常见原因：<strong>上游节点的输出列名变了，但你配的列名没跟着改。</strong></p>
+            <p>解决：</p>
+            <ul>
+              <li>点上游节点 → 预览输出，看实际列名</li>
+              <li>不同数据源的列名可能不同（如 <code>vol</code> vs <code>volume</code>），用 <code>column_rename</code> 节点统一改名</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+
+      <!-- ============ 创建数据流 ============ -->
+      <section id="create-pipeline">
+        <h2><span class="sec-icon">🔄</span>创建数据流 Pipeline（完整编排）</h2>
+        <p>Pipeline 是最终的「生产订单」，把「数据源 + 工作流 + 目标连接」绑成一条完整的 ETL 流水线。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/pipelines.png" alt="数据流页">
+          <div class="caption">数据流 Pipeline 页 · 编排完整 ETL 任务</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">新建数据流</span>
+          </div>
+          <p>点击 <strong>+ 新建数据流</strong>，填写：</p>
+          <table>
+            <thead><tr><th>字段</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><strong>名称</strong></td><td>如「平安银行日K加工」</td></tr>
+              <tr><td><strong>数据源</strong></td><td>选刚才创建的数据源</td></tr>
+              <tr><td><strong>工作流</strong></td><td>选刚才导入的工作流</td></tr>
+              <tr><td><strong>目标连接</strong></td><td>选刚才创建的 DuckDB 连接</td></tr>
+              <tr><td><strong>目标表名</strong></td><td>如 <code>stock_kline</code>，表不存在会自动创建</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">字段映射（可选）</span>
+          </div>
+          <p>如果数据源输出的列名和目标表的列名不一致，需要配置字段映射。一般工作流内已处理，可跳过。</p>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">预检查 → 预览 → 执行</span>
+          </div>
+          <ol>
+            <li><strong>预检查</strong>：校验所有配置是否正确</li>
+            <li><strong>预览</strong>：看加工后的数据长啥样（不真正写入）</li>
+            <li><strong>执行</strong>：真正跑 + 写入数据库</li>
+          </ol>
+        </div>
+
+        <div class="callout tip">
+          <span class="label">💡 强烈建议</span>
+          第一次一定先点「<strong>预览</strong>」看数据对不对，再点「执行」。避免错误数据写进去污染数据库。
+        </div>
+      </section>
+
+      <!-- ============ 运行与监控 ============ -->
+      <section id="run-monitor">
+        <h2><span class="sec-icon">▶️</span>运行与监控</h2>
+
+        <h3>单次运行</h3>
+        <p>在 Pipeline 列表点「<strong>执行</strong>」即可。执行是异步的，不会卡住界面。</p>
+
+        <h3>查看执行记录</h3>
+        <p>在 Pipeline 详情页下方，会列出所有执行记录：</p>
+        <div class="screenshot">
+          <img src="guide_images/monitor.png" alt="监控面板">
+          <div class="caption">监控面板 · 查看所有任务执行状态</div>
+        </div>
+
+        <table>
+          <thead><tr><th>状态</th><th>含义</th><th>怎么办</th></tr></thead>
+          <tbody>
+            <tr><td><span style="color:var(--success)">✅ success</span></td><td>执行成功</td><td>恭喜！数据已落库</td></tr>
+            <tr><td><span style="color:var(--danger)">❌ error</span></td><td>执行失败</td><td>点开查看错误详情，对照 FAQ 排查</td></tr>
+            <tr><td><span style="color:var(--warning)">⏳ running</span></td><td>正在运行</td><td>等几分钟再刷新</td></tr>
+            <tr><td><span style="color:var(--text-dim)">⏸ queued</span></td><td>排队中</td><td>前面的任务跑完才会轮到</td></tr>
+          </tbody>
+        </table>
+
+        <h3>查看落库结果</h3>
+        <p>回到「<strong>连接管理</strong>」→ 找你的 DuckDB 连接 → 点「<strong>查看表</strong>」→ 选表 → 「<strong>查看数据</strong>」。</p>
+      </section>
+
+      <!-- ============ 文件导入 ============ -->
+      <section id="file-import">
+        <h2><span class="sec-icon">📥</span>文件导入（CSV / Excel）</h2>
+        <p>如果你有本地的 CSV / Excel 数据想导入数据库，用「<strong>文件导入</strong>」功能最方便。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/bulk_import.png" alt="文件导入页">
+          <div class="caption">文件导入页 · 批量把本地文件导入数据库</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">新建导入任务</span>
+          </div>
+          <p>点「<strong>新建导入</strong>」，选择：</p>
+          <ul>
+            <li><strong>文件</strong>：支持多选（按住 Ctrl）</li>
+            <li><strong>目标连接</strong>：选 DuckDB 连接</li>
+            <li><strong>目标表名</strong>：默认用文件名，可改</li>
+          </ul>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">预览字段映射</span>
+          </div>
+          <p>系统会自动识别文件表头。如有需要，可以手动调整字段名 / 类型。</p>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">执行导入</span>
+          </div>
+          <p>点「<strong>执行</strong>」开始导入。进度会实时显示。</p>
+        </div>
+
+        <div class="callout warn">
+          <span class="label">⚠️ 常见坑</span>
+          <strong>文件编码不对</strong>：如果 CSV 是 GBK 编码，导入会乱码或报错。建议先用 Excel 另存为 UTF-8 编码的 CSV。
+        </div>
+      </section>
+
+      <!-- ============ 表结构 ============ -->
+      <section id="schemas">
+        <h2><span class="sec-icon">🗄️</span>表结构 DDL</h2>
+        <p>如果你想精细控制目标表的字段名 / 类型 / 索引，可以预先定义「<strong>表结构</strong>」并应用到数据库。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/schemas.png" alt="表结构页">
+          <div class="caption">表结构页 · 定义字段、索引，然后应用到数据库</div>
+        </div>
+
+        <p>一般流程：</p>
+        <ol style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li>新建表结构 → 添加字段（名字、类型、是否可空）</li>
+          <li>添加索引（加速查询）</li>
+          <li>点「<strong>预览 DDL</strong>」看生成的 SQL</li>
+          <li>点「<strong>应用到数据库</strong>」选目标连接，表就在数据库里建好了</li>
+        </ol>
+
+        <div class="callout tip">
+          <span class="label">💡 什么时候用</span>
+          <strong>大多数时候不需要用表结构</strong>。Pipeline 执行时会自动创建表。只有当你需要<strong>精确控制字段类型、加索引、或共享一张表给多个 Pipeline 写入</strong>时，才需要预先定义表结构。
+        </div>
+      </section>
+
+      <!-- ============ AI 脚本 ============ -->
+      <section id="ai-script">
+        <h2><span class="sec-icon">✨</span>AI 脚本生成</h2>
+        <p>不想手动搭建工作流？直接用自然语言告诉 AI 你要什么，它帮你生成 Python 脚本。</p>
+
+        <div class="screenshot">
+          <img src="guide_images/ai_script.png" alt="AI脚本生成页">
+          <div class="caption">AI 脚本生成页 · 输入需求描述，生成可执行的 Python 脚本</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">输入需求描述</span>
+          </div>
+          <p>例如：</p>
+          <pre><code>拉取平安银行(000001)近1年的日K线数据，计算5日和20日均线，写入DuckDB</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">点「生成脚本」</span>
+          </div>
+          <p>AI 会生成完整的 Python 脚本，可直接复制运行。</p>
+        </div>
+
+        <h3>配置本地 LLM（可选）</h3>
+        <p>如果担心数据隐私，可以用本地 Ollama 模型：</p>
+        <div class="screenshot">
+          <img src="guide_images/llm_settings.png" alt="AI设置页">
+          <div class="caption">AI 设置页 · 配置本地 Ollama 模型</div>
+        </div>
+        <p>本地模型需要在电脑上先安装 <a href="https://ollama.com" target="_blank" style="color:var(--accent)">Ollama</a> 并下载模型。</p>
+      </section>
+
+      <!-- ============ 预制示例 ============ -->
+      <section id="examples">
+        <h2><span class="sec-icon">📚</span>预制示例（强烈推荐先看）</h2>
+        <p>系统内置 25 个覆盖常见场景的工作流示例，位于「<strong>ETL 工作流</strong>」页面的「<strong>📥 导入示例</strong>」按钮：</p>
+
+        <table>
+          <thead><tr><th>示例</th><th>学什么</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. 数据源拉取 → 写入 DuckDB</strong></td><td>最简 ETL 流程 ⭐ 新手必看</td></tr>
+            <tr><td><strong>2. Binance + 重采样 + MACD</strong></td><td>加密货币 + 周期转换 + 技术指标</td></tr>
+            <tr><td><strong>3. Yahoo Finance + 多指标</strong></td><td>MA + RSI + BOLL 多指标组合</td></tr>
+            <tr><td><strong>4. 表达式 + 条件 + 自定义脚本</strong></td><td>流程控制 + 自定义 Python</td></tr>
+            <tr><td><strong>5. 过滤 + 排序 + 分组聚合</strong></td><td>数据处理基础三件套</td></tr>
+            <tr><td><strong>11~13. 复权处理</strong></td><td>前复权 / 后复权 / baostock 自动复权</td></tr>
+            <tr><td><strong>23. 嵌套循环 + 分片处理</strong></td><td>表 × 股票 双层 for_each，大数据友好</td></tr>
+            <tr><td><strong>24. 循环遍历 for_each</strong></td><td>遍历股票代码批量处理 ⭐ 循环入门</td></tr>
+            <tr><td><strong>25. 条件循环 loop</strong></td><td>分页拉取直到没有下一页 ⭐ while 语义</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <span class="label">💡 学习路径</span>
+          先导入「示例1」跑通 → 再导入「示例3」学多指标 → 最后自己照着改参数。别一上来就挑战复杂的。
+        </div>
+      </section>
+
+      <!-- ============ 流程控制节点 ============ -->
+      <section id="flow-control">
+        <h2><span class="sec-icon">🔁</span>流程控制节点（循环 / 变量 / 延时）</h2>
+        <p>传统数据处理节点（source_fetch / target_write / filter 等）专注「数据怎么加工」，但缺少「流程怎么编排」的能力。当需要处理多张表、多只股票、分批拉取数据时，流程控制节点就是你的选择。</p>
+
+        <div class="callout info">
+          <span class="label">📌 4 个流程控制节点</span>
+          <code>set_variable</code> 存中间状态 · <code>wait</code> 延时等待 · <code>for_each</code> 遍历列表 · <code>loop</code> 条件循环<br>
+          对应示例：<strong>#23 嵌套循环</strong> / <strong>#24 循环遍历</strong> / <strong>#25 条件循环</strong>（在「ETL 工作流」页的「📥 导入示例」里）
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">速查表</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>节点</th><th>语义</th><th>退出依据</th><th>典型场景</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>set_variable</code></td>
+              <td>把值写入全局 context</td>
+              <td>—</td>
+              <td>保存表名列表、累加行数、存分页状态</td>
+            </tr>
+            <tr>
+              <td><code>wait</code></td>
+              <td>暂停指定秒数</td>
+              <td>—</td>
+              <td>API 限流、等待外部资源、避免 CPU 过载</td>
+            </tr>
+            <tr>
+              <td><code>for_each</code></td>
+              <td><strong>for 循环</strong>（遍历列表）</td>
+              <td>列表遍历完</td>
+              <td>遍历股票代码 / 表名列表 / 文件路径</td>
+            </tr>
+            <tr>
+              <td><code>loop</code></td>
+              <td><strong>while 循环</strong>（条件判断）</td>
+              <td>条件返回 False</td>
+              <td>分页拉取 / 重试直到成功 / 迭代收敛</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">🔑 核心概念：工作流全局 context</h3>
+        <p><code>context</code> 是一个 Python dict，贯穿整个工作流执行过程。<strong>所有节点共享同一个 context</strong>，这是循环节点传递状态的关键。</p>
+        <ul style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li><code>set_variable</code> 把值写入 context；<code>for_each</code> 每轮迭代自动把当前项写入 context</li>
+          <li>下游节点通过 <code>context.get("变量名")</code> 读取</li>
+          <li>以 <code>__</code> 开头的变量是引擎保留的（如 <code>__workflow_json__</code>、<code>__current_node_id__</code>），不要覆盖</li>
+        </ul>
+
+        <div class="callout warn">
+          <span class="label">⚠️ 谁能读到 context？</span>
+          当前只有 <code>custom_python</code> 节点的脚本能直接通过 <code>context.get(...)</code> 读取变量。其他节点（source_fetch / target_write / db_query 等）的参数是<strong>字面值</strong>，不支持 <code>{{变量}}</code> 模板替换。所以循环节点通常要和 <code>custom_python</code> 搭配使用。
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">📋 set_variable — 变量赋值</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>说明</th><th>示例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>var_name</code></td><td>text</td><td>变量名</td><td><code>tables</code>、<code>page</code>、<code>total_rows</code></td></tr>
+            <tr><td><code>var_value</code></td><td>textarea</td><td>变量值</td><td>根据 value_type 填写</td></tr>
+            <tr>
+              <td><code>value_type</code></td><td>select</td>
+              <td>值类型</td>
+              <td>
+                <code>string</code> 字符串 · <code>number</code> 数字 · <code>json</code> JSON 数组/对象 · <code>expression</code> Python 表达式（可引用 context）
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>常见用法</strong>：</p>
+        <ul style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li>初始化列表：<code>value_type=json</code>，<code>var_value=["a","b","c"]</code>，给 for_each 用</li>
+          <li>累加计数器：<code>value_type=expression</code>，<code>var_value=context.get('total_rows', 0) + len(df)</code></li>
+          <li>初始化分页状态：<code>var_name=has_more</code>，<code>var_value=true</code>，<code>value_type=json</code></li>
+        </ul>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">⏱️ wait — 等待延时</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>说明</th><th>默认值</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>seconds</code></td><td>number</td><td>等待秒数（支持小数）</td><td>1</td></tr>
+            <tr><td><code>mode</code></td><td>select</td><td><code>delay</code> 固定延时 / <code>until_timestamp</code> 等到指定时间</td><td>delay</td></tr>
+          </tbody>
+        </table>
+        <p>常用于循环体内做 API 限流，比如 <code>seconds=0.1</code> 表示每次请求间隔 100ms。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">🔁 for_each — 循环遍历（for 循环）</h3>
+        <p>对列表逐项执行下游节点链。<strong>迭代次数 = 列表长度</strong>，事先确定。</p>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>说明</th><th>默认值</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>items</code></td><td>textarea</td>
+              <td>循环列表，三种写法：</td>
+              <td>
+                ① JSON 数组 <code>["a","b"]</code><br>
+                ② 逗号分隔 <code>a, b, c</code><br>
+                ③ context 引用 <code>{{var_name}}</code>
+              </td>
+            </tr>
+            <tr><td><code>item_var</code></td><td>text</td><td>当前项变量名，注入到 context</td><td>current_item</td></tr>
+            <tr><td><code>index_var</code></td><td>text</td><td>当前索引变量名（从 0 开始）</td><td>item_index</td></tr>
+            <tr><td><code>max_iterations</code></td><td>number</td><td>安全阀，超过强制截断</td><td>1000</td></tr>
+          </tbody>
+        </table>
+        <p><strong>工作流程</strong>：</p>
+        <ol style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li>解析 items 列表</li>
+          <li>对每项：把当前项写入 <code>context[item_var]</code>，把索引写入 <code>context[index_var]</code></li>
+          <li>BFS 找出当前节点的所有下游节点，组成子图，递归执行</li>
+          <li>把所有迭代的输出 DataFrame 用 <code>pd.concat</code> 合并返回</li>
+        </ol>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">🔄 loop — 条件循环（while 循环）</h3>
+        <p>在每轮迭代开始前求值 Python 表达式，为 True 就继续执行子图，为 False 就退出。<strong>迭代次数事先不确定</strong>。</p>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>说明</th><th>默认值</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>condition</code></td><td>text</td>
+              <td>Python 表达式，必须返回 True/False。可引用 <code>context</code>、<code>len()</code>、<code>int()</code>、<code>float()</code></td>
+              <td><code>context.get('counter', 0) &lt; 10</code></td>
+            </tr>
+            <tr><td><code>max_iterations</code></td><td>number</td><td>安全阀，强制退出</td><td>100</td></tr>
+          </tbody>
+        </table>
+        <p><strong>求值时机</strong>：每轮迭代<strong>开始前</strong>求值。子图内的 <code>custom_python</code> 修改 context 后，下一轮条件求值就能看到新值。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">⚔️ for_each vs loop — 怎么选？</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>维度</th><th>for_each</th><th>loop</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>循环语义</td><td>for ... in ...</td><td>while ...</td></tr>
+            <tr><td>迭代次数</td><td>= 列表长度（事先确定）</td><td>条件判断（事先不一定知道）</td></tr>
+            <tr><td>输入</td><td>一个列表（JSON / 逗号 / context 变量）</td><td>一个 Python 布尔表达式</td></tr>
+            <tr><td>状态更新</td><td>自动注入 current_item / index</td><td>需要自己在子图里用 set_variable / custom_python 修改 context</td></tr>
+            <tr><td>典型场景</td><td>遍历股票 / 表 / 文件列表</td><td>分页 / 重试 / 迭代收敛</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">🕳️ 常见坑 & 最佳实践</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>坑</th><th>说明</th><th>应对</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>下游子图被循环"包住"</strong></td>
+              <td>for_each / loop 都会 BFS 取出它之后的<strong>所有</strong>下游节点作为循环体，不仅仅是直接相连的那个</td>
+              <td>把循环体画在下游，不要和循环外的节点混在一起；需要分叉时用 custom_python 内部判断</td>
+            </tr>
+            <tr>
+              <td><strong>context 变量是共享的</strong></td>
+              <td>嵌套 for_each 时，内层循环会覆盖外层的 current_item</td>
+              <td>给每层循环起不同的 <code>item_var</code>，比如 <code>current_table</code> / <code>current_code</code></td>
+            </tr>
+            <tr>
+              <td><strong>死循环风险</strong></td>
+              <td>loop 条件永远为 True（比如忘记在 custom_python 里改 has_more）</td>
+              <td>一定要填 <code>max_iterations</code>；在 custom_python 里显式写退出条件</td>
+            </tr>
+            <tr>
+              <td><strong>内存爆炸</strong></td>
+              <td>for_each / loop 会把每轮迭代的输出 DataFrame 攒起来最后 concat</td>
+              <td>单项输出不要太大；在循环体内用 target_write 写库，而不是返回大 DataFrame</td>
+            </tr>
+            <tr>
+              <td><strong>错误静默跳过</strong></td>
+              <td>某一项执行失败时，循环会跳过该项继续下一项</td>
+              <td>在 custom_python 内部 try/except，把错误信息记录到输出 DataFrame 里便于排查</td>
+            </tr>
+            <tr>
+              <td><strong>condition 表达式语法</strong></td>
+              <td>只能用表达式，不能用 print / import 等语句</td>
+              <td>需要复杂逻辑时，用 custom_python 节点算好后存到 context，condition 里只读结果</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">💡 推荐学习路径</h3>
+        <ol style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li>先导入<strong>示例 24（for_each）</strong>，跑通最简单的单层循环，观察 context 如何注入</li>
+          <li>再导入<strong>示例 25（loop）</strong>，理解"条件 + 状态修改"的配合</li>
+          <li>最后挑战<strong>示例 23（嵌套循环）</strong>，看两层 for_each 怎么配合处理 7 张表 × 几千只股票</li>
+        </ol>
+      </section>
+
+      <!-- ============ 因子库简介 ============ -->
+      <section id="factor-overview">
+        <h2><span class="sec-icon">🗄️</span>因子库简介</h2>
+        <p>因子库是 ETL 的<strong>数据基座</strong>功能，用于标准化生产、存储、查询量化因子数据。</p>
+
+        <div class="callout info">
+          <span class="label">📌 定位</span>
+          金智汇连 ETL 负责生产 <strong>L2/L3 层级</strong>的基础因子（技术指标、统计因子），金策智算消费这些因子做策略研究。
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">核心能力</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>能力</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>📊 9 种因子计算</td><td>MA / EMA / MACD / RSI / BOLL / 收益率 / 波动率 / ATR / BIAS</td></tr>
+            <tr><td>💾 DuckDB 宽表存储</td><td>每个因子一张表 <code>factor_{id}</code>，高性能查询</td></tr>
+            <tr><td>🔌 标准化 API</td><td>单因子 / 多因子 JOIN / 统计信息查询</td></tr>
+            <tr><td>🔄 增量更新</td><td>upsert 模式，高效增量生产</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">因子分类体系</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>层级</th><th>说明</th><th>示例</th><th>生产方</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>L0</strong></td><td>原始因子</td><td>close, vol, amount</td><td>数据源直接拉取</td></tr>
+            <tr><td><strong>L1</strong></td><td>基础因子</td><td>adj_fore, adj_back</td><td>交易所数据</td></tr>
+            <tr><td><strong>L2</strong></td><td>衍生因子</td><td>ma_5, macd, rsi_14</td><td><strong>本系统生产</strong></td></tr>
+            <tr><td><strong>L3</strong></td><td>统计因子</td><td>ret_1d, volatility_20</td><td><strong>本系统生产</strong></td></tr>
+            <tr><td><strong>L4</strong></td><td>复合因子</td><td>momentum_score</td><td>金策智算侧</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">管理页面</h3>
+        <p>打开浏览器访问：<a href="/static/factor-library.html" target="_blank" style="color:var(--accent)">因子库管理页面</a></p>
+        <p>支持：查看因子列表、查看因子详情、删除因子、查看统计信息。</p>
+      </section>
+
+      <!-- ============ 因子计算节点 ============ -->
+      <section id="factor-compute">
+        <h2><span class="sec-icon">🧮</span>因子计算节点</h2>
+        <p><code>factor_compute</code> 节点用于根据输入数据计算指定类型的因子。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">参数说明</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>默认值</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>factor_id</code></td><td>text</td><td>ma_5</td><td>因子 ID，用于标识因子</td></tr>
+            <tr><td><code>compute_type</code></td><td>select</td><td>ma</td><td>计算类型（见下表）</td></tr>
+            <tr><td><code>params_json</code></td><td>text</td><td>{"window": 5}</td><td>计算参数 JSON</td></tr>
+            <tr><td><code>source_column</code></td><td>text</td><td>close</td><td>源数据字段名</td></tr>
+            <tr><td><code>code_column</code></td><td>text</td><td>code</td><td>股票代码字段名</td></tr>
+            <tr><td><code>date_column</code></td><td>text</td><td>dt</td><td>日期字段名</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">支持的计算类型</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>类型</th><th>名称</th><th>参数示例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>ma</code></td><td>移动平均</td><td><code>{"window": 5}</code></td></tr>
+            <tr><td><code>ema</code></td><td>指数移动平均</td><td><code>{"span": 10}</code></td></tr>
+            <tr><td><code>macd</code></td><td>MACD 指标</td><td><code>{"fast": 12, "slow": 26, "signal": 9}</code></td></tr>
+            <tr><td><code>rsi</code></td><td>RSI 相对强弱</td><td><code>{"window": 14}</code></td></tr>
+            <tr><td><code>boll</code></td><td>布林带</td><td><code>{"window": 20, "std_mult": 2}</code></td></tr>
+            <tr><td><code>return</code></td><td>收益率</td><td><code>{"window": 1}</code></td></tr>
+            <tr><td><code>volatility</code></td><td>年化波动率</td><td><code>{"window": 20}</code></td></tr>
+            <tr><td><code>atr</code></td><td>ATR 真实波幅</td><td><code>{"window": 14}</code></td></tr>
+            <tr><td><code>bias</code></td><td>BIAS 乖离率</td><td><code>{"window": 6}</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">输出格式</h3>
+        <p>节点输出统一为三列：</p>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>列名</th><th>类型</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>code</code></td><td>string</td><td>股票代码</td></tr>
+            <tr><td><code>dt</code></td><td>string</td><td>日期</td></tr>
+            <tr><td><code>factor_value</code></td><td>float</td><td>因子值</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <span class="label">💡 提示</span>
+          对于 MACD/BOLL 等多值因子，还会输出 <code>_factor_*</code> 辅助列（如 <code>_factor_dif</code>、<code>_factor_dea</code>）。
+        </div>
+      </section>
+
+      <!-- ============ 因子表达式节点 ============ -->
+      <section id="factor-expression">
+        <h2><span class="sec-icon">ƒx</span>因子表达式节点</h2>
+        <p><code>factor_expression</code> 节点允许你用一行表达式灵活定义因子，无需写 Python 脚本。灵感来自 Qlib 的表达式引擎。</p>
+
+        <div class="callout info">
+          <span class="label">📌 适用场景</span>
+          当你需要的因子不在 <code>factor_compute</code> 的枚举列表里，又不想写完整的 Python 脚本时，用这个节点最方便。
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">操作步骤</h3>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">1</span>
+            <span class="step-title">在编辑器左侧找到「因子库」分组</span>
+          </div>
+          <p>拖拽 <strong>「因子表达式」</strong> 节点到画布。</p>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">2</span>
+            <span class="step-title">连接上游数据节点</span>
+          </div>
+          <p>从 <code>source_fetch</code> 或数据处理节点的输出端口，拖线到因子表达式节点的输入端口。</p>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <span class="step-title">点击节点，在右侧面板编写表达式</span>
+          </div>
+          <p>例如输入：</p>
+          <pre><code>MA($close, 20) / STD($close, 20)</code></pre>
+          <p>这就是一个「波动率调整收益」因子。</p>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">4</span>
+            <span class="step-title">连接下游 factor_write 节点</span>
+          </div>
+          <p>因子表达式的输出格式与 <code>factor_write</code> 完全兼容（<code>code / dt / factor_value</code>），直接拖线过去即可入库。</p>
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">DSL 语法说明</h3>
+
+        <h4 style="margin:12px 0 6px;font-size:14px">变量（字段引用）</h4>
+        <p>用 <code>$</code> 前缀引用 DataFrame 中的列：</p>
+        <pre><code>$close   $open   $high   $low   $vol   $volume   $amount</code></pre>
+        <p>也可以不带 <code>$</code> 直接写字段名（如 <code>close</code>），效果相同。</p>
+
+        <h4 style="margin:12px 0 6px;font-size:14px">支持的函数</h4>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>函数</th><th>含义</th><th>示例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>MA(s, n)</code></td><td>简单移动平均</td><td><code>MA($close, 20)</code></td></tr>
+            <tr><td><code>EMA(s, n)</code></td><td>指数移动平均</td><td><code>EMA($close, 12)</code></td></tr>
+            <tr><td><code>STD(s, n)</code></td><td>滚动标准差</td><td><code>STD($close, 20)</code></td></tr>
+            <tr><td><code>VAR(s, n)</code></td><td>滚动方差</td><td><code>VAR($close, 20)</code></td></tr>
+            <tr><td><code>SUM(s, n)</code></td><td>滚动求和</td><td><code>SUM($vol, 5)</code></td></tr>
+            <tr><td><code>MIN(s, n)</code></td><td>滚动最小值</td><td><code>MIN($low, 10)</code></td></tr>
+            <tr><td><code>MAX(s, n)</code></td><td>滚动最大值</td><td><code>MAX($high, 10)</code></td></tr>
+            <tr><td><code>REF(s, n)</code></td><td>历史引用（lag）</td><td><code>REF($close, 1)</code> = 昨日收盘</td></tr>
+            <tr><td><code>RSI(s, n)</code></td><td>相对强弱指标</td><td><code>RSI($close, 14)</code></td></tr>
+            <tr><td><code>ATR(n)</code></td><td>真实波幅（需 high/low/close）</td><td><code>ATR(14)</code></td></tr>
+            <tr><td><code>SLOPE(s, n)</code></td><td>滚动线性回归斜率</td><td><code>SLOPE($close, 20)</code></td></tr>
+            <tr><td><code>CORR(s1, s2, n)</code></td><td>滚动相关系数</td><td><code>CORR($close, $vol, 20)</code></td></tr>
+            <tr><td><code>COUNT(cond, n)</code></td><td>滚动条件计数</td><td><code>COUNT($close > MA($close,20), 10)</code></td></tr>
+            <tr><td><code>IF(cond, a, b)</code></td><td>元素条件判断</td><td><code>IF($close > $open, 1, 0)</code></td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:8px;font-size:13px;color:var(--text-dim)">数学函数：<code>ABS</code> <code>LOG</code> <code>SQRT</code> <code>POW</code> <code>SIGN</code> <code>CEIL</code> <code>FLOOR</code> <code>ROUND</code></p>
+
+        <h4 style="margin:12px 0 6px;font-size:14px">运算符</h4>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>类型</th><th>运算符</th><th>示例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>算术</td><td><code>+ - * / ^ %</code></td><td><code>($close - $open) / $open</code></td></tr>
+            <tr><td>比较</td><td><code>&gt; &lt; &gt;= &lt;= == !=</code></td><td><code>$close &gt; MA($close, 20)</code></td></tr>
+            <tr><td>逻辑</td><td><code>&amp;&amp; || !</code></td><td><code>$close &gt; $open &amp;&amp; $vol &gt; 1000</code></td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:6px;font-size:13px;color:var(--text-dim)">注：<code>^</code> 表示幂运算（即 Python 的 <code>**</code>），不是异或。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">常用因子表达式示例</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>因子名称</th><th>表达式</th><th>含义</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>60 日动量</td><td><code>REF($close, 60) / $close - 1</code></td><td>60 个交易日收益率</td></tr>
+            <tr><td>波动率调整收益</td><td><code>($close - REF($close, 20)) / STD($close, 20)</code></td><td>收益 / 波动率</td></tr>
+            <tr><td>MACD 变种</td><td><code>EMA($close, 12) - EMA($close, 26)</code></td><td>快慢均线差</td></tr>
+            <tr><td>金叉信号</td><td><code>IF(MA($close,5) &gt; MA($close,20) &amp;&amp; REF(MA($close,5),1) &lt;= REF(MA($close,20),1), 1, 0)</code></td><td>MA5 上穿 MA20</td></tr>
+            <tr><td>BIAS 乖离率</td><td><code>($close - MA($close, 6)) / MA($close, 6) * 100</code></td><td>价格偏离均线程度</td></tr>
+            <tr><td>量价相关性</td><td><code>CORR($close, $vol, 20)</code></td><td>20 日量价相关系数</td></tr>
+            <tr><td>连涨天数</td><td><code>COUNT($close &gt; REF($close, 1), 10)</code></td><td>近 10 日上涨天数</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">参数说明</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>默认值</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>expression</code></td><td>textarea</td><td><code>MA($close, 20) / STD($close, 20)</code></td><td>因子表达式</td></tr>
+            <tr><td><code>output_column</code></td><td>text</td><td>factor_value</td><td>输出列名（保持默认即可）</td></tr>
+            <tr><td><code>code_column</code></td><td>text</td><td>code</td><td>股票代码字段名（留空则整表计算）</td></tr>
+            <tr><td><code>date_column</code></td><td>text</td><td>dt</td><td>日期字段名</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <span class="label">💡 与 factor_compute 的区别</span>
+          <ul style="margin:6px 0 0;padding-left:18px">
+            <li><code>factor_compute</code>：下拉选类型，适合常见因子，操作简单</li>
+            <li><code>factor_expression</code>：手写表达式，可以任意组合函数，适合自定义因子</li>
+          </ul>
+        </div>
+
+        <div class="callout warn">
+          <span class="label">⚠️ 常见错误</span>
+          <ul style="margin:6px 0 0;padding-left:18px">
+            <li><strong>字段名不存在</strong>：错误信息会列出可用列名，检查你的数据源输出</li>
+            <li><strong>函数名拼写错误</strong>：函数名区分大小写，必须全大写（如 <code>MA</code> 不是 <code>ma</code>）</li>
+            <li><strong>窗口期不足</strong>：如 <code>MA($close, 20)</code> 前 19 行会是 NaN，这是正常的</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============ 写入因子库节点 ============ -->
+      <section id="factor-write">
+        <h2><span class="sec-icon">💾</span>写入因子库节点</h2>
+        <p><code>factor_write</code> 节点用于将因子数据写入 DuckDB 因子库。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">参数说明</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>参数</th><th>类型</th><th>默认值</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>factor_id</code></td><td>text</td><td>（必填）</td><td>因子 ID，如 <code>ma_5</code></td></tr>
+            <tr><td><code>db_path</code></td><td>text</td><td>D:/data/factor_data.duckdb</td><td>DuckDB 文件路径</td></tr>
+            <tr><td><code>write_mode</code></td><td>select</td><td>upsert</td><td>写入模式：upsert / append / replace</td></tr>
+            <tr><td><code>register_meta</code></td><td>checkbox</td><td>true</td><td>是否注册因子元数据</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">写入模式</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>模式</th><th>SQL 行为</th><th>适用场景</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>upsert</code></td><td>INSERT OR REPLACE</td><td>增量更新（默认推荐）</td></tr>
+            <tr><td><code>append</code></td><td>INSERT</td><td>确保无重复的新数据</td></tr>
+            <tr><td><code>replace</code></td><td>DELETE + INSERT</td><td>全量重算</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">存储结构</h3>
+        <p>每个因子一张宽表，表名 <code>factor_{factor_id}</code>：</p>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>CREATE TABLE factor_ma_5 (
+    code         VARCHAR,
+    dt           VARCHAR,
+    factor_value DOUBLE,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (code, dt)
+);</code></pre>
+
+        <div class="callout info">
+          <span class="label">📌 因子注册表</span>
+          当 <code>register_meta = true</code> 时，会自动在 <code>factor_registry</code> 表中注册因子元数据（名称、类型、参数等）。
+        </div>
+      </section>
+
+      <!-- ============ 因子查询 API ============ -->
+      <section id="factor-api">
+        <h2><span class="sec-icon">🔌</span>因子查询 API</h2>
+        <p>提供 6 个 API 端点供上游系统消费因子数据。</p>
+
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>端点</th><th>方法</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>/api/factors/registry</code></td><td>GET</td><td>列出所有已注册因子</td></tr>
+            <tr><td><code>/api/factors/query</code></td><td>GET</td><td>查询单因子数据</td></tr>
+            <tr><td><code>/api/factors/query/multi</code></td><td>GET</td><td>多因子 JOIN 查询（宽表输出）</td></tr>
+            <tr><td><code>/api/factors/stats</code></td><td>GET</td><td>因子库统计信息</td></tr>
+            <tr><td><code>/api/factors/codes</code></td><td>GET</td><td>查询因子包含的股票列表</td></tr>
+            <tr><td><code>/api/factors/delete</code></td><td>DELETE</td><td>删除指定因子</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">单因子查询示例</h3>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>GET /api/factors/query?factor_id=ma_5&codes=000001,600000&start_date=2024-01-01&end_date=2024-12-31&limit=1000
+
+响应：
+{
+  "success": true,
+  "factor_id": "ma_5",
+  "total": 250,
+  "data": [
+    {"code": "000001", "dt": "2024-01-02", "factor_value": 10.23},
+    {"code": "000001", "dt": "2024-01-03", "factor_value": 10.35}
+  ]
+}</code></pre>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">多因子 JOIN 查询示例</h3>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>GET /api/factors/query/multi?factor_ids=ma_5,ma_20,rsi_14&codes=000001&start_date=2024-01-01
+
+响应（宽表格式）：
+{
+  "success": true,
+  "data": [
+    {"code": "000001", "dt": "2024-01-02", "ma_5": 10.23, "ma_20": 10.15, "rsi_14": 55.2}
+  ]
+}</code></pre>
+      </section>
+
+      <!-- ============ 增量更新策略 ============ -->
+      <section id="factor-incremental">
+        <h2><span class="sec-icon">📈</span>增量更新策略</h2>
+        <p>因子库支持高效的增量更新，避免全量重算的耗时和资源浪费。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">增量更新原理</h3>
+        <ol style="padding-left:22px;line-height:1.9;font-size:14px">
+          <li><strong>查询最新日期</strong>：从因子库查询当前最新日期 <code>MAX(dt)</code></li>
+          <li><strong>拉取源数据（带回看）</strong>：从 <code>MAX(dt) - lookback + 1</code> 开始拉取</li>
+          <li><strong>计算因子</strong>：包含回看数据，确保边界值正确</li>
+          <li><strong>过滤 + 写入</strong>：只写入 <code>dt &gt; MAX(dt)</code> 的新数据，使用 upsert 模式</li>
+        </ol>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">回看窗口对照表</h3>
+        <table style="width:100%;font-size:14px">
+          <thead>
+            <tr><th>因子类型</th><th>参数</th><th>回看窗口</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>ma</code></td><td>window=5</td><td>4 天</td></tr>
+            <tr><td><code>ema</code></td><td>span=10</td><td>9 天</td></tr>
+            <tr><td><code>macd</code></td><td>slow=26</td><td>25 天</td></tr>
+            <tr><td><code>rsi</code></td><td>window=14</td><td>14 天</td></tr>
+            <tr><td><code>boll</code></td><td>window=20</td><td>19 天</td></tr>
+            <tr><td><code>return</code></td><td>window=N</td><td>N 天</td></tr>
+            <tr><td><code>volatility</code></td><td>window=20</td><td>20 天</td></tr>
+            <tr><td><code>atr</code></td><td>window=14</td><td>14 天</td></tr>
+            <tr><td><code>bias</code></td><td>window=6</td><td>6 天</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout tip">
+          <span class="label">💡 建议</span>
+          回看窗口 = 最大参数值 + 5 天缓冲，确保边界计算正确。
+        </div>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">简单增量工作流</h3>
+        <p>使用固定回看天数（如 30 天），配合 <code>upsert</code> 模式自动去重：</p>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>source_fetch(lookback_days=30) → factor_compute(ma_20) → factor_write(upsert)</code></pre>
+        <p>详见示例 14-16。</p>
+      </section>
+
+      <!-- ============ 上游消费方式 ============ -->
+      <section id="factor-consume">
+        <h2><span class="sec-icon">🔗</span>上游消费方式</h2>
+        <p>金策智算等上游系统可以通过两种方式消费因子数据。</p>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">方式一：HTTP API（跨语言）</h3>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>import requests
+
+BASE_URL = "http://localhost:8000"
+
+# 单因子查询
+resp = requests.get(f"{BASE_URL}/api/factors/query", params={
+    "factor_id": "ma_5",
+    "codes": "000001,600000",
+    "start_date": "2024-01-01",
+})
+data = resp.json()["data"]
+
+# 多因子 JOIN 查询
+resp = requests.get(f"{BASE_URL}/api/factors/query/multi", params={
+    "factor_ids": "ma_5,ma_20,rsi_14",
+    "codes": "000001",
+})
+df_wide = pd.DataFrame(resp.json()["data"])</code></pre>
+
+        <h3 style="margin:20px 0 10px;font-size:16px">方式二：DuckDB 直连（推荐，性能更好）</h3>
+        <pre style="background:var(--code-bg);padding:12px;border-radius:6px;font-size:13px;overflow-x:auto"><code>import duckdb
+
+conn = duckdb.connect("D:/data/factor_data.duckdb", read_only=True)
+
+# 单因子查询
+df = conn.execute("""
+    SELECT * FROM factor_ma_5
+    WHERE code = '000001' AND dt >= '2024-01-01'
+    ORDER BY dt
+""").fetchdf()
+
+# 多因子 JOIN（宽表输出）
+df_wide = conn.execute("""
+    SELECT t0.code, t0.dt,
+           t0.factor_value as ma_5,
+           t1.factor_value as ma_20,
+           t2.factor_value as rsi_14
+    FROM factor_ma_5 t0
+    JOIN factor_ma_20 t1 ON t0.code = t1.code AND t0.dt = t1.dt
+    JOIN factor_rsi_14 t2 ON t0.code = t2.code AND t0.dt = t2.dt
+    WHERE t0.code IN ('000001', '600000')
+    ORDER BY t0.code, t0.dt
+""").fetchdf()
+
+conn.close()</code></pre>
+
+        <div class="callout info">
+          <span class="label">📌 选择建议</span>
+          金策智算侧是 Python + DuckDB 技术栈，推荐用 <strong>DuckDB 直连</strong>，省去 HTTP 开销，查询性能更好。
+        </div>
+      </section>
+
+      <!-- ============ FAQ ============ -->
+      <section id="faq">
+        <h2><span class="sec-icon">❓</span>常见问题 FAQ</h2>
+
+        <details>
+          <summary>❓ 启动时提示「Python 未找到」/「python 不是内部命令」</summary>
+          <div class="answer">
+            <p>系统没找到 Python。先安装 Python 3.8+：<a href="https://python.org" target="_blank" style="color:var(--accent)">python.org</a>。</p>
+            <p><strong>安装时务必勾选「Add Python to PATH」</strong>（这一步 90% 的人会漏掉）。</p>
+            <p>安装完重开命令行窗口再试。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ pip install 失败 / 网络超时</summary>
+          <div class="answer">
+            <p>国内网络问题。改用国内镜像源：</p>
+            <pre><code>venv\Scripts\pip.exe install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple</code></pre>
+            <p>或在 <code>start.bat</code> 里加 <code>--trusted-host pypi.tuna.tsinghua.edu.cn</code>。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 端口 8080 被占用</summary>
+          <div class="answer">
+            <p>两种解法：</p>
+            <ol>
+              <li><strong>关掉占用程序</strong>：PowerShell 运行 <code>netstat -ano | findstr :8080</code> 找到 PID，再 <code>taskkill /PID xxx</code></li>
+              <li><strong>改用其他端口</strong>：编辑 <code>backend/run_server.py</code>，把 <code>port=8080</code> 改成 <code>port=9090</code></li>
+            </ol>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ Pipeline 执行报错「连接失败」/「数据源不可用」</summary>
+          <div class="answer">
+            <ol>
+              <li>回到「连接管理」/「数据源」页面，点「测试」确认能用</li>
+              <li>如果是 AkShare/Binance，检查网络</li>
+              <li>如果是 TDX，检查数据目录路径是否正确、文件是否存在</li>
+            </ol>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ Pipeline 跑了但写入 0 行</summary>
+          <div class="answer">
+            <p>常见原因：</p>
+            <ul>
+              <li><strong>数据源本身没数据</strong>：回看时间范围设太长/太短、股票代码错</li>
+              <li><strong>工作流 filter 把数据都过滤掉了</strong>：检查 filter 条件</li>
+              <li><strong>重复策略选了「忽略」+ 数据已存在</strong>：去目标表看是否已有数据</li>
+            </ul>
+            <p>先点「<strong>预览</strong>」看加工后数据是否为空，定位是哪一步丢的。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 执行报「模块未安装」/ 「ImportError: No module named xxx」</summary>
+          <div class="answer">
+            <p>工作流中用了 <code>custom_python</code> 节点，且脚本 <code>import</code> 了额外库（如 <code>baostock</code>、<code>tushare</code>）。</p>
+            <p>解决：</p>
+            <pre><code>backend\venv\Scripts\pip.exe install baostock</code></pre>
+            <p>注意要装到项目的 venv 里，不是系统 Python。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 浏览器访问 Dashboard 显示空白 / 404</summary>
+          <div class="answer">
+            <ul>
+              <li><strong>硬刷新</strong>：按 <code>Ctrl + F5</code></li>
+              <li><strong>清缓存</strong>：F12 → Network → 勾选 "Disable cache" → 刷新</li>
+              <li><strong>检查地址</strong>：必须是 <code>http://127.0.0.1:8080</code>，不是 https，也不是 localhost:8080（某些环境 localhost 解析有问题）</li>
+            </ul>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 怎么卸载 / 重置系统</summary>
+          <div class="answer">
+            <p>删除整个项目目录即可。所有数据都在：</p>
+            <ul>
+              <li><code>backend/etl.db</code> - 主数据库（连接/工作流/Pipeline 配置）</li>
+              <li><code>D:/data/*.db</code> - 你创建的 DuckDB 数据文件</li>
+            </ul>
+            <p>想「干净重启」只保留代码：删掉上面的 .db 文件，重启后重新配置。</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 数据源拉取很慢 / 超时</summary>
+          <div class="answer">
+            <ul>
+              <li><strong>AkShare / Binance / YFinance</strong>：受网络和对方服务器影响。拉长历史数据时，建议分批（每次 1 年内）</li>
+              <li><strong>并行拉取多股票</strong>：工作流里 <code>source_fetch</code> 节点勾选「并行」+ 设置 <code>max_workers</code></li>
+              <li><strong>TDX 本地数据</strong>：通常很快，如果慢可能是磁盘性能问题</li>
+            </ul>
+          </div>
+        </details>
+
+        <details>
+          <summary>❓ 想定时自动运行 Pipeline</summary>
+          <div class="answer">
+            <p>在 Pipeline 配置里填 <strong>cron 表达式</strong>：</p>
+            <table>
+              <thead><tr><th>需求</th><th>cron 表达式</th></tr></thead>
+              <tbody>
+                <tr><td>每天 15:30 跑一次</td><td><code>30 15 * * *</code></td></tr>
+                <tr><td>每小时整点</td><td><code>0 * * * *</code></td></tr>
+                <tr><td>每周一 9:00</td><td><code>0 9 * * 1</code></td></tr>
+                <tr><td>每 5 分钟</td><td><code>*/5 * * * *</code></td></tr>
+              </tbody>
+            </table>
+            <p>注意：<strong>应用必须保持运行</strong>，定时任务才会触发。</p>
+          </div>
+        </details>
+
+        <div class="callout info">
+          <span class="label">📮 还有其他问题？</span>
+          欢迎到项目 GitHub Issues 提问，或加入读者交流群。提问时请附上：<br>
+          1) 报错截图  2) F12 Console 的错误信息  3) 你的操作步骤<br>
+          这样能更快得到解答。
+        </div>
+      </section>
+
+      <!-- ============ 术语表 ============ -->
+      <section id="glossary">
+        <h2><span class="sec-icon">📖</span>术语表</h2>
+        <table>
+          <thead><tr><th>术语</th><th>英文</th><th>解释</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ETL</strong></td><td>Extract-Transform-Load</td><td>数据抽取→转换→加载的完整流程</td></tr>
+            <tr><td><strong>Pipeline</strong></td><td>-</td><td>数据流，把多个步骤串成一条流水线</td></tr>
+            <tr><td><strong>节点</strong></td><td>Node</td><td>工作流里的单个处理步骤（如 filter、ma、target_write）</td></tr>
+            <tr><td><strong>DuckDB</strong></td><td>-</td><td>轻量级列存数据库，单文件，适合本地分析</td></tr>
+            <tr><td><strong>K 线</strong></td><td>Candlestick / OHLC</td><td>股票/期货的价格数据格式，包含开高低收 + 成交量</td></tr>
+            <tr><td><strong>复权</strong></td><td>Adjusted</td><td>除权除息后调整价格，分前复权、后复权两种</td></tr>
+            <tr><td><strong>Cron</strong></td><td>-</td><td>定时任务表达式，用于周期性自动执行</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div style="text-align:center;color:var(--text-dim);font-size:12px;padding:40px 0 0;border-top:1px solid var(--border);margin-top:40px">
+        <p>金智汇连 ETL · 操作手册 v1.1 · 更新日期 2026-07-22</p>
+        <p>如有问题或建议，欢迎到 GitHub 提 Issue ❤️</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll to top button -->
+  <button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+  <script>
+    // Theme toggle
+    const theme = localStorage.getItem('theme') || 'dark';
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+    // TOC active tracking
+    const tocLinks = document.querySelectorAll('.toc a');
+    const sections = document.querySelectorAll('section');
+    const mainEl = document.getElementById('main');
+    const scrollBtn = document.getElementById('scrollTop');
+
+    mainEl.addEventListener('scroll', () => {
+      const scrollTop = mainEl.scrollTop;
+      scrollBtn.classList.toggle('visible', scrollTop > 400);
+
+      let current = '';
+      sections.forEach(sec => {
+        if (sec.offsetTop - 100 <= scrollTop) current = sec.id;
+      });
+      tocLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+      });
+    });
+
+    // Smooth scroll for TOC clicks
+    tocLinks.forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) mainEl.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>

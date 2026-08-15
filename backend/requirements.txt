@@ -38,3 +38,5 @@ tqsdk>=3.7.0
 yfinance>=0.2.40
 # Used by app.adapters.source_adapters.binance_adapter for crypto market data.
 python-binance>=1.0.19
+# Used by example workflow 12 for automatic stock adjustment factor calculation.
+baostock>=0.8.8

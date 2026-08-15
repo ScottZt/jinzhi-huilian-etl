@@ -383,10 +383,13 @@ def _build_pipeline_preview(pipeline: dict) -> dict:
 
 def _run_pipeline(pipeline_id: str):
     """后台执行数据流编排。"""
+    print(f"[DEBUG] _run_pipeline 被调用，pipeline_id={pipeline_id}")
     pipeline = sqlite_repo.get_pipeline(pipeline_id)
     if not pipeline:
+        print(f"[DEBUG] Pipeline 不存在: {pipeline_id}")
         return {"error": "Pipeline not found"}
 
+    print(f"[DEBUG] Pipeline 找到: {pipeline.get('name')}")
     t0 = time.time()
     run_id = str(uuid.uuid4())
     run_data = {
@@ -395,7 +398,11 @@ def _run_pipeline(pipeline_id: str):
         "started_at": datetime.now().isoformat(),
         "status": "running",
     }
-    sqlite_repo.save_pipeline_run(run_data)
+    try:
+        sqlite_repo.save_pipeline_run(run_data)
+        print(f"[DEBUG] 已保存 pipeline_run: {run_id}")
+    except Exception as e:
+        print(f"[DEBUG] 保存 pipeline_run 失败: {e}")
 
     try:
         pjson = pipeline.get("pipeline_json", {})
@@ -425,7 +432,15 @@ def _run_pipeline(pipeline_id: str):
             engine_w = get_workflow_engine()
             engine_w.register_all()
             df, _ = engine_w.execute(wf_data["workflow_json"], pd.DataFrame())
-            total_read = len(df)
+
+            # 统计实际处理的数据量
+            # 如果工作流有 target_write，从它的返回值里读 _write_count
+            if "target_write" in wf_caps and not df.empty and "_write_count" in df.columns:
+                total_written = int(df["_write_count"].sum())
+                total_read = total_written  # 读写数量相同
+            else:
+                total_read = len(df)
+
             if df.empty:
                 raise ValueError("工作流 source_fetch 未拉取到数据")
             if field_mappings:
@@ -438,8 +453,6 @@ def _run_pipeline(pipeline_id: str):
                         df, target_conn, target.get("table", "dat_kline"),
                         batch_size, on_duplicate
                     )
-            else:
-                total_written = total_read
         else:
             # 常规流程：Pipeline 拉取 → 工作流 Transform → Pipeline 写入
             processed_sources = 0
@@ -529,7 +542,11 @@ def _run_pipeline(pipeline_id: str):
 
 @router.get("/", response_model=List[dict])
 async def get_all_pipelines():
-    return sqlite_repo.list_pipelines()
+    from app.core.task_scheduler import get_next_run_for_id
+    pipelines = sqlite_repo.list_pipelines()
+    for p in pipelines:
+        p["next_run_at"] = get_next_run_for_id(p["id"])
+    return pipelines
 
 
 @router.get("/runs/all")
@@ -543,6 +560,8 @@ async def get_pipeline(pipeline_id: str):
     data = sqlite_repo.get_pipeline(pipeline_id)
     if not data:
         return {"error": "数据流不存在"}
+    from app.core.task_scheduler import get_next_run_for_id
+    data["next_run_at"] = get_next_run_for_id(pipeline_id)
     return data
 
 
@@ -595,7 +614,15 @@ async def update_pipeline_status(pipeline_id: str, enabled: bool):
         return {"error": "Pipeline not found"}
     existing["enabled"] = enabled
     existing["updated_at"] = datetime.utcnow().isoformat()
-    return sqlite_repo.save_pipeline(existing)
+    result = sqlite_repo.save_pipeline(existing)
+
+    # 同步内存调度器：禁用时移除定时；启用时且存在 cron 则重新注册
+    from app.core.task_scheduler import remove_task, schedule_task
+    remove_task(pipeline_id)
+    if enabled and existing.get("cron_expression"):
+        schedule_task(pipeline_id, existing["cron_expression"], _run_pipeline)
+
+    return result
 
 
 @router.delete("/{pipeline_id}")
@@ -650,3 +677,8 @@ async def preview_pipeline(pipeline_id: str):
 @router.get("/{pipeline_id}/runs")
 async def get_pipeline_runs(pipeline_id: str, limit: int = 20):
     return sqlite_repo.list_pipeline_runs(pipeline_id, limit)
+
+
+# 注册 pipeline 的默认执行器，供 task_scheduler 在服务重启后恢复定时任务时调用
+from app.core.task_scheduler import register_executor as _register_executor
+_register_executor("pipeline", _run_pipeline)

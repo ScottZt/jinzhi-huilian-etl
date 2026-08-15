@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>因子库管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            color: white;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .header-actions button {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .header-actions button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .controls {
+            padding: 24px 32px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-group label {
+            font-size: 14px;
+            color: #495057;
+            font-weight: 500;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        button {
+            padding: 8px 20px;
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #7c3aed;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button.danger {
+            background: #ef4444;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        .stats {
+            padding: 16px 32px;
+            background: #f3e8ff;
+            border-bottom: 1px solid #d8b4fe;
+            display: flex;
+            gap: 32px;
+            font-size: 14px;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-value {
+            font-weight: 600;
+            color: #7c3aed;
+        }
+        .main-content {
+            display: flex;
+            min-height: 500px;
+        }
+        .factor-list {
+            width: 400px;
+            border-right: 1px solid #e9ecef;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        .factor-item {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .factor-item:hover {
+            background: #f8f9fa;
+        }
+        .factor-item.active {
+            background: #f3e8ff;
+            border-left: 3px solid #8b5cf6;
+        }
+        .factor-item h3 {
+            font-size: 16px;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        .factor-item .meta {
+            font-size: 12px;
+            color: #666;
+        }
+        .factor-detail {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-header h2 {
+            font-size: 20px;
+            color: #1a1a1a;
+        }
+        .detail-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .info-card {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .info-card h4 {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .info-card .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .data-preview {
+            margin-top: 24px;
+        }
+        .data-preview h3 {
+            font-size: 16px;
+            color: #1a1a1a;
+            margin-bottom: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #999;
+        }
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-purple {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal-content h3 {
+            margin-bottom: 16px;
+            color: #1a1a1a;
+        }
+        .modal-content p {
+            margin-bottom: 24px;
+            color: #666;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🗄️ 因子库管理</h1>
+                <p>查看、管理 ETL 生产的基础因子数据</p>
+            </div>
+            <div class="header-actions">
+                <button onclick="refreshData()">🔄 刷新</button>
+                <button onclick="window.open('/static/index.html', '_self')">← 返回主页</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>因子类型:</label>
+                <select id="filterType" onchange="loadFactors()">
+                    <option value="">全部</option>
+                    <option value="L0">L0 原始因子</option>
+                    <option value="L1">L1 基础因子</option>
+                    <option value="L2">L2 衍生因子</option>
+                    <option value="L3">L3 统计因子</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>因子库路径:</label>
+                <input type="text" id="dbPath" value="D:/data/factor_data.duckdb" style="width: 300px;">
+            </div>
+            <button onclick="loadFactors()">查询</button>
+        </div>
+
+        <div class="stats" id="statsBar">
+            <div class="stat-item">
+                <span>📊 因子总数:</span>
+                <span class="stat-value" id="totalFactors">-</span>
+            </div>
+            <div class="stat-item">
+                <span>📈 数据总行数:</span>
+                <span class="stat-value" id="totalRecords">-</span>
+            </div>
+            <div class="stat-item">
+                <span>💾 数据库大小:</span>
+                <span class="stat-value" id="dbSize">-</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="factor-list" id="factorList">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="factor-detail" id="factorDetail">
+                <div class="empty-state">
+                    <div class="icon">👈</div>
+                    <p>请从左侧选择一个因子查看详情</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <h3>确认删除因子</h3>
+            <p id="deleteMessage">确定要删除因子 <strong id="deleteFactorId"></strong> 吗？此操作不可恢复。</p>
+            <div class="modal-actions">
+                <button onclick="closeDeleteModal()">取消</button>
+                <button class="danger" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/factors';
+        let currentFactors = [];
+        let selectedFactor = null;
+        let factorToDelete = null;
+
+        async function loadFactors() {
+            const dbPath = document.getElementById('dbPath').value;
+            const filterType = document.getElementById('filterType').value;
+
+            document.getElementById('factorList').innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                // 加载因子列表
+                const registryRes = await fetch(`${API_BASE}/registry?db_path=${encodeURIComponent(dbPath)}${filterType ? '&factor_type=' + filterType : ''}`);
+                const registryData = await registryRes.json();
+
+                if (!registryData.success) {
+                    throw new Error(registryData.detail || '加载失败');
+                }
+
+                currentFactors = registryData.factors || [];
+
+                // 加载统计信息
+                const statsRes = await fetch(`${API_BASE}/stats?db_path=${encodeURIComponent(dbPath)}`);
+                const statsData = await statsRes.json();
+
+                if (statsData.success) {
+                    document.getElementById('totalFactors').textContent = statsData.total_factors;
+                    document.getElementById('totalRecords').textContent = statsData.total_records.toLocaleString();
+                    // 估算数据库大小（简化处理）
+                    document.getElementById('dbSize').textContent = '~' + Math.round(statsData.total_records * 0.1) + ' KB';
+                }
+
+                renderFactorList();
+            } catch (e) {
+                document.getElementById('factorList').innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${e.message}</p></div>`;
+            }
+        }
+
+        function renderFactorList() {
+            const list = document.getElementById('factorList');
+
+            if (currentFactors.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无因子数据</p></div>';
+                return;
+            }
+
+            list.innerHTML = currentFactors.map(f => `
+                <div class="factor-item ${selectedFactor?.factor_id === f.factor_id ? 'active' : ''}"
+                     onclick="selectFactor('${f.factor_id}')">
+                    <h3>${f.factor_id}</h3>
+                    <div class="meta">
+                        <span class="badge badge-purple">${f.factor_type || 'L2'}</span>
+                        ${f.compute_type || ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function selectFactor(factorId) {
+            selectedFactor = currentFactors.find(f => f.factor_id === factorId);
+            renderFactorList();
+
+            const detail = document.getElementById('factorDetail');
+            detail.innerHTML = '<div class="loading">加载中...</div>';
+
+            const dbPath = document.getElementById('dbPath').value;
+
+            try {
+                // 加载因子统计
+                const codesRes = await fetch(`${API_BASE}/codes?factor_id=${factorId}&db_path=${encodeURIComponent(dbPath)}`);
+                const codesData = await codesRes.json();
+
+                // 加载数据预览
+                const queryRes = await fetch(`${API_BASE}/query?factor_id=${factorId}&db_path=${encodeURIComponent(dbPath)}&limit=20`);
+                const queryData = await queryRes.json();
+
+                if (!codesData.success || !queryData.success) {
+                    throw new Error('加载详情失败');
+                }
+
+                const codes = codesData.codes || [];
+                const data = queryData.data || [];
+
+                detail.innerHTML = `
+                    <div class="detail-header">
+                        <h2>${factorId}</h2>
+                        <div class="detail-actions">
+                            <button onclick="previewData('${factorId}')">👁️ 完整预览</button>
+                            <button class="danger" onclick="showDeleteModal('${factorId}')">🗑️ 删除</button>
+                        </div>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <h4>因子类型</h4>
+                            <div class="value">${selectedFactor.factor_type || 'L2'}</div>
+                        </div>
+                        <div class="info-card">
+                            <h4>计算类型</h4>
+                            <div class="value">${selectedFactor.compute_type || '-'}</div>
+                        </div>
+                        <div class="info-card">
+                            <h4>股票数量</h4>
+                            <div class="value">${codes.length}</div>
+                        </div>
+                        <div class="info-card">
+                            <h4>数据行数</h4>
+                            <div class="value">${codes.reduce((sum, c) => sum + c.count, 0).toLocaleString()}</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="color: #666; margin-bottom: 8px;">参数配置</h4>
+                        <code style="background: #f8f9fa; padding: 8px 12px; border-radius: 4px; display: block;">${selectedFactor.params_json || '{}'}</code>
+                    </div>
+
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="color: #666; margin-bottom: 8px;">股票代码范围</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${codes.slice(0, 10).map(c => `<span class="badge badge-purple">${c.code}</span>`).join('')}
+                            ${codes.length > 10 ? `<span style="color: #999;">... 等 ${codes.length} 只</span>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="data-preview">
+                        <h3>数据预览（前 20 条）</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>股票代码</th>
+                                    <th>日期</th>
+                                    <th>因子值</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(row => `
+                                    <tr>
+                                        <td>${row.code}</td>
+                                        <td>${row.dt}</td>
+                                        <td>${row.factor_value?.toFixed(4) || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (e) {
+                detail.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${e.message}</p></div>`;
+            }
+        }
+
+        async function previewData(factorId) {
+            const dbPath = document.getElementById('dbPath').value;
+            window.open(`${API_BASE}/query?factor_id=${factorId}&db_path=${encodeURIComponent(dbPath)}&limit=1000`, '_blank');
+        }
+
+        function showDeleteModal(factorId) {
+            factorToDelete = factorId;
+            document.getElementById('deleteFactorId').textContent = factorId;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            factorToDelete = null;
+        }
+
+        async function confirmDelete() {
+            if (!factorToDelete) return;
+
+            const dbPath = document.getElementById('dbPath').value;
+
+            try {
+                const res = await fetch(`${API_BASE}/delete?factor_id=${factorToDelete}&db_path=${encodeURIComponent(dbPath)}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.detail || '删除失败');
+                }
+
+                alert(`因子 ${factorToDelete} 已删除`);
+                closeDeleteModal();
+
+                // 刷新列表
+                selectedFactor = null;
+                document.getElementById('factorDetail').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">👈</div>
+                        <p>请从左侧选择一个因子查看详情</p>
+                    </div>
+                `;
+                loadFactors();
+            } catch (e) {
+                alert(`删除失败: ${e.message}`);
+                closeDeleteModal();
+            }
+        }
+
+        function refreshData() {
+            loadFactors();
+            if (selectedFactor) {
+                selectFactor(selectedFactor.factor_id);
+            }
+        }
+
+        // 初始化
+        loadFactors();
+    </script>
+</body>
+</html>

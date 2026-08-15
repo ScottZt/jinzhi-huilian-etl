@@ -74,10 +74,68 @@
     .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
     .canvas-wrap #drawflow { width: 100%; height: 100%; }
 
+    /* Group/Region boxes for container nodes */
+    .group-overlay {
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .group-overlay.level-0 {
+      background: rgba(99, 102, 241, 0.08);
+      border: 3px dashed rgba(99, 102, 241, 0.6);
+    }
+    .group-overlay.level-1 {
+      background: rgba(34, 197, 94, 0.08);
+      border: 3px dashed rgba(34, 197, 94, 0.6);
+    }
+    .group-overlay.level-2 {
+      background: rgba(245, 158, 11, 0.08);
+      border: 3px dashed rgba(245, 158, 11, 0.6);
+    }
+    .group-label {
+      position: absolute;
+      top: -14px;
+      left: 16px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.1s, box-shadow 0.1s;
+      z-index: 100;  /* 确保标题在 Drawflow 节点上层 */
+    }
+    .group-label:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    }
+    .group-label.dragging {
+      cursor: grabbing;
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    .group-overlay.level-0 .group-label {
+      background: rgba(99, 102, 241, 0.95);
+      color: #fff;
+    }
+    .group-overlay.level-1 .group-label {
+      background: rgba(34, 197, 94, 0.95);
+      color: #fff;
+    }
+    .group-overlay.level-2 .group-label {
+      background: rgba(245, 158, 11, 0.95);
+      color: #fff;
+    }
+
     /* Drawflow overrides */
     /* Canvas background — match theme */
     .drawflow {
-      background: var(--bg) !important;
+      background: transparent !important;
       background-image: radial-gradient(circle, var(--border) 1px, transparent 1px) !important;
       background-size: 24px 24px;
     }
@@ -116,6 +174,53 @@
       background: var(--danger); color: #fff;
     }
 
+    /* Container node styles (for_each, loop, try_catch) */
+    .drawflow .drawflow-node.container-node {
+      border: 2px dashed var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+      position: relative;
+    }
+    .drawflow .drawflow-node.container-node.selected {
+      border-color: var(--accent) !important;
+      border-style: solid;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+    }
+    .drawflow .drawflow-node.container-node .title {
+      background: rgba(99,102,241,0.2);
+    }
+    .container-badge {
+      position: absolute;
+      top: 4px;
+      right: 30px;  /* 在调试按钮左边，避免重叠 */
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    .container-child-count {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(99,102,241,0.15);
+      color: var(--accent);
+    }
+
+    /* Subgraph highlight */
+    .drawflow .drawflow-node.subgraph-highlight {
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.3);
+      border-color: var(--accent) !important;
+    }
+    .drawflow .drawflow-node.subgraph-highlight-nested {
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.3);
+      border-color: var(--success) !important;
+    }
+
     /* Properties panel */
     .props-panel {
       width: 280px; background: var(--card); border-left: 1px solid var(--border);
@@ -145,6 +250,7 @@
     .toast.show { opacity: 1; }
     .toast.success { background: var(--success); }
     .toast.error { background: var(--danger); }
+    .toast.warning { background: var(--warning); }
 
     /* Assistant modal */
     .assistant-overlay {
@@ -188,6 +294,57 @@
     .import-item .nodes { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
     .import-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
     .import-foot .hint { font-size: 11px; color: var(--text-dim); }
+
+    /* 搜索框 */
+    .import-search {
+      width: 100%; padding: 7px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 12px; outline: none;
+      box-sizing: border-box;
+    }
+    .import-search:focus { border-color: var(--accent); }
+    /* 分类 chips */
+    .import-chips {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 4px;
+    }
+    .import-chip {
+      padding: 3px 10px; border-radius: 12px; font-size: 11px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text-dim); cursor: pointer; white-space: nowrap;
+      transition: all 0.15s; font-family: inherit;
+    }
+    .import-chip:hover { border-color: var(--accent); color: var(--text); }
+    .import-chip.active {
+      background: rgba(99,102,241,0.15); border-color: var(--accent);
+      color: var(--accent); font-weight: 600;
+    }
+    /* 智能推荐区 */
+    .import-recommend {
+      display: none; flex-direction: column; gap: 6px;
+      padding: 8px 10px; margin: 4px 0 8px;
+      background: rgba(99,102,241,0.05); border: 1px dashed var(--accent);
+      border-radius: 6px;
+    }
+    .import-recommend.has-items { display: flex; }
+    .import-recommend-title {
+      font-size: 11px; color: var(--accent); font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .import-recommend-subtitle {
+      font-size: 10px; color: var(--text-dim); font-weight: normal;
+    }
+    .import-recommend .import-item {
+      background: var(--card); border-color: rgba(99,102,241,0.3);
+      margin-bottom: 0;
+    }
+    /* 示例条目内的标签 */
+    .import-item-tags {
+      display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px;
+    }
+    .import-item-tag {
+      font-size: 10px; padding: 1px 6px; border-radius: 8px;
+      background: rgba(99,102,241,0.12); color: var(--accent);
+    }
 
     /* Data preview panel */
     .data-preview-panel {
@@ -251,6 +408,65 @@
     .drawflow .drawflow-node.preview-empty-node {
       opacity: 0.5;
     }
+    /* 节点执行失败高亮 */
+    .drawflow .drawflow-node.node-error {
+      border-color: var(--danger) !important;
+      box-shadow: 0 0 0 2px rgba(239,68,68,0.3);
+    }
+    /* 节点卡片上的调试按钮 */
+    .node-debug-btn {
+      position: absolute; top: 4px; right: 6px;
+      width: 20px; height: 20px; border-radius: 4px;
+      background: rgba(99,102,241,0.15); border: 1px solid var(--accent);
+      color: var(--accent); cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s; z-index: 5;
+    }
+    .drawflow .drawflow-node:hover .node-debug-btn,
+    .drawflow .drawflow-node.selected .node-debug-btn { opacity: 1; }
+    .node-debug-btn:hover { background: var(--accent); color: #fff; }
+    /* 节点调试面板（弹出层） */
+    .node-debug-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 140;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .node-debug-overlay.open { display: flex; }
+    .node-debug-modal {
+      width: min(1000px, 96vw); max-height: 90vh; display: flex; flex-direction: column;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    .node-debug-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .node-debug-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+    .node-debug-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .node-debug-body { flex: 1; overflow: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .node-debug-section {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .node-debug-section-header {
+      padding: 6px 12px; background: var(--card); border-bottom: 1px solid var(--border);
+      font-size: 12px; font-weight: 600; color: var(--text-dim);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .node-debug-section-body { max-height: 260px; overflow: auto; }
+    .node-debug-section-body .preview-data-table { width: 100%; }
+    .node-debug-error {
+      background: rgba(239,68,68,0.1); border: 1px solid var(--danger); border-radius: 8px;
+      padding: 10px 14px; color: var(--danger);
+    }
+    .node-debug-error .err-title { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+    .node-debug-error .err-type { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+    .node-debug-error .err-traceback {
+      margin-top: 8px; padding: 8px 10px; background: rgba(0,0,0,0.3); border-radius: 4px;
+      font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px; color: #fca5a5;
+      white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto;
+    }
+    .node-debug-upstream-error {
+      background: rgba(245,158,11,0.1); border: 1px solid var(--warning); border-radius: 8px;
+      padding: 10px 14px; color: var(--warning); font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -265,6 +481,8 @@
       <span style="color:var(--text-dim);font-size:11px;margin-right:4px" title="滚轮缩放，中键拖拽画布">🖱️ 滚轮缩放 / 中键拖拽</span>
       <button class="btn btn-secondary" onclick="openImportExamplesModal()">📥 导入示例</button>
       <button class="btn btn-secondary" onclick="openWorkflowAssistant()">🤖 AI 辅助</button>
+      <button class="btn btn-secondary" onclick="window.open('/static/guide.html','_blank')" title="新手操作手册">📘 手册</button>
+      <button class="btn" onclick="formatCanvas()" title="自动对齐所有节点">⊞ 格式化</button>
       <button class="btn" onclick="clearAll()" title="清空画布">清空</button>
       <button class="btn btn-secondary" id="preview-btn" onclick="runWorkflowPreview()">▶ 预览</button>
       <button class="btn btn-primary" onclick="saveWorkflow()">保存工作流</button>
@@ -277,7 +495,8 @@
       <div class="text-dim" style="font-size:12px">加载中...</div>
     </div>
     <div class="canvas-wrap">
-      <div id="drawflow"></div>
+      <div id="group-overlay-container" style="position:absolute;inset:0;pointer-events:none;z-index:10;"></div>
+      <div id="drawflow" style="position:relative;z-index:2;"></div>
     </div>
     <div class="props-panel" id="props-panel">
       <div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>
@@ -295,22 +514,55 @@
     </div>
   </div>
 
+  <!-- 单节点调试面板 -->
+  <div class="node-debug-overlay" id="node-debug-overlay" onclick="if(event.target===this)closeNodeDebug()">
+    <div class="node-debug-modal">
+      <div class="node-debug-head">
+        <div>
+          <div class="node-debug-title" id="node-debug-title">🔍 节点调试</div>
+          <div class="node-debug-meta" id="node-debug-meta"></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" id="node-debug-run-btn" onclick="rerunNodeDebug()">▶ 重新执行</button>
+          <button class="btn btn-sm" onclick="closeNodeDebug()">✕ 关闭</button>
+        </div>
+      </div>
+      <div class="node-debug-body" id="node-debug-body">
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
-  <!-- 导入示例工作流多选弹框 -->
+  <!-- 导入示例工作流多选弹框（搜索 + chips + 智能推荐 组合打法） -->
   <div class="import-overlay" id="import-overlay" onclick="if(event.target===this)closeImportExamplesModal()">
     <div class="import-modal">
       <div class="import-head">
         <div class="import-title">📥 导入示例工作流</div>
         <button class="btn btn-sm" onclick="closeImportExamplesModal()">✕</button>
       </div>
+
+      <!-- 搜索框 -->
+      <input type="text" class="import-search" id="import-search"
+             placeholder="🔍 搜索示例（标题、描述、节点、标签...）" oninput="renderImportList()">
+
+      <!-- 分类 chips -->
+      <div class="import-chips" id="import-chips"></div>
+
+      <!-- 智能推荐区（基于当前画布） -->
+      <div class="import-recommend" id="import-recommend"></div>
+
+      <!-- 工具栏：全选 / 计数 / 过滤提示 -->
       <div class="import-toolbar">
         <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选</label>
         <span class="text-dim" style="font-size:11px" id="import-count">已选 0 项</span>
         <span style="flex:1"></span>
-        <span class="text-dim" style="font-size:11px">勾选后点右下「导入选中」批量创建</span>
+        <span class="text-dim" style="font-size:11px" id="import-filter-hint">共 0 个示例</span>
       </div>
+
+      <!-- 主列表 -->
       <div class="import-list" id="import-list"></div>
+
       <div class="import-foot">
         <div class="hint">数据来源：docs/example_workflows.md</div>
         <div style="display:flex;gap:8px">
@@ -374,15 +626,41 @@
 
     // ---------- Global state ----------
     let editor;
+    // 数据源/连接缓存（供节点属性面板下拉使用）
+    let _wfSourcesCache = [];
+    let _wfConnectionsCache = [];
+    async function _loadNodeRefData() {
+      try {
+        const [sources, connections] = await Promise.all([
+          api('/api/kline-sources/'),
+          api('/api/connections'),
+        ]);
+        _wfSourcesCache = sources || [];
+        const dbTypes = ['mysql', 'postgresql', 'duckdb', 'clickhouse'];
+        _wfConnectionsCache = (connections || []).filter(c => dbTypes.includes(c.type));
+      } catch (e) {
+        console.warn('加载数据源/连接列表失败:', e);
+      }
+    }
     const NODE_CATEGORIES = {
       '数据接入': [
+        { type: 'file_read', label: '读取文件', icon: '📖' },
         { type: 'source_fetch', label: '数据源拉取', icon: '📥' },
+        { type: 'stock_list', label: '股票列表', icon: '📊' },
         { type: 'contract_list', label: '合约列表', icon: '📋' },
+        { type: 'db_query', label: '数据库查询', icon: '🔎' },
       ],
       '数据输出': [
+        { type: 'file_write', label: '写入文件', icon: '📝' },
         { type: 'target_write', label: '写入目标库', icon: '💾' },
       ],
+      '因子库': [
+        { type: 'factor_compute', label: '因子计算', icon: '🧮' },
+        { type: 'factor_expression', label: '因子表达式', icon: 'ƒx' },
+        { type: 'factor_write', label: '写入因子库', icon: '🗄️' },
+      ],
       '指标计算': [
+        { type: 'kline_resample', label: 'K线任意分钟合成', icon: '⏱' },
         { type: 'resample', label: '周期重采样', icon: '📊' },
         { type: 'ma', label: '移动平均', icon: '📈' },
         { type: 'macd', label: 'MACD', icon: '📉' },
@@ -395,9 +673,27 @@
         { type: 'group_by', label: '分组聚合', icon: '📋' },
         { type: 'column_rename', label: '列重命名', icon: '✏️' },
         { type: 'expression', label: '表达式计算', icon: '🔢' },
+        { type: 'limit', label: '数据限制', icon: '📏' },
+        { type: 'datetime_ops', label: '日期时间操作', icon: '📅' },
+        { type: 'aggregation', label: '数据聚合', icon: '📊' },
+        { type: 'data_convert', label: '格式转换', icon: '🔄' },
+        { type: 'merge', label: '数据合并', icon: '🔗' },
+      ],
+      '数据集成': [
+        { type: 'http_request', label: 'HTTP 请求', icon: '🌐' },
+        { type: 'source_fetch', label: '数据源获取', icon: '📥' },
+        { type: 'db_query', label: '数据库查询', icon: '🗄️' },
+        { type: 'target_write', label: '写入目标', icon: '📤' },
       ],
       '流程控制': [
         { type: 'condition', label: '条件分支', icon: '🔀' },
+        { type: 'switch', label: '多路分支', icon: '🔀' },
+        { type: 'set_variable', label: '变量赋值', icon: '📝' },
+        { type: 'for_each', label: '循环遍历', icon: '🔄' },
+        { type: 'loop', label: '条件循环', icon: '🔁' },
+        { type: 'split_batches', label: '分批处理', icon: '📦' },
+        { type: 'wait', label: '等待延时', icon: '⏳' },
+        { type: 'try_catch', label: '错误处理', icon: '🛡️' },
       ],
       '高级': [
         { type: 'custom_python', label: '自定义脚本', icon: '🐍' },
@@ -420,20 +716,43 @@
       group_by: { group_by: 'code', aggregations: 'close=last,vol=sum' },
       column_rename: { renames: 'code=stock_code,dt=trade_time' },
       expression: { target_column: 'new_col', expression: "df['open'] + df['close']" },
-      condition: { condition: "df['close'] > 0", branch: 'true' },
+      limit: { max_items: 100, keep: 'first' },
+      datetime_ops: { operation: 'format', source_column: 'dt', target_column: '', format: '%Y-%m-%d %H:%M:%S', unit: 'days', value: 1, part: 'year', target_date: '' },
+      aggregation: { group_by: '', aggregations: '', preset: 'custom', source_column: 'close', reset_index: true },
+      data_convert: { operation: 'json_to_df', source_column: '', target_column: '', json_path: '', sep: ',', flatten_separator: '_', max_rows: 0 },
+      file_read: { file_path: '', file_type: 'auto', encoding: 'utf-8', sep: ',', sheet_name: '', json_orient: 'records', skip_rows: 0, max_rows: 0 },
+      file_write: { file_path: '', file_type: 'auto', encoding: 'utf-8', sep: ',', index: false, sheet_name: 'Sheet1', json_orient: 'records', create_dir: true },
+      merge: { mode: 'append', join_type: 'outer', on_columns: '', input_count: 2 },
+      http_request: { method: 'GET', url: '', headers: '{}', body_type: 'none', body: '', timeout: 30, auth_type: 'none', auth_token: '', response_type: 'auto', output_column: 'response' },
+      condition: { condition: "df['close'] > 0" },
+      switch: { rules: '[\n  {"condition": "value > 100", "output": "output_1"},\n  {"condition": "value > 50", "output": "output_2"}\n]', default_output: 'output_3' },
+      set_variable: { var_name: 'my_var', var_value: '0', value_type: 'string' },
+      for_each: { items: '["item1", "item2"]', item_var: 'current_item', index_var: 'item_index', max_iterations: 1000 },
+      loop: { condition: "context.get('counter', 0) < 10", max_iterations: 100 },
+      wait: { seconds: 1, mode: 'delay', target_timestamp: '' },
+      try_catch: { retry_times: 3, retry_delay: 1, on_error: 'continue', fallback_value: '' },
+      split_batches: { batch_size: 100, parallel: false, max_parallel: 4, error_handling: 'continue' },
       custom_python: { code: 'def process(df):\n    return df' },
-      source_fetch: { source_type: 'tdx', codes: '000001,600000', interval: '1min', time_mode: 'lookback', lookback_days: 30, session_only: true, parallel: false, max_workers: 4 },
+      source_fetch: { source_id: '', manual_config: false, codes: '', code_column: '', interval: '1min', time_mode: 'lookback', lookback_days: 30, session_only: true, parallel: false, max_workers: 4 },
+      stock_list: { market: 'all', industry: '', exclude_st: true, keyword: '', limit: 5000, data_source: 'akshare' },
       contract_list: { market_type: 'all', product: '', exchange: '', search: '', limit: 500, auto_sync: false },
-      target_write: { target_type: 'duckdb', target_table: 'stock_minute_kline', batch_size: 5000, on_duplicate: 'ignore' },
-      dedup: { mode: 'keep_last', columns: 'code,dt' },
+      db_query: { connection_id: '', manual_config: false, mode: 'source', db_type: 'duckdb', db_config: '{"db_path": "D:/data/demo.db"}', sql: 'SELECT * FROM your_table LIMIT 100', default_rows: '', target_table: 'kline_hfq', date_column: 'dt', code_column: 'code', default_date: '2016-01-01' },
+      target_write: { connection_id: '', manual_config: false, target_table: 'stock_minute_kline', batch_size: 5000, on_duplicate: 'ignore' },
+      dedup: { mode: 'keep_last', columns: 'code,dt', connection_id: '', manual_config: false },
       time_window: { window_size: 7, window_step: 7, time_column: 'dt', sort_first: true },
+      factor_compute: { factor_id: 'ma_5', compute_type: 'ma', params_json: '{"window": 5}', source_column: 'close', code_column: 'code', date_column: 'dt' },
+      factor_expression: { expression: 'MA($close, 20) / STD($close, 20)', output_column: 'factor_value', code_column: 'code', date_column: 'dt' },
+      factor_write: { factor_id: '', db_path: 'D:/data/factor_data.duckdb', write_mode: 'upsert', code_column: 'code', date_column: 'dt', value_column: 'factor_value', register_meta: true, factor_name: '', compute_type: 'other', params_json_meta: '{}' },
     };
 
     const NODE_COLORS = {
       resample: '#6366f1', ma: '#22c55e', macd: '#f59e0b', rsi: '#38bdf8', boll: '#ec4899',
       filter: '#6366f1', sort: '#22c55e', group_by: '#22c55e', column_rename: '#f59e0b',
-      expression: '#f59e0b', condition: '#ec4899', custom_python: '#ec4899',
-      source_fetch: '#06b6d4', contract_list: '#14b8a6', target_write: '#8b5cf6', dedup: '#14b8a6', time_window: '#f97316',
+      expression: '#f59e0b', condition: '#ec4899', switch: '#d946ef', custom_python: '#ec4899', limit: '#6366f1', datetime_ops: '#8b5cf6', aggregation: '#14b8a6', data_convert: '#06b6d4', merge: '#0ea5e9',
+      http_request: '#3b82f6', source_fetch: '#06b6d4', db_query: '#0891b2', target_write: '#8b5cf6', file_read: '#10b981', file_write: '#059669',
+      set_variable: '#64748b', for_each: '#0891b2', loop: '#0e7490', wait: '#7c3aed', try_catch: '#dc2626', split_batches: '#f97316',
+      stock_list: '#10b981', contract_list: '#14b8a6', dedup: '#14b8a6', time_window: '#f97316',
+      factor_compute: '#8b5cf6', factor_expression: '#7c3aed', factor_write: '#a855f7',
     };
 
     let workflowId = null;
@@ -538,6 +857,22 @@
       editor.on('nodeUnselected', onNodeUnselected);
       editor.on('nodeRemoved', onNodeRemoved);
 
+      // 初始化区域分组框
+      initGroupOverlays();
+
+      // 节点调试按钮 — 事件委托
+      el.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-debug-btn]');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        // 向上查找 drawflow node 元素，提取节点 ID
+        const nodeEl = btn.closest('.drawflow-node');
+        if (!nodeEl) return;
+        const dfId = nodeEl.id.replace(/^node-/, '');
+        debugNodeByDrawflowId(dfId);
+      }, true);
+
       // Drag & drop from palette
       el.addEventListener('dragover', e => e.preventDefault());
       el.addEventListener('drop', onDropNode);
@@ -611,26 +946,516 @@
       return null;
     }
 
+    // 容器节点类型列表
+    const CONTAINER_NODE_TYPES = ['for_each', 'loop', 'try_catch'];
+
     function addNodeToCanvas(type, x, y, params = null, origId = null) {
       const meta = findNodeMeta(type);
       const label = meta ? meta.label : type;
       const icon = meta ? meta.icon : '⬢';
       const color = NODE_COLORS[type] || '#6366f1';
+      const isContainer = CONTAINER_NODE_TYPES.includes(type);
+
+      // 条件分支节点有 2 个输出端口（true 和 false）
+      // 多路分支节点有 3 个输出端口（可配置更多）
+      const numInputs = 1;
+      let numOutputs = 1;
+      if (type === 'condition') {
+        numOutputs = 2;
+      } else if (type === 'switch') {
+        numOutputs = 3;  // 默认 3 个输出端口
+      }
 
       const data = {
         nodeType: type,
         parameters: params || { ...NODE_DEFAULTS[type] || {} },
         label: label,
         icon: icon,
-        origId: origId,  // preserve original workflow ID for save/load
+        origId: origId,
+        isContainer: isContainer,
+        numOutputs: numOutputs,
       };
 
+      // 容器节点显示特殊徽章
+      const containerBadge = isContainer ? '<span class="container-badge">容器</span>' : '';
+
       const html = `
-        <div class="title" style="border-left-color:${color}">${icon} ${label}</div>
+        <div class="title" style="border-left-color:${color};position:relative;padding-right:28px">${icon} ${label}
+          <button class="node-debug-btn" data-debug-btn title="调试此节点">▶</button>
+          ${containerBadge}
+        </div>
         <div class="content" data-content>${formatParamSummary(data.parameters)}</div>
       `;
 
-      editor.addNode(label, 1, 1, x, y, label, data, html);
+      const addedNodeId = editor.addNode(label, numInputs, numOutputs, x, y, label, data, html);
+
+      // 给容器节点添加特殊样式类
+      if (isContainer) {
+        setTimeout(() => {
+          const nodeEl = editor.getNodeIdFromName === undefined
+            ? document.querySelector(`.drawflow-node[data-id="${addedNodeId}"]`)
+            : document.getElementById(`node-${addedNodeId}`);
+          if (nodeEl) {
+            nodeEl.classList.add('container-node');
+          }
+        }, 50);
+      }
+
+      // 给条件分支节点添加输出端口标签
+      if (type === 'condition') {
+        setTimeout(() => {
+          const nodeEl = document.getElementById(`node-${addedNodeId}`);
+          if (nodeEl) {
+            const output1 = nodeEl.querySelector('.output_1');
+            const output2 = nodeEl.querySelector('.output_2');
+            if (output1) {
+              output1.title = 'true';
+              output1.style.top = '35%';
+            }
+            if (output2) {
+              output2.title = 'false';
+              output2.style.top = '65%';
+            }
+          }
+        }, 50);
+      }
+
+      return addedNodeId;
+    }
+
+    // 刷新所有容器节点的样式（加载工作流后调用）
+    function refreshContainerNodeStyles() {
+      const exportData = editor.export();
+      if (!exportData.drawflow || !exportData.drawflow.Home) return;
+
+      for (const [key, dfNode] of Object.entries(exportData.drawflow.Home.data)) {
+        const nodeEl = document.getElementById(key);
+        if (!nodeEl) continue;
+
+        const nodeType = dfNode.data?.nodeType;
+        if (CONTAINER_NODE_TYPES.includes(nodeType)) {
+          nodeEl.classList.add('container-node');
+          // 确保徽章存在
+          if (!nodeEl.querySelector('.container-badge')) {
+            const titleEl = nodeEl.querySelector('.title');
+            if (titleEl) {
+              const badge = document.createElement('span');
+              badge.className = 'container-badge';
+              badge.textContent = '容器';
+              titleEl.appendChild(badge);
+            }
+          }
+        }
+      }
+    }
+
+    // 获取指定节点的所有下游节点（BFS）
+    function getDownstreamNodes(nodeId) {
+      const exportData = editor.export();
+      if (!exportData.drawflow || !exportData.drawflow.Home) return [];
+
+      const dfNodes = exportData.drawflow.Home.data;
+      const downstreamIds = new Set();
+      const queue = [nodeId];
+      const visited = new Set([nodeId]);
+
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        const currentNode = dfNodes[currentId];
+        if (!currentNode || !currentNode.outputs) continue;
+
+        // 获取输出端口的连接
+        for (const outputKey of Object.keys(currentNode.outputs)) {
+          const connections = currentNode.outputs[outputKey]?.connections || [];
+          for (const conn of connections) {
+            const targetId = conn.node || conn.id;
+            if (targetId && !visited.has(targetId)) {
+              visited.add(targetId);
+              downstreamIds.add(targetId);
+              queue.push(targetId);
+            }
+          }
+        }
+      }
+
+      return Array.from(downstreamIds);
+    }
+
+    // 高亮子图节点
+    function highlightSubgraph(nodeId) {
+      // 清除之前的高亮
+      document.querySelectorAll('.subgraph-highlight, .subgraph-highlight-nested').forEach(el => {
+        el.classList.remove('subgraph-highlight', 'subgraph-highlight-nested');
+      });
+
+      const nodeEl = document.getElementById(nodeId);
+      if (!nodeEl) return;
+
+      const nodeData = editor.getNodeFromName?.(nodeId) || null;
+      const nodeType = nodeEl.querySelector('.title')?.textContent?.trim();
+
+      // 检查是否是容器节点
+      if (!nodeEl.classList.contains('container-node')) return;
+
+      // 获取下游节点
+      const downstreamIds = getDownstreamNodes(nodeId);
+
+      // 高亮下游节点
+      for (const dId of downstreamIds) {
+        const dEl = document.getElementById(dId);
+        if (dEl) {
+          // 检查是否是嵌套的容器节点
+          if (dEl.classList.contains('container-node')) {
+            dEl.classList.add('subgraph-highlight-nested');
+          } else {
+            dEl.classList.add('subgraph-highlight');
+          }
+        }
+      }
+    }
+
+    // 清除所有子图高亮
+    function clearSubgraphHighlight() {
+      document.querySelectorAll('.subgraph-highlight, .subgraph-highlight-nested').forEach(el => {
+        el.classList.remove('subgraph-highlight', 'subgraph-highlight-nested');
+      });
+    }
+
+    // ========== Group/Region Box Rendering ==========
+    const GROUP_PADDING = 40;  // 区域框内边距
+    const GROUP_HEADER_HEIGHT = 24;  // 标题高度
+
+    // 渲染所有区域框
+    function renderGroupOverlays() {
+      const container = document.getElementById('group-overlay-container');
+      if (!container) return;
+
+      // 清除之前的区域框
+      container.innerHTML = '';
+
+      const exportData = editor.export();
+      if (!exportData.drawflow || !exportData.drawflow.Home) return;
+
+      const dfNodes = exportData.drawflow.Home.data;
+
+      // 找出所有容器节点
+      const containerNodes = [];
+      for (const [nodeId, nodeData] of Object.entries(dfNodes)) {
+        if (CONTAINER_NODE_TYPES.includes(nodeData.data?.nodeType)) {
+          containerNodes.push({
+            id: nodeId,
+            data: nodeData,
+            label: nodeData.data?.label || nodeData.name || '容器',
+          });
+        }
+      }
+
+      if (containerNodes.length === 0) return;
+
+      // 为每个容器节点计算区域框
+      const groups = [];
+      for (const cn of containerNodes) {
+        const downstreamIds = getDownstreamNodes(cn.id);
+        // 包含容器节点自身
+        const allNodeIds = [cn.id, ...downstreamIds];
+
+        if (allNodeIds.length < 2) continue;  // 至少2个节点才需要区域框
+
+        // 计算边界
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const nid of allNodeIds) {
+          // Drawflow 节点 ID 需要加 "node-" 前缀
+          const domId = nid.startsWith('node-') ? nid : `node-${nid}`;
+          const nodeEl = document.getElementById(domId);
+          if (!nodeEl) continue;
+
+          const rect = nodeEl.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+
+          // 转换为相对于 overlay container 的坐标
+          const x = rect.left - containerRect.left;
+          const y = rect.top - containerRect.top;
+
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x + rect.width);
+          maxY = Math.max(maxY, y + rect.height);
+        }
+
+        if (minX === Infinity) continue;
+
+        groups.push({
+          id: cn.id,
+          label: cn.label,
+          level: 0,  // 后续可以计算嵌套层级
+          x: minX - GROUP_PADDING,
+          y: minY - GROUP_PADDING - GROUP_HEADER_HEIGHT,
+          width: maxX - minX + GROUP_PADDING * 2,
+          height: maxY - minY + GROUP_PADDING * 2 + GROUP_HEADER_HEIGHT,
+        });
+      }
+
+      // 计算嵌套层级（简单的：如果一个区域框包含另一个容器节点，则层级+1）
+      for (let i = 0; i < groups.length; i++) {
+        for (let j = 0; j < groups.length; j++) {
+          if (i === j) continue;
+          const gi = groups[i];
+          const gj = groups[j];
+          // 如果 gi 包含 gj 的容器节点
+          const gjDomId = gj.id.startsWith('node-') ? gj.id : `node-${gj.id}`;
+          const gjNode = document.getElementById(gjDomId);
+          if (gjNode) {
+            const containerRect = container.getBoundingClientRect();
+            const gjRect = gjNode.getBoundingClientRect();
+            const gjX = gjRect.left - containerRect.left;
+            const gjY = gjRect.top - containerRect.top;
+
+            if (gjX > gi.x && gjY > gi.y &&
+                gjX < gi.x + gi.width && gjY < gi.y + gi.height) {
+              gj.level = Math.max(gj.level, gi.level + 1);
+            }
+          }
+        }
+      }
+
+      // 渲染区域框
+      for (const g of groups) {
+        const levelClass = `level-${Math.min(g.level, 2)}`;
+        const overlay = document.createElement('div');
+        overlay.className = `group-overlay ${levelClass}`;
+        overlay.style.left = g.x + 'px';
+        overlay.style.top = g.y + 'px';
+        overlay.style.width = g.width + 'px';
+        overlay.style.height = g.height + 'px';
+
+        const label = document.createElement('div');
+        label.className = 'group-label';
+        label.textContent = `🔄 ${g.label}`;
+        label.dataset.containerId = g.id;  // 保存容器节点 id（如 "node-12"）
+        label.addEventListener('mousedown', startGroupDrag);
+        overlay.appendChild(label);
+
+        container.appendChild(overlay);
+      }
+    }
+
+    /**
+     * 容器节点拖拽联动：拖动 for_each/loop/try_catch 时，让下游节点一起移动。
+     * - nodeSelected 在容器节点上触发时，记录容器和所有下游节点的初始位置
+     * - 后续 nodeMoved 时根据容器位移 delta 同步移动下游节点
+     * - nodeUnselected 时重置状态
+     */
+    let containerDragState = null;  // { containerId, startX, startY, childStarts: { key: {x, y} } }
+
+    function armContainerDrag(nodeId) {
+      const module = editor.module || 'Home';
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[module].data : null;
+      if (!store) return;
+      const containerKey = `node-${nodeId}`;
+      const containerNode = store[containerKey];
+      if (!containerNode || !CONTAINER_NODE_TYPES.includes(containerNode.data?.nodeType)) return;
+
+      const downstreamIds = getDownstreamNodes(containerKey).map(id =>
+        id.startsWith('node-') ? id : `node-${id}`
+      );
+      const childStarts = {};
+      for (const childKey of downstreamIds) {
+        const childNode = store[childKey];
+        if (childNode) {
+          childStarts[childKey] = { x: childNode.pos_x, y: childNode.pos_y };
+        }
+      }
+      containerDragState = {
+        containerId: nodeId,
+        startX: containerNode.pos_x,
+        startY: containerNode.pos_y,
+        childStarts,
+      };
+    }
+
+    function moveContainerChildren(nodeId) {
+      if (!nodeId || !containerDragState || containerDragState.containerId !== nodeId) return;
+      const module = editor.module || 'Home';
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[module].data : null;
+      if (!store) return;
+
+      const containerKey = `node-${nodeId}`;
+      const containerNode = store[containerKey];
+      if (!containerNode) return;
+
+      const dx = containerNode.pos_x - containerDragState.startX;
+      const dy = containerNode.pos_y - containerDragState.startY;
+      if (dx === 0 && dy === 0) return;
+
+      for (const [childKey, startPos] of Object.entries(containerDragState.childStarts)) {
+        const childNode = store[childKey];
+        if (!childNode) continue;
+        const newX = startPos.x + dx;
+        const newY = startPos.y + dy;
+        childNode.pos_x = newX;
+        childNode.pos_y = newY;
+        const childEl = document.getElementById(childKey);
+        if (childEl) {
+          childEl.style.left = newX + 'px';
+          childEl.style.top = newY + 'px';
+        }
+        if (typeof editor.updateConnectionNodes === 'function') {
+          editor.updateConnectionNodes(childKey);
+        }
+      }
+    }
+
+    /**
+     * 拖动虚线框标题，整体移动容器节点和所有下游节点。
+     * - mousedown 在 .group-label 上触发
+     * - 收集容器节点 + 所有下游节点作为"组"
+     * - mousemove 时根据鼠标位移 delta 同步移动组内所有节点
+     * - mouseup 时清理监听器和样式
+     */
+    let groupDragState = null;  // { containerKey, nodeKeys: [], startMouseX, startMouseY, nodeStarts: { key: {x, y} } }
+    let boundGroupMouseMove = null;
+    let boundGroupMouseUp = null;
+
+    function startGroupDrag(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const label = e.currentTarget;
+      const containerKey = label.dataset.containerId;  // Drawflow dfNodes 的 key，如 "2"
+
+      const module = editor.module || 'Home';
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[module].data : null;
+      if (!store) return;
+
+      // 收集组内所有节点：容器节点 + 下游节点
+      const downstreamIds = getDownstreamNodes(containerKey);
+      const nodeKeys = [containerKey, ...downstreamIds];
+
+      // 记录每个节点的初始位置
+      const nodeStarts = {};
+      for (const key of nodeKeys) {
+        const node = store[key];
+        if (node) {
+          nodeStarts[key] = { x: node.pos_x, y: node.pos_y };
+        }
+      }
+
+      groupDragState = {
+        containerKey,
+        nodeKeys,
+        startMouseX: e.clientX,
+        startMouseY: e.clientY,
+        nodeStarts,
+      };
+
+      label.classList.add('dragging');
+
+      // 添加全局监听
+      boundGroupMouseMove = onGroupDragMove;
+      boundGroupMouseUp = onGroupDragEnd;
+      document.addEventListener('mousemove', boundGroupMouseMove);
+      document.addEventListener('mouseup', boundGroupMouseUp);
+    }
+
+    function onGroupDragMove(e) {
+      if (!groupDragState) return;
+
+      const module = editor.module || 'Home';
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[module].data : null;
+      if (!store) return;
+
+      // 计算鼠标位移 delta（考虑画布缩放）
+      const zoom = editor.zoom || 1;
+      const dx = (e.clientX - groupDragState.startMouseX) / zoom;
+      const dy = (e.clientY - groupDragState.startMouseY) / zoom;
+
+      // 移动组内所有节点
+      for (const key of groupDragState.nodeKeys) {
+        const startPos = groupDragState.nodeStarts[key];
+        if (!startPos) continue;
+        const node = store[key];
+        if (!node) continue;
+
+        const newX = startPos.x + dx;
+        const newY = startPos.y + dy;
+        node.pos_x = newX;
+        node.pos_y = newY;
+
+        // Drawflow 节点 DOM id 格式是 "node-X"
+        const domId = key.startsWith('node-') ? key : `node-${key}`;
+        const nodeEl = document.getElementById(domId);
+        if (nodeEl) {
+          nodeEl.style.left = newX + 'px';
+          nodeEl.style.top = newY + 'px';
+        }
+
+        // 重绘该节点的连线
+        if (typeof editor.updateConnectionNodes === 'function') {
+          editor.updateConnectionNodes(domId);
+        }
+      }
+
+      // 重绘虚线框
+      renderGroupOverlays();
+
+      // 恢复 dragging 样式（renderGroupOverlays 会重新创建 label）
+      if (groupDragState) {
+        const containerId = groupDragState.containerKey;
+        const label = document.querySelector(`.group-label[data-container-id="${containerId}"]`);
+        if (label) label.classList.add('dragging');
+      }
+    }
+
+    function onGroupDragEnd() {
+      if (groupDragState) {
+        // 移除 dragging 样式
+        const label = document.querySelector(`.group-label[data-container-id="${groupDragState.containerKey}"]`);
+        if (label) label.classList.remove('dragging');
+      }
+
+      groupDragState = null;
+      if (boundGroupMouseMove) {
+        document.removeEventListener('mousemove', boundGroupMouseMove);
+        boundGroupMouseMove = null;
+      }
+      if (boundGroupMouseUp) {
+        document.removeEventListener('mouseup', boundGroupMouseUp);
+        boundGroupMouseUp = null;
+      }
+    }
+
+    // 初始化区域框渲染
+    function initGroupOverlays() {
+      // 监听 Drawflow 事件
+      editor.on('nodeSelected', (nodeId) => {
+        armContainerDrag(nodeId);
+      });
+      editor.on('nodeMoved', (nodeId) => {
+        moveContainerChildren(nodeId);
+        setTimeout(renderGroupOverlays, 10);
+      });
+      // 拖拽结束/取消选中时重置容器拖拽状态
+      editor.on('nodeUnselected', () => { containerDragState = null; });
+      editor.on('nodeAdded', () => setTimeout(renderGroupOverlays, 50));
+      editor.on('nodeRemoved', () => setTimeout(renderGroupOverlays, 50));
+      editor.on('connectionCreated', () => setTimeout(renderGroupOverlays, 50));
+      editor.on('connectionRemoved', () => setTimeout(renderGroupOverlays, 50));
+
+      // 监听画布缩放/平移
+      const drawflowEl = document.getElementById('drawflow');
+      if (drawflowEl) {
+        drawflowEl.addEventListener('wheel', () => setTimeout(renderGroupOverlays, 10));
+        drawflowEl.addEventListener('pointermove', (e) => {
+          if (e.buttons) setTimeout(renderGroupOverlays, 10);  // 拖拽画布时
+        });
+      }
+
+      // 初始渲染
+      setTimeout(renderGroupOverlays, 200);
     }
 
     function formatParamSummary(params) {
@@ -646,15 +1471,35 @@
     }
 
     // ---------- Node selection & properties ----------
-    function onNodeSelected(nodeId) {
+    async function onNodeSelected(nodeId) {
+      // 切换节点前，先把上一个节点的表单改动回写，避免切换时丢失
+      flushCurrentParams();
       currentSelectedNodeId = String(nodeId).replace(/^node-/, '');
+
+      // 高亮子图（如果是容器节点）
+      highlightSubgraph(nodeId);
+
       // Drawflow 内部路径: editor.drawflow.drawflow[module].data
       const store = editor.drawflow && editor.drawflow.drawflow ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
       const node = store && store[nodeId] ? store[nodeId] : editor.getNodeFromId(nodeId);
       if (!node) return;
 
+      // 加载数据源/连接列表供下拉使用
+      await _loadNodeRefData();
+
       console.log('onNodeSelected id=' + nodeId + ' ascending=' + JSON.stringify(node.data?.parameters?.ascending));
       console.log('store keys:', Object.keys(store || {}));
+
+      // 向后兼容：旧工作流若已有 source_type/source_config 或 target_type/target_config 但无新的 _id 字段，自动启用手动配置模式
+      // 这样旧工作流打开时高级字段会自动显示，用户可以看到并编辑这些配置
+      const params = node.data.parameters || {};
+      if ((params.source_type || params.source_config) && !params.source_id && !params.manual_config) {
+        params.manual_config = true;
+      }
+      if ((params.target_type || params.target_config) && !params.connection_id && !params.manual_config) {
+        params.manual_config = true;
+      }
+      node.data.parameters = params;
 
       const meta = findNodeMeta(node.data.nodeType);
       const color = NODE_COLORS[node.data.nodeType] || '#6366f1';
@@ -671,10 +1516,55 @@
         <button class="btn btn-danger btn-sm mt-16" onclick="deleteSelectedNode('${nodeId}')">删除节点</button>
       `;
       panel.innerHTML = html;
+
+      // 根据初始 manual_config 状态联动显隐高级字段
+      _syncAdvancedVisibility(panel);
+      // 根据条件字段联动显隐（如 db_query 的 mode 切换 source/enrich）
+      _syncWhenVisibility(panel);
+    }
+
+    // 手动配置 checkbox 联动高级字段显隐
+    function _syncAdvancedVisibility(panel) {
+      const manualCb = panel.querySelector('[data-param="manual_config"]');
+      if (!manualCb) return;
+      const toggle = () => {
+        const checked = manualCb.checked;
+        // 注意：el 本身就是带 data-advanced="1" 的 form-group div，
+        // 直接切换它的 display 即可；不要写成 el.parentElement（那会把整个面板隐藏掉）。
+        panel.querySelectorAll('[data-advanced="1"]').forEach(el => {
+          el.style.display = checked ? '' : 'none';
+        });
+      };
+      manualCb.addEventListener('change', toggle);
+      toggle(); // 初始化一次
+    }
+
+    // 通用：根据某字段的值切换其他字段的显隐。
+    // schema 字段加 when: { field: 'mode', is: 'source' }，
+    // 渲染时会输出 data-when-mode 属性，本函数监听对应字段变化并切换显隐。
+    function _syncWhenVisibility(panel) {
+      const whenEls = panel.querySelectorAll('[data-when-field]');
+      if (!whenEls.length) return;
+      // 收集所有被当作条件的字段名（去重）
+      const condFields = new Set();
+      whenEls.forEach(el => condFields.add(el.dataset.whenField));
+      condFields.forEach(field => {
+        const ctrl = panel.querySelector(`[data-param="${field}"]`);
+        if (!ctrl) return;
+        const sync = () => {
+          const curVal = ctrl.type === 'checkbox' ? String(ctrl.checked) : String(ctrl.value);
+          panel.querySelectorAll(`[data-when-field="${field}"]`).forEach(el => {
+            el.style.display = (el.dataset.whenIs === curVal) ? '' : 'none';
+          });
+        };
+        ctrl.addEventListener('change', sync);
+        sync(); // 初始化一次
+      });
     }
 
     function onNodeUnselected() {
       currentSelectedNodeId = null;
+      clearSubgraphHighlight();
       document.getElementById('props-panel').innerHTML =
         '<div class="props-placeholder">点击画布中的节点<br>查看和编辑属性</div>';
     }
@@ -695,6 +1585,18 @@
           { id: 'rule', label: '目标周期', type: 'select', opts: ['5min','15min','30min','60min','D','W','M'] },
           { id: 'time_column', label: '时间字段', type: 'text' },
           { id: 'group_column', label: '分组字段（留空不分组）', type: 'text' },
+        ],
+        kline_resample: [
+          { id: 'minutes', label: '目标分钟数（任意正整数）', type: 'number', placeholder: '5 / 7 / 13 / 30 / 90 / 120 ...' },
+          { id: 'time_column', label: '时间字段', type: 'text' },
+          { id: 'group_column', label: '分组字段（留空=整表单组）', type: 'text' },
+          { id: 'mode', label: '对齐模式', type: 'select', opts: [
+            { value: 'session', label: '按交易时段切分（A股 / 期货推荐）' },
+            { value: 'natural', label: '自然分钟对齐（7x24 小时市场）' },
+          ]},
+          { id: 'sessions', label: '交易时段（逗号分隔）', type: 'text',
+            placeholder: '预设：a_stock / futures_day / crypto_24h / 或写 09:30-11:30,13:00-15:00' },
+          { id: 'drop_incomplete', label: '丢弃未完成的最后一根 bar', type: 'checkbox' },
         ],
         ma: [
           { id: 'windows', label: '窗口（逗号分隔）', type: 'text' },
@@ -737,23 +1639,201 @@
           { id: 'target_column', label: '目标列名', type: 'text' },
           { id: 'expression', label: '表达式', type: 'textarea' },
         ],
+        limit: [
+          { id: 'max_items', label: '最大数据量', type: 'number', placeholder: '限制返回的数据行数' },
+          { id: 'keep', label: '保留策略', type: 'select', opts: ['first', 'last'] },
+        ],
+        datetime_ops: [
+          { id: 'operation', label: '操作类型', type: 'select',
+            opts: [
+              { value: 'format', label: '格式化' },
+              { value: 'extract', label: '提取部分' },
+              { value: 'add', label: '加时间' },
+              { value: 'subtract', label: '减时间' },
+              { value: 'diff', label: '计算时间差' },
+              { value: 'parse', label: '解析日期' },
+              { value: 'now', label: '当前时间' },
+            ] },
+          { id: 'source_column', label: '源日期字段', type: 'text', placeholder: 'dt' },
+          { id: 'target_column', label: '输出字段', type: 'text', placeholder: '留空=覆盖源字段' },
+          { id: 'format', label: '日期格式', type: 'text', placeholder: '%Y-%m-%d %H:%M:%S',
+            when: { field: 'operation', is: 'format,parse' } },
+          { id: 'part', label: '提取部分', type: 'select',
+            opts: ['year', 'month', 'day', 'hour', 'minute', 'second', 'weekday', 'date', 'time'],
+            when: { field: 'operation', is: 'extract' } },
+          { id: 'unit', label: '时间单位', type: 'select',
+            opts: ['years', 'months', 'days', 'hours', 'minutes', 'seconds'],
+            when: { field: 'operation', is: 'add,subtract,diff' } },
+          { id: 'value', label: '数值', type: 'number', placeholder: '加/减的数量',
+            when: { field: 'operation', is: 'add,subtract' } },
+          { id: 'target_date', label: '目标日期', type: 'text', placeholder: 'diff 操作: 对比的目标日期（留空=当前时间）',
+            when: { field: 'operation', is: 'diff' } },
+          { type: 'info', text: '💡 支持格式化、提取日期部分、加减时间、计算时间差、解析日期字符串、获取当前时间等操作。格式示例：%Y-%m-%d %H:%M:%S' },
+        ],
+        aggregation: [
+          { id: 'group_by', label: '分组字段', type: 'text', placeholder: '按哪些字段分组（逗号分隔），留空=全局聚合' },
+          { id: 'aggregations', label: '聚合规则', type: 'textarea', placeholder: '新列名=源列:聚合函数\n如：total_vol=vol:sum,avg_price=price:mean' },
+          { id: 'preset', label: '预设模板', type: 'select',
+            opts: [
+              { value: 'custom', label: '自定义' },
+              { value: 'ohlcv', label: 'OHLCV 标准聚合' },
+              { value: 'count_only', label: '仅计数' },
+              { value: 'all_stats', label: '全部统计量' },
+            ] },
+          { id: 'source_column', label: '统计字段', type: 'text', placeholder: '预设模板使用的字段',
+            when: { field: 'preset', is: 'count_only,all_stats,ohlcv' } },
+          { id: 'reset_index', label: '重置索引', type: 'checkbox' },
+          { type: 'info', text: '💡 聚合函数：sum/mean/count/min/max/std/var/first/last/nunique。预设模板 ohlcv 自动聚合 open/high/low/close/vol 字段' },
+        ],
+        data_convert: [
+          { id: 'operation', label: '操作类型', type: 'select',
+            opts: [
+              { value: 'json_to_df', label: 'JSON → DataFrame' },
+              { value: 'df_to_json', label: 'DataFrame → JSON' },
+              { value: 'csv_to_df', label: 'CSV → DataFrame' },
+              { value: 'df_to_csv', label: 'DataFrame → CSV' },
+              { value: 'flatten', label: '展平嵌套 JSON' },
+              { value: 'explode', label: '展开列表列' },
+            ] },
+          { id: 'source_column', label: '源字段', type: 'text', placeholder: '包含 JSON/CSV 数据的列名',
+            when: { field: 'operation', is: 'json_to_df,csv_to_df,flatten,explode' } },
+          { id: 'target_column', label: '输出字段', type: 'text', placeholder: '转换结果保存的列名',
+            when: { field: 'operation', is: 'df_to_json,df_to_csv' } },
+          { id: 'json_path', label: 'JSON 路径', type: 'text', placeholder: '提取数据的路径（如 data.items）',
+            when: { field: 'operation', is: 'json_to_df' } },
+          { id: 'sep', label: '分隔符', type: 'text', placeholder: ',',
+            when: { field: 'operation', is: 'csv_to_df,df_to_csv' } },
+          { id: 'flatten_separator', label: '嵌套分隔符', type: 'text', placeholder: '_',
+            when: { field: 'operation', is: 'flatten' } },
+          { id: 'max_rows', label: '最大行数', type: 'number', placeholder: '0=不限',
+            when: { field: 'operation', is: 'json_to_df,csv_to_df' } },
+          { type: 'info', text: '💡 支持 JSON/CSV 与 DataFrame 互转、展平嵌套 JSON 结构、展开列表列为多行' },
+        ],
+        file_read: [
+          { id: 'file_path', label: '文件路径', type: 'text', placeholder: 'D:/data/file.csv' },
+          { id: 'file_type', label: '文件类型', type: 'select', opts: ['auto', 'csv', 'excel', 'json', 'parquet', 'txt'] },
+          { id: 'encoding', label: '编码', type: 'text', placeholder: 'utf-8' },
+          { id: 'sep', label: '分隔符', type: 'text', placeholder: ',',
+            when: { field: 'file_type', is: 'auto,csv,txt' } },
+          { id: 'sheet_name', label: '工作表名', type: 'text', placeholder: '留空=第一个',
+            when: { field: 'file_type', is: 'auto,excel' } },
+          { id: 'json_orient', label: 'JSON 格式', type: 'select', opts: ['records', 'columns', 'index', 'values', 'split'],
+            when: { field: 'file_type', is: 'auto,json' } },
+          { id: 'skip_rows', label: '跳过行数', type: 'number', placeholder: '0' },
+          { id: 'max_rows', label: '最大行数', type: 'number', placeholder: '0=不限' },
+          { type: 'info', text: '💡 支持 CSV/Excel/JSON/Parquet 文件格式，auto 模式根据扩展名自动识别' },
+        ],
+        file_write: [
+          { id: 'file_path', label: '文件路径', type: 'text', placeholder: 'D:/data/output.csv' },
+          { id: 'file_type', label: '文件类型', type: 'select', opts: ['auto', 'csv', 'excel', 'json', 'parquet'] },
+          { id: 'encoding', label: '编码', type: 'text', placeholder: 'utf-8',
+            when: { field: 'file_type', is: 'auto,csv,json' } },
+          { id: 'sep', label: '分隔符', type: 'text', placeholder: ',',
+            when: { field: 'file_type', is: 'auto,csv' } },
+          { id: 'index', label: '写入索引', type: 'checkbox' },
+          { id: 'sheet_name', label: '工作表名', type: 'text', placeholder: 'Sheet1',
+            when: { field: 'file_type', is: 'auto,excel' } },
+          { id: 'json_orient', label: 'JSON 格式', type: 'select', opts: ['records', 'columns', 'index', 'values', 'split'],
+            when: { field: 'file_type', is: 'auto,json' } },
+          { id: 'create_dir', label: '自动创建目录', type: 'checkbox' },
+          { type: 'info', text: '💡 将数据写入 CSV/Excel/JSON/Parquet 文件，支持自动创建目录' },
+        ],
+        merge: [
+          { id: 'mode', label: '合并模式', type: 'select', opts: ['append', 'combine', 'multiplex'] },
+          { id: 'join_type', label: '连接类型', type: 'select', opts: ['inner', 'left', 'right', 'outer'], when: { field: 'mode', is: 'combine' } },
+          { id: 'on_columns', label: '连接字段', type: 'text', placeholder: 'combine 模式的连接字段（逗号分隔），留空使用所有共同字段', when: { field: 'mode', is: 'combine' } },
+          { id: 'input_count', label: '输入数量', type: 'number', placeholder: '需要合并的输入数据流数量' },
+          { type: 'info', text: '💡 append=纵向合并（类似 pd.concat），combine=横向合并（类似 pd.merge），multiplex=多路复用（选择第一个非空输入）' },
+        ],
+        http_request: [
+          { id: 'method', label: '请求方法', type: 'select', opts: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
+          { id: 'url', label: '请求 URL', type: 'text', placeholder: 'https://api.example.com/data' },
+          { id: 'headers', label: '请求头 (JSON)', type: 'textarea', placeholder: '{"Content-Type": "application/json"}' },
+          { id: 'body_type', label: '请求体类型', type: 'select', opts: ['none', 'json', 'form', 'text'], when: { field: 'method', is: 'POST,PUT,PATCH' } },
+          { id: 'body', label: '请求体', type: 'textarea', placeholder: 'JSON 格式的请求内容', when: { field: 'method', is: 'POST,PUT,PATCH' } },
+          { id: 'timeout', label: '超时时间(秒)', type: 'number' },
+          { id: 'auth_type', label: '认证类型', type: 'select', opts: ['none', 'bearer', 'basic'] },
+          { id: 'auth_token', label: '认证令牌', type: 'text', placeholder: 'Bearer Token 或 用户名:密码', when: { field: 'auth_type', is: 'bearer,basic' } },
+          { id: 'response_type', label: '响应类型', type: 'select', opts: ['json', 'text', 'auto'] },
+          { id: 'output_column', label: '输出列名', type: 'text', placeholder: 'response' },
+          { type: 'info', text: '💡 支持 GET/POST/PUT/DELETE/PATCH 方法，支持 Bearer Token 和 Basic Auth 认证，自动解析 JSON 响应' },
+        ],
         condition: [
-          { id: 'condition', label: '条件表达式', type: 'text' },
-          { id: 'branch', label: '输出分支', type: 'select', opts: ['true','false'] },
+          { id: 'condition', label: '条件表达式', type: 'text', placeholder: "如: value > 3 或 close > 0" },
+          { type: 'info', text: '💡 条件分支有两个输出端口：output_1 (true) 和 output_2 (false)。表达式使用列名（如 value > 3），不需要 df[]' },
+        ],
+        switch: [
+          { id: 'rules', label: '条件规则 (JSON)', type: 'textarea', placeholder: '[\n  {"condition": "value > 100", "output": "output_1"},\n  {"condition": "value > 50", "output": "output_2"}\n]' },
+          { id: 'default_output', label: '默认输出端口', type: 'text', placeholder: 'output_3' },
+          { type: 'info', text: '💡 多路分支支持多个输出端口。每个规则包含 condition（条件表达式）和 output（输出端口名）。未匹配任何条件的数据会进入默认输出端口。' },
         ],
         custom_python: [
           { id: 'code', label: 'Python 代码', type: 'textarea' },
         ],
         source_fetch: [
-          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare','binance','yfinance','tqsdk'] },
-          { id: 'source_config', label: '数据源配置(JSON)', type: 'textarea' },
-          { id: 'codes', label: '交易对/股票代码(逗号分隔)', type: 'text' },
+          { id: 'source_id', label: '数据源', type: 'ref_source', hint: '在导航「数据源管理」中配置' },
+          { id: 'manual_config', label: '手动配置(高级)', type: 'checkbox' },
+          { id: 'source_type', label: '数据源类型', type: 'select', opts: ['tdx','mootdx','akshare','tushare','binance','yfinance','tqsdk'], _advanced: true },
+          { id: 'source_config', label: '数据源配置(JSON)', type: 'textarea', _advanced: true },
+          { id: 'codes', label: '交易对/股票代码(逗号分隔，留空从上游读取)', type: 'text', placeholder: '留空=从上游stock_list/contract_list节点读取' },
+          { id: 'code_column', label: '上游代码列名(留空自动检测)', type: 'text', placeholder: 'code/symbol/股票代码，留空自动检测' },
           { id: 'interval', label: 'K线周期', type: 'select', opts: ['1min','5min','15min','30min','60min','D'] },
           { id: 'time_mode', label: '时间模式', type: 'select', opts: ['lookback','custom','since_last'] },
           { id: 'lookback_days', label: '回看天数', type: 'number' },
           { id: 'parallel', label: '并行拉取', type: 'checkbox' },
           { id: 'max_workers', label: '最大并发数', type: 'number' },
           { id: 'session_only', label: '仅交易时段', type: 'checkbox' },
+        ],
+        stock_list: [
+          { id: 'market', label: '市场', type: 'select', opts: [
+            {value: 'all', label: '全部市场'},
+            {value: 'sh', label: 'SH - 上交所'},
+            {value: 'sz', label: 'SZ - 深交所'},
+            {value: 'bj', label: 'BJ - 北交所'},
+          ]},
+          { id: 'industry', label: '行业(留空=全部)', type: 'select', opts: [
+            {value: '', label: '全部行业'},
+            {value: '银行', label: '银行'},
+            {value: '证券', label: '证券'},
+            {value: '保险', label: '保险'},
+            {value: '多元金融', label: '多元金融'},
+            {value: '房地产', label: '房地产'},
+            {value: '建筑装饰', label: '建筑装饰'},
+            {value: '建筑材料', label: '建筑材料'},
+            {value: '钢铁', label: '钢铁'},
+            {value: '有色金属', label: '有色金属'},
+            {value: '基础化工', label: '基础化工'},
+            {value: '煤炭', label: '煤炭'},
+            {value: '石油石化', label: '石油石化'},
+            {value: '电力设备', label: '电力设备'},
+            {value: '机械设备', label: '机械设备'},
+            {value: '国防军工', label: '国防军工'},
+            {value: '汽车', label: '汽车'},
+            {value: '家用电器', label: '家用电器'},
+            {value: '食品饮料', label: '食品饮料'},
+            {value: '医药生物', label: '医药生物'},
+            {value: '纺织服饰', label: '纺织服饰'},
+            {value: '轻工制造', label: '轻工制造'},
+            {value: '商贸零售', label: '商贸零售'},
+            {value: '社会服务', label: '社会服务'},
+            {value: '农林牧渔', label: '农林牧渔'},
+            {value: '交通运输', label: '交通运输'},
+            {value: '公用事业', label: '公用事业'},
+            {value: '环保', label: '环保'},
+            {value: '美容护理', label: '美容护理'},
+            {value: '计算机', label: '计算机'},
+            {value: '通信', label: '通信'},
+            {value: '传媒', label: '传媒'},
+            {value: '电子', label: '电子'},
+            {value: '综合', label: '综合'},
+          ], multiple: false },
+          { id: 'exclude_st', label: '排除ST股', type: 'checkbox' },
+          { id: 'keyword', label: '关键词过滤', type: 'text', placeholder: '股票名称或代码包含的关键词' },
+          { id: 'limit', label: '最大返回数量', type: 'number' },
+          { id: 'data_source', label: '数据源', type: 'select', opts: [
+            {value: 'akshare', label: 'AkShare (免费)'},
+            {value: 'tushare', label: 'Tushare (需凭证)'},
+          ]},
         ],
         contract_list: [
           { id: 'market_type', label: '合约类型', type: 'select', opts: ['all','futures','main_continuous'] },
@@ -764,18 +1844,40 @@
           { id: 'auto_sync', label: '自动从TqSdk同步', type: 'checkbox' },
         ],
         target_write: [
-          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse'] },
-          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea' },
+          { id: 'connection_id', label: '目标连接', type: 'ref_connection', hint: '在导航「连接管理」中配置' },
+          { id: 'manual_config', label: '手动配置(高级)', type: 'checkbox' },
+          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse'], _advanced: true },
+          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea', _advanced: true },
           { id: 'target_table', label: '目标表名', type: 'text' },
           { id: 'batch_size', label: '批次大小', type: 'number' },
           { id: 'on_duplicate', label: '重复策略', type: 'select', opts: ['ignore','update','error'] },
           { id: 'columns', label: '写入字段(逗号分隔)', type: 'text' },
         ],
+        db_query: [
+          { id: 'mode', label: '工作模式', type: 'select', opts: [
+            {value: 'source', label: '数据源模式（执行 SQL 返回新数据）'},
+            {value: 'enrich', label: '增强模式（为上游数据附加进度信息）'},
+          ]},
+          { id: 'connection_id', label: '数据库连接', type: 'ref_connection', hint: '在导航「连接管理」中配置' },
+          { id: 'manual_config', label: '手动配置(高级)', type: 'checkbox' },
+          { id: 'db_type', label: '数据库类型', type: 'select', opts: ['duckdb','mysql','postgresql'], _advanced: true },
+          { id: 'db_config', label: '连接配置(JSON)', type: 'textarea', _advanced: true },
+          // ----- source 模式专用字段 -----
+          { id: 'sql', label: '查询 SQL', type: 'textarea', placeholder: '例如: SELECT * FROM your_table LIMIT 100', rows: 6, when: { field: 'mode', is: 'source' } },
+          { id: 'default_rows', label: '默认数据(查询失败时返回，JSON 数组)', type: 'textarea', placeholder: '例如: [{"code":"000001","dt":"2020-01-01"}]', rows: 3, when: { field: 'mode', is: 'source' } },
+          // ----- enrich 模式专用字段 -----
+          { id: 'target_table', label: '进度查询表(已写入的目标表)', type: 'text', placeholder: '例如: kline_hfq', when: { field: 'mode', is: 'enrich' } },
+          { id: 'code_column', label: '上游代码列名', type: 'text', placeholder: '默认 code', when: { field: 'mode', is: 'enrich' } },
+          { id: 'date_column', label: '进度日期列名', type: 'text', placeholder: '默认 dt', when: { field: 'mode', is: 'enrich' } },
+          { id: 'default_date', label: '默认起始日期(表不存在/无历史时)', type: 'text', placeholder: 'YYYY-MM-DD', when: { field: 'mode', is: 'enrich' } },
+        ],
         dedup: [
           { id: 'mode', label: '去重模式', type: 'select', opts: ['keep_last','keep_first','check_existing'] },
           { id: 'columns', label: '去重字段(逗号分隔)', type: 'text' },
-          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse',''] },
-          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea' },
+          { id: 'connection_id', label: '目标连接(check_existing时)', type: 'ref_connection', hint: '在导航「连接管理」中配置' },
+          { id: 'manual_config', label: '手动配置(高级)', type: 'checkbox' },
+          { id: 'target_type', label: '目标类型', type: 'select', opts: ['duckdb','mysql','postgresql','clickhouse',''], _advanced: true },
+          { id: 'target_config', label: '连接配置(JSON)', type: 'textarea', _advanced: true },
           { id: 'target_table', label: '目标表名', type: 'text' },
         ],
         time_window: [
@@ -784,43 +1886,159 @@
           { id: 'time_column', label: '时间字段', type: 'text' },
           { id: 'sort_first', label: '先按时间排序', type: 'checkbox' },
         ],
+        factor_expression: [
+          { id: 'expression', label: '因子表达式', type: 'textarea',
+            placeholder: '示例: MA($close,20) / STD($close,20)', rows: 5 },
+          { id: 'output_column', label: '输出列名', type: 'text' },
+          { id: 'code_column', label: '代码字段（留空=整表计算）', type: 'text' },
+          { id: 'date_column', label: '日期字段', type: 'text' },
+        ],
+        set_variable: [
+          { id: 'var_name', label: '变量名', type: 'text',
+            placeholder: '例如：counter、total_rows、current_table' },
+          { id: 'var_value', label: '变量值', type: 'textarea',
+            placeholder: '根据值类型填写：字符串直接写、JSON 写数组/对象、表达式写 Python 代码' },
+          { id: 'value_type', label: '值类型', type: 'select',
+            opts: ['string', 'number', 'json', 'expression'] },
+        ],
+        for_each: [
+          { id: 'items', label: '循环列表', type: 'textarea',
+            placeholder: 'JSON 数组：["a", "b", "c"]\n或逗号分隔：a, b, c\n或从 context 读取变量名：{{my_list}}' },
+          { id: 'item_var', label: '当前项变量名', type: 'text',
+            placeholder: '下游节点通过 context.get(\'current_item\') 读取' },
+          { id: 'index_var', label: '索引变量名', type: 'text',
+            placeholder: '下游节点通过 context.get(\'item_index\') 读取' },
+          { id: 'max_iterations', label: '最大迭代次数', type: 'number',
+            placeholder: '防止死循环' },
+        ],
+        loop: [
+          { id: 'condition', label: '循环条件', type: 'text',
+            placeholder: 'Python 表达式，返回 True/False。可引用 context 变量' },
+          { id: 'max_iterations', label: '最大迭代次数', type: 'number',
+            placeholder: '防止死循环' },
+        ],
+        wait: [
+          { id: 'seconds', label: '等待秒数', type: 'number',
+            placeholder: '支持小数，例如 0.5 表示 500 毫秒' },
+          { id: 'mode', label: '模式', type: 'select',
+            opts: [
+              { value: 'delay', label: '固定延时' },
+              { value: 'until_timestamp', label: '等待到指定时间戳' },
+            ] },
+          { id: 'target_timestamp', label: '目标时间戳（unix秒）', type: 'text',
+            placeholder: 'mode=等待到指定时间戳 时填写',
+            when: { field: 'mode', is: 'until_timestamp' } },
+        ],
+        try_catch: [
+          { id: 'retry_times', label: '重试次数', type: 'number',
+            placeholder: '失败后重试几次' },
+          { id: 'retry_delay', label: '重试间隔(秒)', type: 'number',
+            placeholder: '每次重试间隔多少秒' },
+          { id: 'on_error', label: '失败后', type: 'select',
+            opts: [
+              { value: 'continue', label: '继续执行' },
+              { value: 'abort', label: '终止工作流' },
+              { value: 'fallback', label: '降级处理' },
+            ] },
+          { id: 'fallback_value', label: '降级值', type: 'text',
+            placeholder: 'on_error=降级处理 时返回的值（JSON 格式）',
+            when: { field: 'on_error', is: 'fallback' } },
+        ],
+        split_batches: [
+          { id: 'batch_size', label: '批次大小', type: 'number', placeholder: '每个批次的数据行数' },
+          { id: 'parallel', label: '并行处理', type: 'checkbox' },
+          { id: 'max_parallel', label: '最大并行数', type: 'number', placeholder: '并行处理时的最大并发数',
+            when: { field: 'parallel', is: 'true' } },
+          { id: 'error_handling', label: '错误处理', type: 'select',
+            opts: [
+              { value: 'continue', label: '跳过错误批次' },
+              { value: 'stop', label: '遇到错误停止' },
+            ] },
+          { type: 'info', text: '💡 将数据分成多个批次，对每个批次执行下游节点链。支持串行和并行处理。' },
+        ],
       };
 
       const fields = schemas[type] || [];
       let html = '';
       for (const f of fields) {
         const val = params[f.id];
-        html += `<div class="form-group"><label>${f.label}</label>`;
-        if (f.type === 'select') {
-          html += `<select class="form-control" data-param="${f.id}">
-            ${f.opts.map(o => `<option value="${o}" ${o === String(val) ? 'selected' : ''}>${o}</option>`).join('')}
-          </select>`;
+        // 高级字段始终渲染，由 _syncAdvancedVisibility 统一控制显隐，
+        // 避免用户切换 checkbox 后字段被 continue 跳过导致"面板消失"。
+        const advAttr = f._advanced ? ' data-advanced="1"' : '';
+        // 条件显隐：when: { field: 'mode', is: 'source' } 表示当 mode=source 时显示
+        const whenAttr = f.when ? ` data-when-field="${f.when.field}" data-when-is="${f.when.is}"` : '';
+
+        // 处理 info 类型的提示信息
+        if (f.type === 'info') {
+          html += `<div class="form-group" style="background:rgba(99,102,241,0.05);padding:8px;border-radius:6px;font-size:11px;color:#666;margin-top:8px">
+            ${escapeHtml(f.text || '')}
+          </div>`;
+          continue;
+        }
+
+        html += `<div class="form-group"${advAttr}${whenAttr}><label>${f.label}</label>`;
+        if (f.type === 'ref_source') {
+          if (!_wfSourcesCache.length) {
+            html += `<select class="form-control" data-param="${f.id}" disabled>
+              <option value="">（暂无数据源，请先在「数据源管理」中配置）</option>
+            </select>`;
+          } else {
+            html += `<select class="form-control" data-param="${f.id}" style="color:#333">
+              <option value="">-- 请选择数据源 --</option>
+              ${_wfSourcesCache.map(s => `<option value="${s.id}" ${s.id === val ? 'selected' : ''}>${escapeHtml(s.name)} (${escapeHtml(s.type)})</option>`).join('')}
+            </select>`;
+          }
+          if (f.hint) html += `<div class="form-hint" style="font-size:11px;color:#888;margin-top:2px">${f.hint}</div>`;
+        } else if (f.type === 'ref_connection') {
+          if (!_wfConnectionsCache.length) {
+            html += `<select class="form-control" data-param="${f.id}" disabled>
+              <option value="">（暂无数据库连接，请先在「连接管理」中配置）</option>
+            </select>`;
+          } else {
+            html += `<select class="form-control" data-param="${f.id}" style="color:#333">
+              <option value="">-- 请选择连接 --</option>
+              ${_wfConnectionsCache.map(c => `<option value="${c.id}" ${c.id === val ? 'selected' : ''}>${escapeHtml(c.name)} (${escapeHtml(c.type)})</option>`).join('')}
+            </select>`;
+          }
+          if (f.hint) html += `<div class="form-hint" style="font-size:11px;color:#888;margin-top:2px">${f.hint}</div>`;
+        } else if (f.type === 'select') {
+          // 支持两种格式：
+          // 1. 简单数组：['opt1', 'opt2']
+          // 2. 对象数组：[{value: 'opt1', label: '选项1'}, ...]
+          const optsHtml = (f.opts || []).map(o => {
+            const optVal = typeof o === 'object' ? o.value : o;
+            const optLabel = typeof o === 'object' ? o.label : o;
+            const selected = String(optVal) === String(val) ? 'selected' : '';
+            return `<option value="${optVal}" ${selected}>${escapeHtml(optLabel)}</option>`;
+          }).join('');
+          html += `<select class="form-control" data-param="${f.id}" style="color:#333">${optsHtml}</select>`;
         } else if (f.type === 'checkbox') {
           html += `<label class="form-check"><input type="checkbox" data-param="${f.id}" ${val ? 'checked' : ''}> ${f.label}</label>`;
           html += `</div>`; // close extra wrapper
           continue; // checkbox is self-contained
         } else if (f.type === 'textarea') {
-          html += `<textarea class="form-control" data-param="${f.id}" rows="6">${val || ''}</textarea>`;
+          const placeholder = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
+          html += `<textarea class="form-control" data-param="${f.id}" rows="6"${placeholder}>${val || ''}</textarea>`;
         } else {
-          html += `<input class="form-control" type="${f.type}" data-param="${f.id}" value="${val ?? ''}">`;
+          const placeholder = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
+          html += `<input class="form-control" type="${f.type}" data-param="${f.id}" value="${val ?? ''}"${placeholder}>`;
         }
         html += `</div>`;
       }
       return html;
     }
 
-    function applyParamsForNode(nodeId) {
-      if (!nodeId) { toast('请先选中一个节点', 'warning'); return; }
-
+    // 将属性面板当前表单值静默回写到 Drawflow 内部存储
+    // 用于保存前、切换节点前，避免表单改动丢失
+    function flushCurrentParams() {
+      if (!currentSelectedNodeId) return;
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      if (!store || !store[currentSelectedNodeId]) return;
+      const node = store[currentSelectedNodeId];
       const panel = document.getElementById('props-panel');
-      // Drawflow 内部路径: editor.drawflow.drawflow[module].data
-      const store = editor.drawflow && editor.drawflow.drawflow ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
-      if (!store || !store[nodeId]) { toast('节点不存在', 'error'); return; }
-      const node = store[nodeId];
 
-      // 从表单读取参数
       const params = {};
-
       panel.querySelectorAll('input:not([type=checkbox]), select, textarea').forEach(el => {
         const k = el.dataset.param;
         if (!k) return;
@@ -828,30 +2046,39 @@
         if (el.type === 'number') val = isNaN(Number(val)) ? val : Number(val);
         params[k] = val;
       });
-
       panel.querySelectorAll('input[type=checkbox]').forEach(el => {
         const k = el.dataset.param;
         if (!k) return;
         params[k] = el.checked;
       });
 
-      console.log('applyParamsForNode id=' + nodeId + ' params=' + JSON.stringify(params));
-      console.log('Before: node.data.parameters=' + JSON.stringify(node.data.parameters));
-
-      // 直接修改 Drawflow 内部存储（store 是引用）
       node.data.parameters = params;
 
-      console.log('After: node.data.parameters=' + JSON.stringify(node.data.parameters));
-
-      // 更新画布上的节点卡片显示
-      const domNode = document.getElementById('node-' + nodeId);
+      // 同步更新画布节点卡片上的参数摘要
+      const domNode = document.getElementById('node-' + currentSelectedNodeId);
       if (domNode) {
         const contentEl = domNode.querySelector('[data-content]');
         if (contentEl) contentEl.innerHTML = formatParamSummary(params);
       }
+    }
+
+    function applyParamsForNode(nodeId) {
+      if (!nodeId) { toast('请先选中一个节点', 'warning'); return; }
+
+      const store = editor.drawflow && editor.drawflow.drawflow ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      if (!store || !store[nodeId]) { toast('节点不存在', 'error'); return; }
+
+      // 先静默回写（复用同一套读取逻辑），再重新渲染面板
+      currentSelectedNodeId = nodeId;  // 确保 flush 读到正确节点
+      flushCurrentParams();
+      const node = store[nodeId];
+      const params = node.data.parameters;
+
+      console.log('applyParamsForNode id=' + nodeId + ' params=' + JSON.stringify(params));
 
       // 重新渲染属性面板
       const color = NODE_COLORS[node.data.nodeType] || '#6366f1';
+      const panel = document.getElementById('props-panel');
       panel.innerHTML = `
         <h3 style="color:${color}">${node.data.icon} ${node.data.label}</h3>
         <div class="form-group">
@@ -862,6 +2089,10 @@
         <button class="btn btn-secondary btn-sm mt-8" onclick="applyParamsForNode('${nodeId}')">应用参数</button>
         <button class="btn btn-danger btn-sm mt-16" onclick="deleteSelectedNode('${nodeId}')">删除节点</button>
       `;
+
+      // 重新初始化高级字段显隐状态
+      _syncAdvancedVisibility(panel);
+      _syncWhenVisibility(panel);
 
       toast('参数已更新', 'success');
     }
@@ -899,14 +2130,41 @@
             type: dfNode.data.nodeType,
             name: dfNode.data.label || dfNode.data.nodeType,
             parameters: dfNode.data.parameters || {},
+            pos_x: typeof dfNode.pos_x === 'number' ? dfNode.pos_x : undefined,
+            pos_y: typeof dfNode.pos_y === 'number' ? dfNode.pos_y : undefined,
           });
-          if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
-            const targets = dfNode.outputs.output_1.connections
-              .filter(c => c.node)
-              .map(c => idMap[String(c.node)])
-              .filter(Boolean);
-            if (targets.length) {
-              connections[origId] = targets;
+
+          // 处理连接
+          const isConditionNode = dfNode.data.nodeType === 'condition';
+          const isSwitchNode = dfNode.data.nodeType === 'switch';
+          if ((isConditionNode || isSwitchNode) && dfNode.outputs) {
+            // 条件分支/多路分支节点：多输出端口格式
+            const multiConnections = {};
+            for (let i = 1; i <= 10; i++) {  // 支持最多 10 个输出端口
+              const outputKey = `output_${i}`;
+              if (dfNode.outputs[outputKey] && dfNode.outputs[outputKey].connections) {
+                const targets = dfNode.outputs[outputKey].connections
+                  .filter(c => c.node)
+                  .map(c => ({ node: idMap[String(c.node)] }))
+                  .filter(c => c.node);
+                if (targets.length) {
+                  multiConnections[outputKey] = targets;
+                }
+              }
+            }
+            if (Object.keys(multiConnections).length > 0) {
+              connections[origId] = multiConnections;
+            }
+          } else {
+            // 普通节点：单输出端口格式
+            if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
+              const targets = dfNode.outputs.output_1.connections
+                .filter(c => c.node)
+                .map(c => idMap[String(c.node)])
+                .filter(Boolean);
+              if (targets.length) {
+                connections[origId] = targets;
+              }
             }
           }
         }
@@ -918,6 +2176,10 @@
       const name = document.getElementById('wf-name-input').value.trim();
       if (!name) { alert('请输入工作流名称'); return; }
       const description = document.getElementById('wf-desc-input').value.trim();
+
+      // 关键：保存前先把当前属性面板里的表单值回写到 Drawflow 内部数据
+      // 否则用户编辑后未点「应用参数」就直接保存，改动会被静默丢弃
+      flushCurrentParams();
 
       const { workflowJson } = buildCurrentWorkflowJson();
       const body = {
@@ -962,13 +2224,17 @@
         // Map: orig_id -> drawflow_id
         const dfIdMap = {};
 
-        // Load nodes with origId
+        // Load nodes with origId — 若节点保存了位置则优先使用，否则回退到默认的蛇形排布
         let x = 100, y = 80;
         for (const node of wfJson.nodes) {
-          addNodeToCanvas(node.type, x, y, node.parameters || {}, node.id);
+          const nx = typeof node.pos_x === 'number' ? node.pos_x : x;
+          const ny = typeof node.pos_y === 'number' ? node.pos_y : y;
+          addNodeToCanvas(node.type, nx, ny, node.parameters || {}, node.id);
           dfIdMap[node.id] = null; // will be filled after addNodeToCanvas
-          x += 240;
-          if (x > 600) { x = 100; y += 150; }
+          if (typeof node.pos_x !== 'number') {
+            x += 240;
+            if (x > 600) { x = 100; y += 150; }
+          }
         }
 
         // Build the mapping from orig_id to drawflow_id
@@ -985,27 +2251,46 @@
         // Load connections
         const connPairs = wfJson.connections || {};
         for (const [srcId, targets] of Object.entries(connPairs)) {
-          for (const tgtId of (Array.isArray(targets) ? targets : [targets])) {
-            const finalTgt = typeof tgtId === 'object' ? (tgtId.node || tgtId.id) : tgtId;
-            connectNodesByDataId(srcId, String(finalTgt), dfIdMap);
+          if (Array.isArray(targets)) {
+            // 旧格式：单输出端口
+            for (const tgtId of targets) {
+              const finalTgt = typeof tgtId === 'object' ? (tgtId.node || tgtId.id) : tgtId;
+              connectNodesByDataId(srcId, String(finalTgt), dfIdMap, 'output_1');
+            }
+          } else if (typeof targets === 'object') {
+            // 新格式：多输出端口（条件分支/多路分支节点）
+            for (const [outputName, targetList] of Object.entries(targets)) {
+              if (Array.isArray(targetList)) {
+                for (const tgtId of targetList) {
+                  const finalTgt = typeof tgtId === 'object' ? (tgtId.node || tgtId.id) : tgtId;
+                  connectNodesByDataId(srcId, String(finalTgt), dfIdMap, outputName);
+                }
+              }
+            }
           }
         }
 
         try { if (typeof editor.zoomReset === 'function') editor.zoomReset(); } catch(e) {}
+
+        // 刷新容器节点样式和区域框
+        setTimeout(() => {
+          refreshContainerNodeStyles();
+          renderGroupOverlays();
+        }, 100);
       } catch (e) {
         console.error('Failed to load workflow:', e);
       }
     }
 
-    function connectNodesByDataId(srcDataId, tgtDataId, dfIdMap) {
+    function connectNodesByDataId(srcDataId, tgtDataId, dfIdMap, outputPort = 'output_1') {
       // 将工作流 JSON 中稳定的节点 ID 映射回画布 drawflow_id 后再连线。
       const srcDfId = dfIdMap[String(srcDataId)];
       const tgtDfId = dfIdMap[String(tgtDataId)];
       // 缺任一端节点则跳过，避免抛异常中断后续连线恢复。
       if (!srcDfId || !tgtDfId) return;
       try {
-        // Drawflow connect 接受“纯数字字符串节点 ID”，不带 node- 前缀。
-        editor.addConnection(String(srcDfId), String(tgtDfId), 'output_1', 'input_1');
+        // Drawflow connect 接受”纯数字字符串节点 ID”，不带 node- 前缀。
+        editor.addConnection(String(srcDfId), String(tgtDfId), outputPort, 'input_1');
       } catch (e) {
         // 忽略重复边或非法边错误，确保其余连线继续恢复。
         console.debug('connect failed:', srcDataId, '->', tgtDataId, e?.message || e);
@@ -1021,6 +2306,138 @@
         }
       }
       onNodeUnselected();
+    }
+
+    /**
+     * 自动格式化画布：按拓扑层级水平排列所有节点。
+     * - 入口节点（无输入连接）放在最左列
+     * - 每个节点按最长路径分配列号，保证下游节点在右侧
+     * - 同列节点垂直等距分布，整体居中
+     * 完成后同步更新 Drawflow 内部 pos_x/pos_y 和所有连线，并刷新区域框。
+     */
+    function formatCanvas() {
+      const exportData = editor.export();
+      if (!exportData.drawflow || !exportData.drawflow.Home) return;
+      const dfNodes = exportData.drawflow.Home.data;
+      if (!dfNodes || Object.keys(dfNodes).length === 0) {
+        toast('画布为空', 'info');
+        return;
+      }
+
+      const ids = Object.keys(dfNodes).map(k => k.replace('node-', ''));
+      const children = {};
+      const parents = {};
+      ids.forEach(id => { children[id] = []; parents[id] = []; });
+
+      for (const [key, dfNode] of Object.entries(dfNodes)) {
+        const srcId = key.replace('node-', '');
+        const isConditionNode = dfNode.data?.nodeType === 'condition';
+        const isSwitchNode = dfNode.data?.nodeType === 'switch';
+
+        if ((isConditionNode || isSwitchNode) && dfNode.outputs) {
+          // 条件分支/多路分支节点：处理多个输出端口
+          for (let i = 1; i <= 10; i++) {  // 支持最多 10 个输出端口
+            const outputKey = `output_${i}`;
+            if (dfNode.outputs[outputKey] && dfNode.outputs[outputKey].connections) {
+              for (const conn of dfNode.outputs[outputKey].connections) {
+                if (conn && conn.node) {
+                  const tgtId = String(conn.node);
+                  if (children[tgtId] === undefined) continue;
+                  children[srcId].push(tgtId);
+                  parents[tgtId].push(srcId);
+                }
+              }
+            }
+          }
+        } else {
+          // 普通节点：只处理 output_1
+          if (dfNode.outputs && dfNode.outputs.output_1 && dfNode.outputs.output_1.connections) {
+            for (const conn of dfNode.outputs.output_1.connections) {
+              if (conn && conn.node) {
+                const tgtId = String(conn.node);
+                if (children[tgtId] === undefined) continue;
+                children[srcId].push(tgtId);
+                parents[tgtId].push(srcId);
+              }
+            }
+          }
+        }
+      }
+
+      // 用 BFS 按最长路径分配层级，保证 DAG 中每个节点都在所有前驱之后
+      const levelOf = {};
+      const entryNodes = ids.filter(id => parents[id].length === 0);
+      const queue = (entryNodes.length ? entryNodes : [ids[0]]).map(id => ({ id, level: 0 }));
+      let maxLevel = 0;
+      while (queue.length) {
+        const { id, level } = queue.shift();
+        if (levelOf[id] !== undefined && levelOf[id] >= level) continue;
+        levelOf[id] = level;
+        if (level > maxLevel) maxLevel = level;
+        for (const cid of children[id]) {
+          queue.push({ id: cid, level: level + 1 });
+        }
+      }
+      // 把未访问到的节点挂到最右侧
+      ids.forEach(id => {
+        if (levelOf[id] === undefined) levelOf[id] = maxLevel + 1;
+      });
+
+      // 按层级分组
+      const byLevel = {};
+      ids.forEach(id => {
+        const lv = levelOf[id];
+        if (!byLevel[lv]) byLevel[lv] = [];
+        byLevel[lv].push(id);
+      });
+
+      const H_SPACE = 280;
+      const V_SPACE = 150;
+      const START_X = 100;
+      const START_Y = 100;
+
+      const module = editor.module || 'Home';
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[module].data : null;
+
+      // 计算所有层中最大的节点数量，用于同列垂直居中
+      const maxCount = Math.max(1, ...Object.values(byLevel).map(arr => arr.length));
+
+      for (const [lvStr, colIds] of Object.entries(byLevel)) {
+        const lv = parseInt(lvStr);
+        const x = START_X + lv * H_SPACE;
+        // 让较短的列在垂直方向上居中
+        const colHeight = (colIds.length - 1) * V_SPACE;
+        const centerY = START_Y + ((maxCount - 1) * V_SPACE - colHeight) / 2;
+        colIds.forEach((id, idx) => {
+          const y = centerY + idx * V_SPACE;
+          const nodeKey = `node-${id}`;
+
+          if (store && store[nodeKey]) {
+            store[nodeKey].pos_x = x;
+            store[nodeKey].pos_y = y;
+          }
+          const nodeEl = document.getElementById(nodeKey);
+          if (nodeEl) {
+            nodeEl.style.left = x + 'px';
+            nodeEl.style.top = y + 'px';
+          }
+        });
+      }
+
+      // 重绘所有连线
+      ids.forEach(id => {
+        if (typeof editor.updateConnectionNodes === 'function') {
+          editor.updateConnectionNodes('node-' + id);
+        }
+      });
+
+      // 刷新区域框
+      if (typeof renderGroupOverlays === 'function') {
+        renderGroupOverlays();
+      }
+
+      toast('已格式化画布布局', 'success');
     }
 
     // ---------- API helper ----------
@@ -1157,31 +2574,62 @@
       btn.disabled = true;
       btn.textContent = '⏳ 执行中...';
 
+      // 清除之前的错误高亮
+      document.querySelectorAll('.drawflow-node.node-error')
+        .forEach(el => el.classList.remove('node-error'));
+
       try {
         const res = await api('/api/workflows/preview', {
           method: 'POST',
           body: JSON.stringify({ workflow_json: workflowJson }),
         });
 
-        if (res.error) { toast('预览失败: ' + res.error, 'error'); return; }
-
-        _lastPreviewResult = res;
         _origIdToDfId = origIdToDfId;
 
         const nodeOutputs = res.node_outputs || {};
         const nodeIds = Object.keys(nodeOutputs);
+        const errors = res.errors || [];
+
+        // 高亮报错节点
+        if (errors.length) {
+          for (const err of errors) {
+            const nid = err.node_id;
+            const dfId = origIdToDfId[nid];
+            if (dfId) {
+              const el = document.getElementById('node-' + dfId);
+              if (el) el.classList.add('node-error');
+            }
+          }
+        }
+
+        if (res.error && !nodeIds.length) {
+          // 整体失败（所有节点都失败了）
+          const firstErr = errors[0];
+          toast(`预览失败: ${firstErr?.node_name || ''} - ${firstErr?.error || res.error}`, 'error');
+          // 如果有错误信息，显示第一个错误节点的调试面板
+          if (firstErr) {
+            showNodeErrorFromPreview(firstErr, workflowJson);
+          }
+          return;
+        }
+
+        _lastPreviewResult = res;
 
         if (!nodeIds.length) {
           toast('所有节点均无输出数据', 'error');
           return;
         }
 
-        renderNodeChips(nodeOutputs, workflowJson);
+        renderNodeChips(nodeOutputs, workflowJson, errors);
         showNodeOutput(nodeIds[0]);
 
         document.getElementById('data-preview-panel').style.display = 'flex';
         const totalRows = nodeIds.reduce((s, id) => s + (nodeOutputs[id].rows || 0), 0);
-        toast(`预览完成 — ${nodeIds.length} 个节点，共 ${totalRows} 行`, 'success');
+        if (errors.length) {
+          toast(`预览完成（${errors.length} 个节点失败） — ${nodeIds.length} 个节点成功`, 'warning');
+        } else {
+          toast(`预览完成 — ${nodeIds.length} 个节点，共 ${totalRows} 行`, 'success');
+        }
       } catch (e) {
         toast('预览失败: ' + e.message, 'error');
       } finally {
@@ -1190,25 +2638,68 @@
       }
     }
 
-    function renderNodeChips(nodeOutputs, workflowJson) {
+    // 预览时显示节点错误详情
+    function showNodeErrorFromPreview(err, workflowJson) {
+      const body = document.getElementById('node-debug-body');
+      const title = document.getElementById('node-debug-title');
+      const meta = document.getElementById('node-debug-meta');
+
+      const meta_info = findNodeMeta(err.node_type);
+      const icon = meta_info ? meta_info.icon : '⬢';
+      title.textContent = `❌ ${icon} ${err.node_name} 执行失败`;
+      meta.textContent = `节点类型: ${err.node_type}`;
+
+      let html = `<div class="node-debug-error">
+        <div class="err-title">执行错误</div>
+        <div class="err-type">${escapeHtml(err.error_type || '')}</div>
+        <div>${escapeHtml(err.error || '')}</div>`;
+      if (err.traceback) {
+        html += `<div class="err-traceback">${escapeHtml(err.traceback)}</div>`;
+      }
+      html += `</div>`;
+
+      body.innerHTML = html;
+      document.getElementById('node-debug-overlay').classList.add('open');
+      // 隐藏"重新执行"按钮（从预览入口没有足够上下文）
+      document.getElementById('node-debug-run-btn').style.display = 'none';
+    }
+
+    function renderNodeChips(nodeOutputs, workflowJson, errors = []) {
       const container = document.getElementById('node-chips');
       // 按工作流节点顺序排列芯片（与 DAG 执行顺序一致）
       const nodeOrder = (workflowJson.nodes || []).map(n => n.id);
+      const errorMap = {};
+      for (const err of errors) { errorMap[err.node_id] = err; }
       let html = '';
       for (const nid of nodeOrder) {
         const output = nodeOutputs[nid];
-        if (!output) continue;
-        const color = NODE_COLORS[output.type] || '#6366f1';
-        const meta = findNodeMeta(output.type);
+        const err = errorMap[nid];
+        if (!output && !err) continue;
+        const type = output ? output.type : err.node_type;
+        const name = output ? output.name : err.node_name;
+        const color = err ? 'var(--danger)' : (NODE_COLORS[type] || '#6366f1');
+        const meta = findNodeMeta(type);
         const icon = meta ? meta.icon : '⬢';
+        const chipClick = output ? `showNodeOutput('${escapeHtml(nid)}')` : `showNodeErrorChip('${escapeHtml(nid)}')`;
+        const rowsInfo = output ? `${output.rows}行` : '❌ 失败';
         html += `<div class="node-chip" data-node-id="${escapeHtml(nid)}"
-                      onclick="showNodeOutput('${escapeHtml(nid)}')"
+                      onclick="${chipClick}"
                       style="border-left: 3px solid ${color}">
-                   <span>${icon} ${escapeHtml(output.name)}</span>
-                   <span class="chip-rows">${output.rows}行</span>
+                   <span>${icon} ${escapeHtml(name)}</span>
+                   <span class="chip-rows">${rowsInfo}</span>
                  </div>`;
       }
       container.innerHTML = html;
+    }
+
+    // 点击失败节点的芯片，显示错误详情
+    function showNodeErrorChip(nodeId) {
+      if (!_lastPreviewResult) return;
+      const errors = _lastPreviewResult.errors || [];
+      const err = errors.find(e => e.node_id === nodeId);
+      if (!err) return;
+      const { workflowJson } = buildCurrentWorkflowJson();
+      showNodeErrorFromPreview(err, workflowJson);
     }
 
     function showNodeOutput(nodeId) {
@@ -1269,6 +2760,219 @@
       return h;
     }
 
+    // ---------- 单节点调试 ----------
+    let _lastDebugNodeId = null;  // 用于"重新执行"按钮
+
+    async function debugNodeByDrawflowId(dfId) {
+      // 从 Drawflow store 获取节点的原始 ID
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      if (!store) { toast('无法读取画布数据', 'error'); return; }
+
+      let origId = null;
+      let nodeDef = null;
+      for (const [id, n] of Object.entries(store)) {
+        if (n.data?.origId) {
+          if (id === dfId) { origId = n.data.origId; nodeDef = n; break; }
+        }
+      }
+
+      if (!nodeDef) {
+        // 可能是还没保存的新节点，用 dfId 作为 fallback
+        for (const [id, n] of Object.entries(store)) {
+          if (id === dfId) { nodeDef = n; origId = n.data?.origId || id; break; }
+        }
+      }
+      if (!nodeDef) { toast('节点不存在', 'error'); return; }
+
+      // 先 flush 当前属性面板，确保参数是最新的
+      flushCurrentParams();
+
+      await debugNode(nodeDef.data.nodeType, origId, nodeDef);
+    }
+
+    async function debugNode(nodeType, origId, nodeObj) {
+      // 构造完整 workflow_json（含所有节点，后端会截取上游子图）
+      const { workflowJson, origIdToDfId } = buildCurrentWorkflowJson();
+
+      if (!workflowJson.nodes.length) {
+        toast('画布为空', 'error');
+        return;
+      }
+
+      // 找到目标节点在 workflowJson 中的 ID
+      let targetNodeId = null;
+      for (const n of workflowJson.nodes) {
+        if (n.id === origId) { targetNodeId = origId; break; }
+      }
+      if (!targetNodeId) {
+        // 可能是新节点还没有 orig_id，用第一个匹配的
+        for (const n of workflowJson.nodes) {
+          if (n.type === nodeType) { targetNodeId = n.id; break; }
+        }
+      }
+      if (!targetNodeId) {
+        toast('找不到目标节点，请先保存工作流', 'error');
+        return;
+      }
+
+      _lastDebugNodeId = targetNodeId;
+
+      const btn = document.getElementById('node-debug-run-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 执行中...';
+
+      // 显示 modal
+      const title = document.getElementById('node-debug-title');
+      const meta = document.getElementById('node-debug-meta');
+      const body = document.getElementById('node-debug-body');
+      const meta_info = findNodeMeta(nodeType);
+      const icon = meta_info ? meta_info.icon : '⬢';
+      title.textContent = `🔍 调试: ${icon} ${nodeObj?.data?.label || nodeType}`;
+      meta.textContent = '正在执行节点及其上游依赖...';
+      body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-dim)">⏳ 执行中...</div>';
+      document.getElementById('node-debug-overlay').classList.add('open');
+      btn.style.display = '';
+
+      try {
+        const res = await api('/api/workflows/execute-node', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_json: workflowJson,
+            node_id: targetNodeId,
+          }),
+        });
+
+        if (res.error && !res.output && !res.input) {
+          // 目标节点本身报错
+          renderNodeDebugError(res);
+        } else {
+          renderNodeDebugResult(res);
+        }
+
+        // 高亮画布上的节点
+        document.querySelectorAll('.drawflow-node.preview-highlight')
+          .forEach(el => el.classList.remove('preview-highlight'));
+        const dfId = origIdToDfId[targetNodeId];
+        if (dfId) {
+          const el = document.getElementById('node-' + dfId);
+          if (el) {
+            el.classList.add('preview-highlight');
+            if (res.error) el.classList.add('node-error');
+          }
+        }
+      } catch (e) {
+        body.innerHTML = `<div class="node-debug-error">
+          <div class="err-title">请求失败</div>
+          <div>${escapeHtml(e.message)}</div>
+        </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ 重新执行';
+      }
+    }
+
+    function renderNodeDebugResult(res) {
+      const meta = document.getElementById('node-debug-meta');
+      const body = document.getElementById('node-debug-body');
+
+      const execInfo = `执行路径: ${res.executed_nodes?.length || 0} 个节点 · 耗时 ${res.time_seconds?.toFixed(3) || '?'}s`;
+      let upstreamWarn = '';
+      if (res.upstream_errors?.length) {
+        upstreamWarn = `<div class="node-debug-upstream-error">
+          ⚠️ 上游节点有 ${res.upstream_errors.length} 个错误:
+          ${res.upstream_errors.map(e => `<br>• ${escapeHtml(e.node_name)}: ${escapeHtml(e.error)}`).join('')}
+        </div>`;
+      }
+      meta.textContent = execInfo;
+
+      let html = upstreamWarn;
+
+      // 输入数据
+      if (res.input && res.input.rows > 0) {
+        html += `<div class="node-debug-section">
+          <div class="node-debug-section-header">
+            <span>📥 输入数据 (${res.input.rows} 行 × ${res.input.columns.length} 列)</span>
+          </div>
+          <div class="node-debug-section-body">${renderDataTable(res.input.columns, res.input.preview)}</div>
+        </div>`;
+      } else {
+        html += `<div class="node-debug-section">
+          <div class="node-debug-section-header"><span>📥 输入数据</span></div>
+          <div class="node-debug-section-body"><div class="preview-empty">无输入数据（首节点或上游无输出）</div></div>
+        </div>`;
+      }
+
+      // 输出数据
+      if (res.output && res.output.rows > 0) {
+        html += `<div class="node-debug-section">
+          <div class="node-debug-section-header">
+            <span>📤 输出数据 (${res.output.rows} 行 × ${res.output.columns.length} 列)</span>
+          </div>
+          <div class="node-debug-section-body">${renderDataTable(res.output.columns, res.output.preview)}</div>
+        </div>`;
+      } else if (res.output) {
+        html += `<div class="node-debug-section">
+          <div class="node-debug-section-header"><span>📤 输出数据</span></div>
+          <div class="node-debug-section-body"><div class="preview-empty">输出为空 (0 行)</div></div>
+        </div>`;
+      }
+
+      body.innerHTML = html;
+    }
+
+    function renderNodeDebugError(res) {
+      const meta = document.getElementById('node-debug-meta');
+      const body = document.getElementById('node-debug-body');
+      meta.textContent = `节点执行失败 · ${res.error_type || 'Error'}`;
+
+      let html = `<div class="node-debug-error">
+        <div class="err-title">❌ 执行错误</div>
+        <div class="err-type">${escapeHtml(res.error_type || '')}</div>
+        <div>${escapeHtml(res.error || '')}</div>`;
+      if (res.traceback) {
+        html += `<div class="err-traceback">${escapeHtml(res.traceback)}</div>`;
+      }
+      html += `</div>`;
+
+      // 即使报错，也尝试显示输入数据（供调试）
+      if (res.input && res.input.rows > 0) {
+        html += `<div class="node-debug-section">
+          <div class="node-debug-section-header">
+            <span>📥 输入数据 (${res.input.rows} 行 × ${res.input.columns.length} 列)</span>
+          </div>
+          <div class="node-debug-section-body">${renderDataTable(res.input.columns, res.input.preview)}</div>
+        </div>`;
+      }
+
+      body.innerHTML = html;
+    }
+
+    async function rerunNodeDebug() {
+      if (!_lastDebugNodeId) { toast('没有可重新执行的节点', 'error'); return; }
+
+      const store = editor.drawflow && editor.drawflow.drawflow
+        ? editor.drawflow.drawflow[editor.module || 'Home']?.data : null;
+      if (!store) return;
+
+      // 找到节点定义
+      for (const [dfId, n] of Object.entries(store)) {
+        if (n.data?.origId === _lastDebugNodeId) {
+          await debugNode(n.data.nodeType, _lastDebugNodeId, n);
+          return;
+        }
+      }
+      toast('节点未找到', 'error');
+    }
+
+    function closeNodeDebug() {
+      document.getElementById('node-debug-overlay').classList.remove('open');
+      document.querySelectorAll('.drawflow-node.node-error')
+        .forEach(el => el.classList.remove('node-error'));
+      document.querySelectorAll('.drawflow-node.preview-highlight')
+        .forEach(el => el.classList.remove('preview-highlight'));
+    }
+
     // ---------- Toast ----------
     function toast(msg, type = 'success') {
       const el = document.getElementById('toast');
@@ -1287,7 +2991,10 @@
       }
     });
 
-    // ---------- 导入示例工作流（多选弹框） ----------
+    // ---------- 导入示例工作流（组合打法：搜索 + chips + 智能推荐） ----------
+    let __importActiveChips = new Set();   // 空 = 全部显示
+    let __importRecommendIds = new Set();  // 智能推荐的 id 集合
+
     async function openImportExamplesModal() {
       // 兜底：若 <script src="example_workflows.js"> 未加载（缓存了旧 HTML），动态拉取一次
       if (!Array.isArray(window.EXAMPLE_WORKFLOWS) || window.EXAMPLE_WORKFLOWS.length === 0) {
@@ -1302,24 +3009,203 @@
           console.warn('[import] 动态加载 example_workflows.js 异常:', e);
         }
       }
-      const overlay = document.getElementById('import-overlay');
+      __importActiveChips.clear();
+      const searchEl = document.getElementById('import-search');
+      if (searchEl) searchEl.value = '';
+      renderImportChips();
+      renderImportRecommend();
       renderImportList();
-      overlay.classList.add('open');
+      document.getElementById('import-overlay').classList.add('open');
     }
     function closeImportExamplesModal() {
       document.getElementById('import-overlay').classList.remove('open');
     }
+    function renderImportChips() {
+      const chips = (window.EXAMPLE_WORKFLOWS_DATA && window.EXAMPLE_WORKFLOWS_DATA.filterChips) || ['全部'];
+      const box = document.getElementById('import-chips');
+      box.innerHTML = chips.map(c => {
+        const active = c === '全部' ? __importActiveChips.size === 0 : __importActiveChips.has(c);
+        return `<button type="button" class="import-chip ${active ? 'active' : ''}" onclick="toggleImportChip('${c}')">${c}</button>`;
+      }).join('');
+    }
+    function toggleImportChip(chip) {
+      if (chip === '全部') {
+        __importActiveChips.clear();
+      } else {
+        if (__importActiveChips.has(chip)) __importActiveChips.delete(chip);
+        else __importActiveChips.add(chip);
+      }
+      renderImportChips();
+      renderImportList();
+    }
+
+    // ---- 智能推荐：基于当前画布节点打分 ----
+    function __getCanvasNodeSummary() {
+      // 返回 { types: Set, sourceTypes: Set, count }
+      const types = new Set();
+      const sourceTypes = new Set();
+      try {
+        if (typeof editor !== 'undefined' && editor && editor.drawflow && editor.drawflow.drawflow) {
+          const data = editor.drawflow.drawflow[editor.module || 'Home'].data || {};
+          Object.values(data).forEach(n => {
+            const d = n.data || {};
+            if (d.type) types.add(d.type);
+            if (d.type === 'source_fetch' && d.parameters && d.parameters.source_type) {
+              sourceTypes.add(d.parameters.source_type);
+            }
+          });
+        }
+      } catch (e) { /* ignore */ }
+      return { types, sourceTypes, count: types.size };
+    }
+    function __deriveCanvasCategory(canvas) {
+      if ([...canvas.types].some(t => ['factor_compute', 'factor_write', 'factor_expression'].includes(t))) return '因子库';
+      if ([...canvas.types].some(t => ['macd', 'ma', 'rsi', 'boll'].includes(t))) return '指标';
+      if ([...canvas.types].some(t => ['custom_python', 'condition', 'expression'].includes(t))) return '策略信号';
+      if ([...canvas.types].some(t => ['filter', 'sort', 'group_by', 'dedup', 'resample', 'column_rename'].includes(t))) return '数据处理';
+      if ([...canvas.types].includes('time_window') || [...canvas.types].includes('dedup')) return '进阶ETL';
+      if (canvas.sourceTypes.size > 0) return '数据源';
+      return null;
+    }
+    function __describeRecommendReason(canvas) {
+      if (canvas.count === 0) return '当前画布为空，从入门示例开始';
+      if (canvas.sourceTypes.size > 0) return `基于当前 ${[...canvas.sourceTypes].join(' / ')} 数据源推荐`;
+      const cat = __deriveCanvasCategory(canvas);
+      if (cat) return `基于当前「${cat}」相关节点推荐`;
+      return '基于当前画布内容推荐';
+    }
+    function renderImportRecommend() {
+      const box = document.getElementById('import-recommend');
+      const examples = window.EXAMPLE_WORKFLOWS || [];
+      if (!examples.length) { box.classList.remove('has-items'); return; }
+
+      const canvas = __getCanvasNodeSummary();
+      const empty = canvas.count === 0;
+
+      const scores = examples.map(ex => {
+        let score = 0;
+        const tags = ex.tags || [];
+        const exTypes = new Set((ex.workflow.nodes || []).map(n => n.type));
+        const exSources = new Set((ex.workflow.nodes || [])
+          .filter(n => n.type === 'source_fetch' && n.parameters && n.parameters.source_type)
+          .map(n => n.parameters.source_type));
+
+        if (empty) {
+          if (tags.includes('快速上手')) score += 10;
+        } else {
+          for (const s of exSources) if (canvas.sourceTypes.has(s)) score += 5;
+          for (const t of exTypes) if (canvas.types.has(t)) score += 2;
+          const cat = __deriveCanvasCategory(canvas);
+          if (cat && tags.includes(cat)) score += 8;
+        }
+        return { ex, score };
+      }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+
+      if (!scores.length) {
+        __importRecommendIds = new Set();
+        box.classList.remove('has-items');
+        return;
+      }
+
+      // 过滤掉没有 workflow 数据的专业版示例（需要内容包）
+      const importableScores = scores.filter(s => s.ex.workflow && s.ex.workflow.nodes && s.ex.workflow.nodes.length > 0);
+      if (!importableScores.length) {
+        __importRecommendIds = new Set();
+        box.classList.remove('has-items');
+        return;
+      }
+
+      __importRecommendIds = new Set(importableScores.map(s => s.ex.id));
+      const reason = __describeRecommendReason(canvas);
+
+      box.classList.add('has-items');
+      box.innerHTML = `
+        <div class="import-recommend-title">
+          🔥 猜你想用
+          <span class="import-recommend-subtitle">${escapeHtml(reason)}</span>
+        </div>
+        ${importableScores.map(s => {
+          const nodes = (s.ex.workflow && s.ex.workflow.nodes) || [];
+          const types = nodes.map(n => n.type).join(' → ') || '(无节点)';
+          return `
+            <label class="import-item" data-id="${s.ex.id}">
+              <input type="checkbox" class="import-cb" value="${s.ex.id}" onchange="updateImportCount()">
+              <div class="idx">#${s.ex.id}</div>
+              <div class="meta">
+                <div class="t">${escapeHtml(s.ex.title)}</div>
+                <div class="d">${escapeHtml((s.ex.description || '').slice(0, 80))}</div>
+              </div>
+              <div class="nodes" title="${escapeHtml(types)}">${escapeHtml(types)}</div>
+            </label>`;
+        }).join('')}
+      `;
+    }
+
     function renderImportList() {
       const list = document.getElementById('import-list');
       const examples = window.EXAMPLE_WORKFLOWS || [];
+      const search = (document.getElementById('import-search')?.value || '').trim().toLowerCase();
+      const activeChips = __importActiveChips;
+
       if (!examples.length) {
         list.innerHTML = '<div class="text-dim" style="padding:20px;text-align:center">未加载到示例数据（example_workflows.js）</div>';
+        document.getElementById('import-filter-hint').textContent = '共 0 个示例';
         return;
       }
-      list.innerHTML = examples.map(ex => {
+
+      // 过滤：推荐区已展示的 + chips + 搜索
+      const secondaryTags = new Set(['tdx', 'binance', 'yfinance', '并行', '增量']);
+      const filtered = examples.filter(ex => {
+        if (__importRecommendIds.has(ex.id)) return false;  // 已在推荐区，主列表不重复
+        if (activeChips.size > 0 && !(ex.tags || []).some(t => activeChips.has(t))) return false;
+        if (search) {
+          const haystack = [
+            ex.title, ex.description,
+            ...(ex.tags || []),
+            ...((ex.workflow.nodes || []).map(n => n.type)),
+            ...((ex.workflow.nodes || []).map(n => n.name)),
+          ].join(' ').toLowerCase();
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+
+      const total = examples.length;
+      const hintText = (activeChips.size > 0 || search)
+        ? `匹配 ${filtered.length} / ${total} 个`
+        : `共 ${total} 个示例（推荐区另 ${__importRecommendIds.size} 个）`;
+      document.getElementById('import-filter-hint').textContent = hintText;
+
+      if (!filtered.length) {
+        list.innerHTML = '<div class="text-dim" style="padding:20px;text-align:center">没有匹配的示例</div>';
+        updateImportCount();
+        return;
+      }
+
+      list.innerHTML = filtered.map(ex => {
         const nodes = (ex.workflow && ex.workflow.nodes) || [];
         const types = nodes.map(n => n.type).join(' → ') || '(无节点)';
         const desc = (ex.description || '').slice(0, 80);
+        const mainTags = (ex.tags || []).filter(t => !secondaryTags.has(t));
+        const isLocked = !ex.workflow || !ex.workflow.nodes || ex.workflow.nodes.length === 0;
+        const CR = window.CONTENT_REGISTRY || { isPro: () => false };
+        const isProExample = CR.isPro(ex.id);
+
+        if (isLocked && isProExample) {
+          return `
+            <div class="import-item" style="opacity:0.6" data-id="${ex.id}">
+              <div style="display:flex;align-items:center;gap:8px;margin-right:auto">
+                <span style="font-size:16px">🔒</span>
+                <div class="idx">#${ex.id}</div>
+              </div>
+              <div class="meta">
+                <div class="t">${escapeHtml(ex.title)}</div>
+                <div class="d">${escapeHtml(desc)}</div>
+                <div class="text-dim" style="font-size:11px;margin-top:4px">需导入专业版内容包</div>
+              </div>
+            </div>`;
+        }
+
         return `
           <label class="import-item" data-id="${ex.id}">
             <input type="checkbox" class="import-cb" value="${ex.id}" onchange="updateImportCount()">
@@ -1327,6 +3213,7 @@
             <div class="meta">
               <div class="t">${escapeHtml(ex.title)}</div>
               <div class="d">${escapeHtml(desc)}</div>
+              ${mainTags.length ? `<div class="import-item-tags">${mainTags.map(t => `<span class="import-item-tag">${t}</span>`).join('')}</div>` : ''}
             </div>
             <div class="nodes" title="${escapeHtml(types)}">${escapeHtml(types)}</div>
           </label>`;
@@ -1340,8 +3227,9 @@
     function updateImportCount() {
       const n = document.querySelectorAll('.import-cb:checked').length;
       document.getElementById('import-count').textContent = `已选 ${n} 项`;
-      document.getElementById('import-select-all').indeterminate =
-        n > 0 && n < document.querySelectorAll('.import-cb').length;
+      const all = document.querySelectorAll('.import-cb');
+      const selectAll = document.getElementById('import-select-all');
+      if (selectAll) selectAll.indeterminate = n > 0 && n < all.length;
     }
     async function importSelectedExamples() {
       const ids = Array.from(document.querySelectorAll('.import-cb:checked')).map(cb => Number(cb.value));

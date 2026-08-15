@@ -10,12 +10,15 @@
 
     :root {
       --bg: #0f1117;
+      --bg-secondary: #1a1d27;
+      --bg-code: #1e2235;
       --sidebar: #1a1d27;
       --card: #22263a;
       --card-hover: #2a2f47;
       --border: #2d3348;
       --text: #e2e8f0;
       --text-dim: #8892a4;
+      --code-text: #f59e0b;
       --accent: #6366f1;
       --accent-hover: #818cf8;
       --success: #22c55e;
@@ -26,12 +29,15 @@
 
     [data-theme="light"] {
       --bg: #f5f7fa;
+      --bg-secondary: #ffffff;
+      --bg-code: #f0f2f5;
       --sidebar: #ffffff;
       --card: #ffffff;
       --card-hover: #f0f2f5;
       --border: #e2e6ee;
       --text: #1e293b;
       --text-dim: #64748b;
+      --code-text: #d97706;
       --accent: #6366f1;
       --accent-hover: #818cf8;
       --success: #16a34a;
@@ -735,16 +741,231 @@
     .import-toolbar label { font-size: 12px; color: var(--text-dim, #888); display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .import-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow: auto; padding-right: 4px; }
     .import-item {
-      display: grid; grid-template-columns: auto 40px 1fr auto; gap: 10px; align-items: flex-start;
+      display: grid; grid-template-columns: auto 40px 1fr auto; gap: 10px; align-items: center;
       padding: 8px 10px; border: 1px solid var(--border, #2a2a2a); border-radius: 6px;
       background: var(--bg, #0f0f0f); cursor: pointer; transition: border-color .15s;
     }
     .import-item:hover { border-color: var(--accent, #6366f1); }
     .import-item input[type="checkbox"] { margin-top: 3px; cursor: pointer; }
-    .import-item .idx { font-size: 11px; color: var(--text-dim, #888); font-variant-numeric: tabular-nums; padding-top: 2px; }
-    .import-item .meta .t { font-size: 13px; color: var(--text, #e5e5e5); }
-    .import-item .meta .d { font-size: 11px; color: var(--text-dim, #888); margin-top: 2px; }
-    .import-item .nodes { font-size: 11px; color: var(--text-dim, #888); white-space: nowrap; padding-top: 2px; }
+    .import-item .idx { font-size: 11px; color: var(--text-dim, #888); font-variant-numeric: tabular-nums; }
+    .import-item .meta { overflow: hidden; }
+    .import-item .meta .t { font-size: 13px; color: var(--text, #e5e5e5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .import-item .meta .d { font-size: 11px; color: var(--text-dim, #888); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .import-item .nodes { font-size: 11px; color: var(--text-dim, #888); white-space: nowrap; }
+    .import-item .doc-btn {
+      font-size: 11px; color: var(--accent, #6366f1); cursor: pointer; padding: 2px 8px;
+      border: 1px solid var(--accent, #6366f1); border-radius: 4px; white-space: nowrap;
+      background: transparent; transition: all .15s;
+    }
+    .import-item .doc-btn:hover { background: var(--accent, #6366f1); color: white; }
+
+    /* Pro 版本内容卡片样式 */
+    .import-item-pro {
+      display: block;
+      grid-template-columns: none;
+      opacity: 0.6;
+      filter: grayscale(0.5);
+      position: relative;
+      border: 1px dashed var(--text-dim, #888);
+      cursor: not-allowed;
+    }
+
+    .import-item-pro:hover {
+      border-color: var(--text-dim, #888);
+      background: transparent;
+    }
+
+    .import-item-pro .pro-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .import-item-pro .pro-screenshot {
+      width: 100%;
+      height: 120px;
+      background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 8px 0;
+      color: var(--text-dim, #888);
+      font-size: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .import-item-pro .pro-screenshot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .import-item-pro .pro-screenshot::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.3);
+      backdrop-filter: blur(2px);
+    }
+
+    .import-item-pro .pro-acquisition {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    .import-item-pro .pro-acquisition-title {
+      color: var(--accent, #6366f1);
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .import-item-pro .pro-acquisition-method {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0;
+      color: var(--text-dim, #888);
+    }
+
+    .import-item-pro .pro-acquisition-method a {
+      color: var(--accent, #6366f1);
+      text-decoration: none;
+    }
+
+    .import-item-pro .pro-acquisition-method a:hover {
+      text-decoration: underline;
+    }
+
+    .import-item-pro .pro-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .import-item-pro .pro-tag {
+      padding: 3px 10px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 12px;
+      font-size: 11px;
+      color: var(--accent, #6366f1);
+    }
+
+    .import-item-pro .pro-screenshot-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim, #888);
+      font-size: 12px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.05) 0%, rgba(99,102,241,0.02) 100%);
+    }
+
+    /* 工作流可视化图样式 */
+    .import-item-pro .pro-workflow-diagram {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 12px;
+      gap: 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      background: linear-gradient(135deg, rgba(99,102,241,0.03) 0%, rgba(99,102,241,0.01) 100%);
+    }
+
+    .import-item-pro .workflow-node {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.06) 100%);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text, #e5e5e5);
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .import-item-pro .workflow-icon {
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: rgba(99,102,241,0.2);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .import-item-pro .workflow-name {
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    .import-item-pro .workflow-arrow {
+      color: var(--accent, #6366f1);
+      font-size: 18px;
+      font-weight: bold;
+      margin: 0 2px;
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    /* 示例文档弹框样式 */
+    .example-doc-content {
+      max-height: 60vh; overflow: auto; padding: 16px; line-height: 1.7;
+      background: var(--bg-secondary); border-radius: 8px;
+    }
+    .example-doc-content h1 { font-size: 20px; margin: 16px 0 12px; color: var(--text); }
+    .example-doc-content h2 { font-size: 17px; margin: 14px 0 10px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .example-doc-content h3 { font-size: 14px; margin: 12px 0 8px; color: var(--accent); }
+    .example-doc-content p { margin: 8px 0; color: var(--text); font-size: 13px; }
+    .example-doc-content ul { margin: 8px 0; padding-left: 20px; }
+    .example-doc-content li { margin: 4px 0; font-size: 13px; color: var(--text); }
+    .example-doc-content code {
+      background: var(--bg-code); padding: 2px 6px; border-radius: 4px;
+      font-family: 'Consolas', monospace; font-size: 12px; color: var(--code-text);
+    }
+    .example-doc-content pre {
+      background: var(--bg-code); padding: 12px; border-radius: 6px;
+      overflow-x: auto; margin: 10px 0; border: 1px solid var(--border);
+    }
+    .example-doc-content pre code { background: none; padding: 0; color: var(--text); }
+    .example-doc-content table {
+      width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px;
+    }
+    .example-doc-content th, .example-doc-content td {
+      border: 1px solid var(--border); padding: 8px 10px; text-align: left;
+    }
+    .example-doc-content th { background: var(--bg-code); color: var(--accent); font-weight: 500; }
+    .example-doc-content td { color: var(--text); }
+    .example-doc-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .example-doc-content strong { color: var(--accent); }
 
     /* Responsive */
     @media (max-width: 768px) {
@@ -754,7 +975,8 @@
       .nav-section-label { display: none; }
     }
   </style>
-  <script src="example_workflows.js"></script>
+  <script src="static/example_workflows.js"></script>
+  <script src="static/content-registry.js"></script>
 </head>
 <body>
 
@@ -810,6 +1032,9 @@
       <span class="icon">📋</span><span>日志</span>
     </div>
     <div class="nav-section-label">系统</div>
+    <div class="nav-item" data-view="guide" onclick="window.open('/static/guide.html','_blank')">
+      <span class="icon">📘</span><span>操作手册</span>
+    </div>
     <div class="nav-item" data-view="ai-script" onclick="navigate('ai-script')">
       <span class="icon">✨</span><span>AI脚本生成</span>
     </div>
@@ -1169,7 +1394,7 @@ function openModal(title, bodyHtml, footerHtml) {
   overlay.classList.remove('hidden');
   // Focus the first editable field after modal content is rendered.
   setTimeout(() => {
-    const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]), #modal-body textarea, #modal-body select');
+    const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), #modal-body textarea, #modal-body select');
     if (firstEditable) {
       firstEditable.focus();
       firstEditable.click();
@@ -1753,7 +1978,7 @@ overview: async () => ({
           <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
           <button class="btn btn-secondary" onclick="openAIAssistantModal('workflow', { mode: 'wizard' })">🤖 AI 辅助</button>
           <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入示例</button>
-          <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件市场</button>
+          <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件中心</button>
           <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
         </div>
       </div>
@@ -5727,7 +5952,8 @@ async function refreshPipelines() {
     <table class="data-table" id="pl-list-table"><thead><tr>
       ${th('名称', 'name', 'pl-list-table')}
       ${thPlain('数据源数')}${thPlain('目标')}${thPlain('状态')}
-      ${th('Cron', 'cron', 'pl-list-table')}
+      ${th('定时', 'schedule', 'pl-list-table')}
+      ${th('下次执行', 'next_run', 'pl-list-table')}
       ${th('上次运行', 'last_run', 'pl-list-table')}
       ${th('创建时间', 'created_at', 'pl-list-table')}
       ${th('更新时间', 'updated_at', 'pl-list-table')}
@@ -5739,12 +5965,15 @@ async function refreshPipelines() {
       const tgt = pjson.target || {};
       const tgtName = tgt.table || '-';
       const time = p.last_run_at ? new Date(p.last_run_at).toLocaleString() : '-';
+      const nextRun = p.next_run_at ? new Date(p.next_run_at).toLocaleString() : '-';
+      const scheduleCell = renderPipelineSchedule(p);
       html += `<tr>
         <td>${p.name}</td>
         <td>${srcCount}</td>
         <td class="text-dim">${tgtName}</td>
         <td><span class="badge badge-${badgeClassForStatus(p.status || 'pending')}">${labelStatus(p.status || 'pending')}</span></td>
-        <td class="text-dim">${p.cron_expression || '-'}</td>
+        <td>${scheduleCell}</td>
+        <td class="text-dim">${(p.enabled && p.next_run_at) ? nextRun : '-'}</td>
         <td class="text-dim">${time}</td>
         ${timeCell(p.created_at)}
         ${timeCell(p.updated_at)}
@@ -6468,6 +6697,34 @@ async function showPipelineRuns(id) {
   } catch(e) { alert('获取失败: ' + e.message); }
 }
 
+function renderPipelineSchedule(p) {
+  // 未配置 cron → 显示为"未设置"，不可切换
+  if (!p.cron_expression) {
+    return `<span class="text-dim" style="font-size:12px">未设置</span>`;
+  }
+  // enabled=1 表示定时已开启；0/空 表示已暂停
+  const enabled = p.enabled === 1 || p.enabled === true;
+  const cls = enabled ? 'btn-success' : 'btn-secondary';
+  const icon = enabled ? '▶' : '⏸';
+  const label = enabled ? '已启用' : '已暂停';
+  const title = enabled
+    ? `定时执行中 (${p.cron_expression.trim()})，点击暂停`
+    : `定时已暂停 (${p.cron_expression.trim()})，点击启用`;
+
+  return `<button class="btn ${cls} btn-sm" style="font-size:11px;padding:2px 8px" `
+       + `title="${escapeHtml(title)}" `
+       + `onclick="togglePipelineSchedule('${p.id}', ${enabled ? 0 : 1})">`
+       + `${icon} ${label}</button>`;
+}
+
+async function togglePipelineSchedule(id, enabled) {
+  try {
+    const resp = await api(`/api/pipelines/${id}/status?enabled=${enabled}`, { method: 'PATCH' });
+    if (resp && resp.error) { alert(resp.error); return; }
+    refreshPipelines();
+  } catch(e) { alert('切换失败: ' + e.message); }
+}
+
 async function deletePipeline(id) {
   if (!confirm('确定删除此数据流？')) return;
   try {
@@ -6838,6 +7095,14 @@ async function openLicenseModal() {
       <div class="text-dim mt-8">适用于无网络环境，请联系客服获取 .lic 文件</div>
     </div>
 
+    <div class="panel-title mb-16 mt-16">导入专业版内容包</div>
+    <div class="form-group">
+      <label>上传 .jspack 内容包文件</label>
+      <input type="file" id="pack-file" accept=".jspack" style="color:var(--text)" onchange="previewContentPack(this)">
+      <div class="text-dim mt-8">购买专业版后获得 .jspack 文件，导入后解锁 25 个专业工作流 + 6 个高级插件</div>
+      <div id="pack-preview" style="margin-top:12px"></div>
+    </div>
+
     <div class="panel-title mb-16 mt-16">版本说明</div>
     <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
       <p><strong>免费基础版</strong>：基础可视化工作流（单工作流）、通用数据库连接（MySQL、SQLite）、基础文件读取（CSV、TXT）、简单数据清洗（去重、空值处理）、基础定时调度（每日/hourly）、基础日志记录、单任务运行无并发。</p>
@@ -6852,7 +7117,64 @@ async function openLicenseModal() {
     ` : ''}
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
-    ${currentType === 'free' ? '<button class="btn btn-primary" onclick="window.open(\'#\')">升级付费版</button>' : ''}
+    ${currentType === 'free' ? '<button class="btn btn-primary" onclick="closeModal(); openPurchaseGuide();">升级付费版</button>' : ''}
+  `);
+}
+
+// ---------- 购买指南弹框 ----------
+function openPurchaseGuide() {
+  openModal('升级专业版', `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:14px;color:var(--text-dim);line-height:1.8">
+        专业版包含 <strong>25 个生产级工作流模板</strong> + <strong>6 个高级官方插件</strong>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <!-- 知识星球 -->
+      <div style="background:var(--bg);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🌟</div>
+        <div style="font-weight:600;margin-bottom:8px">知识星球</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.6">
+          加入会员获取全部内容包<br>+ 持续更新 + 专属答疑
+        </div>
+        <div style="background:var(--card);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--text-dim)">扫码加入或搜索「金智汇联ETL」</div>
+          <div style="width:120px;height:120px;background:var(--bg);border-radius:8px;margin:8px auto;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)">[二维码占位]</div>
+        </div>
+        <a href="https://wx.zsxq.com/" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">前往知识星球</a>
+      </div>
+
+      <!-- 闲鱼 -->
+      <div style="background:var(--bg);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🐟</div>
+        <div style="font-weight:600;margin-bottom:8px">闲鱼购买</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.6">
+          单次购买内容包<br>即买即用，无需会员
+        </div>
+        <div style="background:var(--card);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--text-dim)">闲鱼搜索关键词</div>
+          <div style="font-size:14px;font-weight:600;color:var(--accent);padding:12px 0">金智汇联ETL</div>
+        </div>
+        <a href="https://www.goofish.com/" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">前往闲鱼</a>
+      </div>
+    </div>
+
+    <div style="background:var(--bg);border-radius:12px;padding:16px">
+      <div style="font-weight:600;margin-bottom:8px">购买后如何使用？</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+        <div>1. 购买后获得 <strong>激活码</strong> + <strong>.jspack 内容包文件</strong></div>
+        <div>2. 在本页面「License 管理」中输入激活码，解锁功能权限</div>
+        <div>3. 上传 .jspack 文件，导入 25 个专业工作流 + 6 个高级插件</div>
+        <div>4. 在「导入示例」中选择专业版工作流，一键导入使用</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding:12px;background:var(--card);border-radius:8px;font-size:12px;color:var(--text-dim)">
+      💡 已有激活码？点击上方「激活」按钮直接激活。已有 .jspack 文件？在上方「导入专业版内容包」区域上传。
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
   `);
 }
 
@@ -6878,6 +7200,92 @@ async function deactivateLicense() {
     closeModal();
     loadLicenseInfo();
   } catch(e) { alert('解绑失败: ' + e.message); }
+}
+
+// ---------- 内容包导入 ----------
+let _packPreviewData = null;
+
+async function previewContentPack(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const previewEl = document.getElementById('pack-preview');
+  previewEl.innerHTML = '<div class="text-dim">正在校验...</div>';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/content-packs/validate', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.error) {
+      previewEl.innerHTML = `<div style="color:#ef4444">${escapeHtml(data.error)}</div>`;
+      _packPreviewData = null;
+      return;
+    }
+
+    _packPreviewData = data;
+    const manifest = data.manifest || {};
+    const workflows = data.workflows_preview || [];
+    const plugins = data.plugins_preview || [];
+
+    let html = `
+      <div style="background:var(--bg);padding:12px;border-radius:8px;font-size:13px">
+        <div style="font-weight:600;margin-bottom:8px">${escapeHtml(manifest.name || '内容包')}</div>
+        <div class="text-dim" style="margin-bottom:8px">版本: ${escapeHtml(manifest.pack_version || '-')} | 创建: ${escapeHtml(manifest.created_at || '-')}</div>
+        <div style="margin-bottom:6px"><strong>工作流 (${workflows.length} 个):</strong></div>
+        <div style="max-height:120px;overflow-y:auto;font-size:12px;margin-bottom:8px">
+          ${workflows.map(w => `<div style="padding:2px 0">${escapeHtml(w.name)} <span class="text-dim">(${w.node_count} 节点)</span></div>`).join('')}
+        </div>
+        ${plugins.length > 0 ? `
+          <div style="margin-bottom:6px"><strong>插件 (${plugins.length} 个):</strong></div>
+          <div style="font-size:12px;margin-bottom:8px">${plugins.map(p => `<span style="display:inline-block;background:var(--card);padding:2px 8px;border-radius:4px;margin:2px">${escapeHtml(p)}</span>`).join('')}</div>
+        ` : ''}
+        <button class="btn btn-primary btn-sm" onclick="importContentPack()" style="margin-top:8px">确认导入</button>
+      </div>
+    `;
+    previewEl.innerHTML = html;
+  } catch(e) {
+    previewEl.innerHTML = `<div style="color:#ef4444">校验失败: ${escapeHtml(e.message)}</div>`;
+    _packPreviewData = null;
+  }
+}
+
+async function importContentPack() {
+  const fileInput = document.getElementById('pack-file');
+  const file = fileInput.files[0];
+  if (!file) { alert('请先选择 .jspack 文件'); return; }
+
+  const previewEl = document.getElementById('pack-preview');
+  previewEl.innerHTML = '<div class="text-dim">正在导入...</div>';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('overwrite_existing', 'false');
+
+  try {
+    const res = await fetch('/api/content-packs/import', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.error) {
+      previewEl.innerHTML = `<div style="color:#ef4444">${escapeHtml(data.error)}</div>`;
+      return;
+    }
+
+    previewEl.innerHTML = `<div style="color:#10b981">${escapeHtml(data.message || '导入成功')}</div>`;
+    alert(data.message || '导入成功！');
+
+    // 刷新工作流列表
+    if (typeof refreshWorkflows === 'function') refreshWorkflows();
+    // 关闭弹框后重新打开以刷新状态
+    setTimeout(() => {
+      closeModal();
+      openLicenseModal();
+    }, 1000);
+  } catch(e) {
+    previewEl.innerHTML = `<div style="color:#ef4444">导入失败: ${escapeHtml(e.message)}</div>`;
+  }
 }
 
 // ---------- AI 脚本生成 ----------
@@ -7099,6 +7507,253 @@ async function seedDemoWorkflow() {
   openImportExamplesModal();
 }
 
+// ---------- 示例文档数据 ----------
+const EXAMPLE_DOCS = {
+  23: `## 📋 示例23 详解：后复权处理工程化（嵌套循环版）
+
+### 🎯 目标
+
+将 7 张不同频率的 K 线表进行复权处理，输出**未复权、前复权、后复权**三种版本，共生成 21 张表。采用**嵌套循环**架构，内存友好，支持大数据量。
+
+---
+
+### 🔗 节点流程图（嵌套循环）
+
+\`\`\`
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  n1: 设置表名列表 (7张表)                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  n2: 遍历表（外层循环）                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  n3: 获取股票列表 (存入 context['codes'])                           │   │
+│  │                              │                                      │   │
+│  │                              ▼                                      │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  n4: 遍历股票（内层循环）                                    │   │   │
+│  │  │  ┌─────────────────────────────────────────────────────┐   │   │   │
+│  │  │  │  n5: 处理单只股票复权 (拉因子 + 计算 + 写入)         │   │   │   │
+│  │  │  └─────────────────────────────────────────────────────┘   │   │   │
+│  │  │  ┌─────────────────────────────────────────────────────┐   │   │   │
+│  │  │  │  n6: 股票间隔等待 (0.1s)                             │   │   │   │
+│  │  │  └─────────────────────────────────────────────────────┘   │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  │                        循环 ~5000 次（每只股票）                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  n7: 表间隔等待 (2s)                                                 │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                              循环 7 次（每张表）
+\`\`\`
+
+---
+
+### 📦 各节点详解
+
+#### 1️⃣ n1: 设置表名列表
+
+| 配置项 | 值 |
+|-------|---|
+| 变量名 | \`tables\` |
+| 值类型 | \`json\` |
+| 变量值 | \`["dat_day","dat_60mins","dat_30mins","dat_15mins","dat_10mins","dat_5mins","dat_1mins"]\` |
+
+---
+
+#### 2️⃣ n2: 遍历表（外层循环）
+
+| 配置项 | 值 |
+|-------|---|
+| 循环列表 | \`{{tables}}\` |
+| 当前项变量 | \`current_table\` |
+| 迭代次数 | 7 次 |
+
+---
+
+#### 3️⃣ n3: 获取股票列表
+
+**作用**：查询当前表的所有股票代码，存入 \`context['codes']\` 供内层循环使用。
+
+**输入**：\`current_table\`（当前表名）
+
+**输出**：\`context['codes']\` = \`['000001.SZ', '000002.SZ', ...]\`
+
+---
+
+#### 4️⃣ n4: 遍历股票（内层循环）
+
+| 配置项 | 值 |
+|-------|---|
+| 循环列表 | \`{{codes}}\` |
+| 当前项变量 | \`current_code\` |
+| 迭代次数 | ~5000 次（每只股票） |
+
+---
+
+#### 5️⃣ n5: 处理单只股票复权
+
+**这是核心计算节点**，每次只处理一只股票：
+
+1. **读取数据** — 从源库读取当前股票的所有 K 线
+2. **拉取因子** — 从 baostock 获取该股票的前复权/后复权因子
+3. **因子广播** — 日频因子扩展到分钟级（同一天共享同一因子）
+4. **计算复权价** — 前复权 = 原价 × fore，后复权 = 原价 × back
+5. **写入目标表** — 分别写入 \`_raw\`、\`_qfq\`、\`_hfq\` 三张表
+
+---
+
+#### 6️⃣ n6: 股票间隔等待（0.1秒）
+
+避免 baostock 请求过快被限流。
+
+---
+
+#### 7️⃣ n7: 表间隔等待（2秒）
+
+每张表处理完后休息 2 秒，给系统喘息时间。
+
+---
+
+### 🔄 整体执行流程
+
+\`\`\`
+第1张表 dat_day：
+  ├─ 获取 ~5000 只股票代码
+  ├─ 遍历每只股票：
+  │   ├─ 读取该股票数据（~6000行）
+  │   ├─ 拉取复权因子
+  │   ├─ 计算复权价
+  │   ├─ 写入 3 张目标表
+  │   └─ 等待 0.1s
+  └─ 等待 2s
+
+第2张表 dat_60mins：
+  ├─ 获取 ~5000 只股票代码
+  ├─ 遍历每只股票（单股 ~35000行）
+  └─ ...同上
+
+... 重复 7 次 ...
+
+第7张表 dat_1mins（33亿行）：
+  ├─ 获取 ~5000 只股票代码
+  ├─ 遍历每只股票（单股最多 ~200万行）
+  └─ ...同上
+\`\`\`
+
+---
+
+### ✅ 最终效果
+
+| 输入 | 输出 |
+|-----|------|
+| 源库 7 张表 | 目标库 21 张表 |
+| 共 33 亿行（dat_1mins） | \`{表名}_raw\`（未复权）|
+| | \`{表名}_qfq\`（前复权）|
+| | \`{表名}_hfq\`（后复权）|
+
+---
+
+### 💡 设计亮点
+
+1. **嵌套循环**：外层表循环 + 内层股票循环，进度可视化到每一只股票
+2. **内存友好**：单次只处理一只股票的数据，内存占用极低
+3. **细粒度容错**：单只股票失败不影响其他股票，可从失败位置继续
+4. **流量控制**：股票间隔 0.1s + 表间隔 2s，避免被限流
+
+---
+
+### ⚠️ 性能对比
+
+| 维度 | 旧设计（单循环） | 新设计（嵌套循环） |
+|-----|----------------|------------------|
+| 循环层级 | 1 层（表） | 2 层（表 + 股票） |
+| 单次处理量 | 整张表所有股票 | 单只股票 |
+| 内存峰值 | 较高 | **极低** |
+| 进度可视化 | 只能看到表级 | **表级 + 股票级** |
+| 错误恢复 | 一张表失败需整表重跑 | **单股票失败只影响该股票** |`
+};
+
+// ---------- 简单 Markdown 渲染 ----------
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = md
+    // 代码块
+    .replace(/\`\`\`([\s\S]*?)\`\`\`/g, (_, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`)
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 表格
+    .replace(/^\|(.+)\|\s*\n\|[-|\s:]+\|\s*\n((?:\|.+\|\s*\n)*)/gm, (_, header, body) => {
+      const ths = header.split('|').map(h => h.trim()).filter(Boolean).map(h => `<th>${h}</th>`).join('');
+      const rows = body.trim().split('\n').map(row => {
+        const tds = row.split('|').map(c => c.trim()).filter(Boolean).map(c => `<td>${c}</td>`).join('');
+        return `<tr>${tds}</tr>`;
+      }).join('');
+      return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+    })
+    // 标题
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // 粗体和斜体
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // 列表
+    .replace(/^(\s*)- (.+)$/gm, (_, indent, text) => {
+      const level = indent.length / 2;
+      return `<li data-level="${level}">${text}</li>`;
+    })
+    .replace(/(<li[^>]*>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+    .replace(/<\/ul>\s*<ul>/g, '')
+    // 分隔线
+    .replace(/^---$/gm, '<hr>')
+    // 段落
+    .replace(/\n\n/g, '</p><p>')
+    // 换行
+    .replace(/\n/g, '<br>');
+  return `<p>${html}</p>`;
+}
+
+// ---------- 显示示例文档弹框 ----------
+// 保存上层弹框状态，用于关闭详解后恢复
+let _importModalState = null;
+
+function showExampleDoc(exampleId) {
+  const md = EXAMPLE_DOCS[exampleId];
+  if (!md) {
+    alert(`示例 ${exampleId} 暂无详解文档`);
+    return;
+  }
+  // 保存当前导入示例弹框的状态
+  _importModalState = {
+    title: document.getElementById('modal-title').textContent,
+    body: document.getElementById('modal-body').innerHTML,
+    footer: document.getElementById('modal-footer').innerHTML,
+    presetsCache: document.getElementById('modal-body').dataset.presetsCache
+  };
+  const body = `<div class="example-doc-content">${renderMarkdown(md)}</div>`;
+  const footer = `<button class="btn btn-primary" onclick="closeExampleDoc()">关闭</button>`;
+  openModal(`📖 示例 ${exampleId} 详解`, body, footer);
+}
+
+// 关闭详解弹框，恢复到导入示例列表
+function closeExampleDoc() {
+  if (_importModalState) {
+    document.getElementById('modal-title').textContent = _importModalState.title;
+    document.getElementById('modal-body').innerHTML = _importModalState.body;
+    document.getElementById('modal-footer').innerHTML = _importModalState.footer;
+    document.getElementById('modal-body').dataset.presetsCache = _importModalState.presetsCache;
+    // 重新绑定事件
+    document.querySelectorAll('#modal-body .import-cb').forEach(cb =>
+      cb.addEventListener('change', updateImportCount));
+    _importModalState = null;
+  } else {
+    closeModal();
+  }
+}
+
 // ---------- 导入示例工作流（多选弹框） ----------
 async function openImportExamplesModal() {
   // 0) 兜底：若 <script src="example_workflows.js"> 未加载（如浏览器缓存了旧 HTML），
@@ -7126,8 +7781,13 @@ async function openImportExamplesModal() {
   } catch (e) {
     console.warn('拉 preset 失败:', e);
   }
-  // 2) 取前端文档示例（12 个）
+  // 2) 取前端文档示例
   const docExamples = Array.isArray(window.EXAMPLE_WORKFLOWS) ? window.EXAMPLE_WORKFLOWS : [];
+  const CR = window.CONTENT_REGISTRY || { isPro: () => false, getExampleTier: () => ({ tier: 'free' }), acquisition: {} };
+
+  // 分离免费 / 专业示例
+  const freeExamples = docExamples.filter(ex => !CR.isPro(ex.id));
+  const proExamples = docExamples.filter(ex => CR.isPro(ex.id));
 
   const presetBody = presets.map((p, i) => {
     const nodes = (p.workflow_json?.nodes || []).length;
@@ -7144,39 +7804,136 @@ async function openImportExamplesModal() {
       </label>`;
   }).join('');
 
-  const docBody = docExamples.map(ex => {
-    const nodes = (ex.workflow?.nodes || []).length;
-    const types = (ex.workflow?.nodes || []).map(n => n.type).join(' → ') || '';
-    const desc = (ex.description || '').slice(0, 80);
+  // ---------- 渲染单个示例卡片 ----------
+  function renderDocExample(ex) {
+    const nodeCount = (ex.workflow?.nodes || []).length;
+    const types = (ex.workflow?.nodes || []).map(n => n.name || n.type).join(' → ') || '';
+    const desc = ex.description || '';
+    const hasDoc = EXAMPLE_DOCS[ex.id] ? '' : 'style="opacity:0.4;pointer-events:none"';
+
+    if (!CR.isPro(ex.id)) {
+      // ---- 免费示例：可勾选、可导入 ----
+      return `
+        <label class="import-item">
+          <input type="checkbox" class="import-cb" data-source="doc" data-id="${ex.id}" data-name="${escapeHtml('示例' + ex.id + ': ' + ex.title)}">
+          <div class="idx">#${ex.id}</div>
+          <div class="meta">
+            <div class="t">${escapeHtml(ex.title)}</div>
+            <div class="d">${escapeHtml(desc.slice(0, 80))}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>
+            <button class="doc-btn" ${hasDoc} onclick="event.stopPropagation();showExampleDoc(${ex.id})">📖 详解</button>
+          </div>
+        </label>`;
+    }
+
+    // ---- 专业示例：置灰、截图、获取方式 ----
+    const cfg = CR.getExampleTier(ex.id);
+    const acq = CR.acquisition || {};
+    
+    // 生成工作流可视化图
+    const wfNodes = ex.workflow?.nodes || [];
+    let workflowHtml = '';
+    if (wfNodes.length > 0) {
+      const nodeIcons = {
+        'source_fetch': '📥', 'target_write': '📤',
+        'filter': '🔍', 'condition': '🔀',
+        'ma': '📈', 'macd': '📉', 'rsi': '📊', 'boll': '📉',
+        'resample': '⏱️', 'column_rename': '🏷️', 'expression': '🧮',
+        'custom_python': '🐍', 'source': '📥', 'transform': '🔄', 'target': '📤',
+        'aggregate': '📊', 'join': '🔗', 'function': 'ƒ', 'default': '●'
+      };
+      const nodesHtml = wfNodes.map((node, idx) => {
+        const icon = nodeIcons[node.type] || nodeIcons.default;
+        const name = node.name || node.type || `节点${idx + 1}`;
+        const arrow = idx < wfNodes.length - 1 ? '<span class="workflow-arrow">→</span>' : '';
+        return `<div class="workflow-node"><span class="workflow-icon">${icon}</span><span class="workflow-name">${escapeHtml(name)}</span></div>${arrow}`;
+      }).join('');
+      workflowHtml = `<div class="pro-workflow-diagram">${nodesHtml}</div>`;
+    }
+    
+    // 生成截图 HTML（如果有配置）
+    // 优先级：工作流图 > 截图 > 文字占位符
+    const screenshotPath = cfg.screenshot ? `/static/${cfg.screenshot}` : '';
+    let screenshotHtml;
+    if (workflowHtml) {
+      // 有工作流数据，使用工作流可视化图
+      screenshotHtml = workflowHtml;
+    } else if (screenshotPath) {
+      // 没有工作流数据，但有截图配置
+      screenshotHtml = `<img src="${screenshotPath}" alt="${escapeHtml(ex.title)}" onerror="this.style.display='none';this.parentElement.querySelector('.pro-screenshot-placeholder').style.display='flex'">
+         <div class="pro-screenshot-placeholder" style="display:none">📷 ${escapeHtml(ex.title)}</div>`;
+    } else {
+      // 什么都没有，显示文字占位符
+      screenshotHtml = `<div class="pro-screenshot-placeholder">📷 ${escapeHtml(ex.title)}</div>`;
+    }
+
+    let acqHtml = '';
+    acqHtml = `<div class="pro-acquisition">
+      <div class="pro-acquisition-title">📦 获取方式</div>
+      <div class="pro-acquisition-method">
+        <a href="javascript:void(0)" onclick="event.stopPropagation(); closeModal(); setTimeout(openPurchaseGuide, 100);" style="color:var(--accent);text-decoration:underline">点击查看购买指南</a>
+        ，获取激活码 + 内容包后在「License 管理」中导入即可解锁
+      </div>
+    </div>`;
+
+    // 生成标签 HTML（如果有预览标签）
+    const tags = (cfg.previewTags && cfg.previewTags.length > 0)
+      ? cfg.previewTags.map(tag => `<span class="pro-tag">${escapeHtml(tag)}</span>`).join('')
+      : '';
+
     return `
-      <label class="import-item">
-        <input type="checkbox" class="import-cb" data-source="doc" data-id="${ex.id}" data-name="${escapeHtml('示例' + ex.id + ': ' + ex.title)}">
-        <div class="idx">#${ex.id}</div>
-        <div class="meta">
-          <div class="t">${escapeHtml(ex.title)}</div>
-          <div class="d">${escapeHtml(desc)}</div>
+      <div class="import-item import-item-pro">
+        <div class="pro-badge">🔒 专业版</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;width:100%">
+          <div class="idx" style="margin-top:2px">#${ex.id}</div>
+          <div class="meta" style="flex:1;min-width:0">
+            <div class="t">${escapeHtml(ex.title)}</div>
+            <div class="d">${escapeHtml(desc.slice(0, 100))}</div>
+          </div>
+          <div class="nodes">${nodeCount} 节点</div>
         </div>
-        <div class="nodes" title="${escapeHtml(types)}">${nodes} 节点 · 文档</div>
-      </label>`;
-  }).join('');
+        <div class="pro-screenshot" onclick="event.stopPropagation()">
+          ${screenshotHtml}
+        </div>
+        ${tags ? `<div class="pro-tags">${tags}</div>` : ''}
+        ${acqHtml ? `<div class="pro-acquisition"><div class="pro-acquisition-title">📦 获取完整版</div>${acqHtml}</div>` : ''}
+      </div>`;
+  }
+
+  const freeBody = freeExamples.map(renderDocExample).join('');
+  const proBody = proExamples.map(renderDocExample).join('');
 
   const body = `
     <div class="import-toolbar">
-      <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选</label>
-      <span class="text-dim" style="font-size:12px" id="import-count">已选 0 / ${presets.length + docExamples.length} 项</span>
+      <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选免费示例</label>
+      <span class="text-dim" style="font-size:12px" id="import-count">已选 0 / ${presets.length + freeExamples.length} 项免费</span>
       <span style="flex:1"></span>
-      <span class="text-dim" style="font-size:12px">勾选后点下方「导入选中」批量创建</span>
+      <span class="text-dim" style="font-size:12px">🔒 专业版示例需获取内容包后使用</span>
     </div>
     <div class="panel" style="margin-bottom:12px">
       <div class="panel-title" style="margin-bottom:8px">🧩 内置预设（${presets.length} 个）</div>
       <div class="import-list" id="import-list-presets">${presetBody || '<div class="text-dim">未加载到内置预设</div>'}</div>
     </div>
-    <div class="panel">
-      <div class="panel-title" style="margin-bottom:8px">📖 文档示例（${docExamples.length} 个）</div>
-      <div class="import-list" id="import-list-docs">${docBody || '<div class="text-dim">未加载到文档示例</div>'}</div>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:4px">
+        🆓 免费示例（${freeExamples.length} 个）
+        <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可直接导入使用</span>
+      </div>
+      <div class="import-list" id="import-list-free">${freeBody || '<div class="text-dim">暂无免费示例</div>'}</div>
     </div>
+    ${proExamples.length > 0 ? `
+    <div class="panel">
+      <div class="panel-title" style="margin-bottom:4px">
+        🔒 专业版示例（${proExamples.length} 个）
+        <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">展示截图预览，完整内容需获取</span>
+      </div>
+      <div class="import-list" id="import-list-pro">${proBody}</div>
+    </div>` : ''}
   `;
   const footer = `
+    <button class="btn btn-secondary" onclick="closeModal(); openLicenseModal();">📦 导入内容包</button>
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
     <button class="btn btn-primary" onclick="importSelectedExamples()">导入选中</button>
   `;
@@ -7186,6 +7943,10 @@ async function openImportExamplesModal() {
   // 重新绑定计数
   document.querySelectorAll('#modal-body .import-cb').forEach(cb =>
     cb.addEventListener('change', updateImportCount));
+  // 确保默认不选中所有，让用户自己选择
+  document.querySelectorAll('#modal-body .import-cb').forEach(cb => { cb.checked = false; });
+  const selectAll = document.getElementById('import-select-all');
+  if (selectAll) selectAll.checked = false;
   updateImportCount();
 }
 function toggleAllImport(checked) {
@@ -7274,24 +8035,40 @@ async function refreshWorkflows() {
 }
 
 function openPluginMarket() {
-  openModal('插件市场', `
+  openModal('插件中心', `
     <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:8px">🧩 内置插件</div>
+      <div class="panel-title" style="margin-bottom:4px">🧩 内置基础插件</div>
+      <div class="text-dim" style="font-size:11px;margin-bottom:8px">随工具安装，覆盖常用 ETL 场景。不可删除。</div>
       <div id="plugin-market-builtin"></div>
     </div>
     <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:8px">📦 自定义插件</div>
-      <div class="text-dim mb-16">自定义插件存放目录: <code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/</code></div>
-      <div id="plugin-market-custom"></div>
-      <button class="btn btn-secondary btn-sm mt-8" onclick="openCreatePluginModal()">+ 创建自定义插件</button>
-    </div>
-    <div class="panel">
-      <div class="panel-title" style="margin-bottom:8px">📥 导入插件配置</div>
-      <div class="form-group">
-        <textarea class="form-control" id="plugin-import-json" rows="6" placeholder='{"name":"自定义插件","node_type":"my_filter","category":"数据处理","process_code":"def process(df,params):..."}'></textarea>
+      <div class="panel-title" style="margin-bottom:4px">⭐ 官方精选插件</div>
+      <div class="text-dim" style="font-size:11px;margin-bottom:8px">
+        由官方维护的高质量插件。编辑 <code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/official.json</code> 维护清单。
       </div>
-      <button class="btn btn-primary btn-sm" onclick="doImportPlugin()">导入插件</button>
+      <div id="plugin-market-official"></div>
     </div>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:4px">📦 我的自定义插件</div>
+      <div class="text-dim" style="font-size:11px;margin-bottom:8px">
+        存放目录：<code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/</code>。
+        修改后点「重新加载」立即生效，无需重启服务。
+      </div>
+      <div id="plugin-market-custom"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="reloadPlugins()">🔄 重新加载插件</button>
+        <button class="btn btn-secondary btn-sm" onclick="openCreatePluginModal()">+ 创建自定义插件</button>
+      </div>
+    </div>
+    <details class="panel" style="margin-bottom:0">
+      <summary style="cursor:pointer;font-size:13px;color:var(--text-dim);padding:4px 0">📥 高级：从 JSON 导入插件配置</summary>
+      <div style="margin-top:8px">
+        <div class="form-group">
+          <textarea class="form-control" id="plugin-import-json" rows="5" placeholder='{"name":"自定义插件","node_type":"my_filter","category":"数据处理","code":"def process(df, params):\n    return df"}'></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="doImportPlugin()">导入插件</button>
+      </div>
+    </details>
   `, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
   loadPluginMarket();
 }
@@ -7299,29 +8076,73 @@ function openPluginMarket() {
 async function loadPluginMarket() {
   try {
     const res = await api('/api/workflows/nodes');
-    const nodes = res.nodes || [];
-    const builtin = nodes.filter(n => n.source && n.source.startsWith('app.nodes.'));
-    const custom = nodes.filter(n => n.source && !n.source.startsWith('app.nodes.'));
-    document.getElementById('plugin-market-builtin').innerHTML = renderPluginList(builtin, true);
-    document.getElementById('plugin-market-custom').innerHTML = custom.length ? renderPluginList(custom, false) : '<div class="text-dim">暂无自定义插件</div>';
-  } catch(e) { document.getElementById('plugin-market-builtin').innerHTML = '<div class="text-dim">加载失败</div>'; }
+    const nodes = (res.nodes || res || []).map(n => ({ ...n, ...(n.info || {}) }));
+    const builtin = nodes.filter(n => n.tier === 'built-in');
+    const official = nodes.filter(n => n.tier === 'official');
+    const custom = nodes.filter(n => n.tier === 'custom');
+    document.getElementById('plugin-market-builtin').innerHTML =
+      renderPluginList(builtin, { tier: 'built-in' });
+    document.getElementById('plugin-market-official').innerHTML =
+      official.length
+        ? renderPluginList(official, { tier: 'official' })
+        : '<div class="text-dim" style="font-size:12px;padding:8px 0">暂无官方精选插件。在 <code>plugins/official.json</code> 中添加插件清单即可。</div>';
+    document.getElementById('plugin-market-custom').innerHTML =
+      custom.length
+        ? renderPluginList(custom, { tier: 'custom' })
+        : '<div class="text-dim" style="font-size:12px;padding:8px 0">暂无自定义插件。点下方「创建自定义插件」开始。</div>';
+  } catch(e) {
+    document.getElementById('plugin-market-builtin').innerHTML = '<div class="text-dim">加载失败：' + e.message + '</div>';
+  }
 }
 
-function renderPluginList(nodes, builtin) {
+function renderPluginList(nodes, opts = {}) {
   if (!nodes.length) return '<div class="text-dim">无</div>';
+  const tier = opts.tier || 'custom';
+  const categoryColors = {
+    '指标计算': '#6366f1', '数据处理': '#22c55e', '流程控制': '#ec4899',
+    '高级': '#f59e0b', '数据源': '#3b82f6', '数据输出': '#8b5cf6',
+    '因子库': '#14b8a6',
+  };
+  const tierBadges = {
+    'built-in': '<span style="background:#e0e7ff;color:#4338ca;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">内置</span>',
+    'official': '<span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">⭐ 官方</span>',
+    'custom':   '<span style="background:#dcfce7;color:#166534;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">自定义</span>',
+  };
   let html = '';
   for (const n of nodes) {
-    const color = { '指标计算': '#6366f1', '数据处理': '#22c55e', '流程控制': '#ec4899', '高级': '#f59e0b' }[n.category] || '#6366f1';
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <span style="color:${color};font-weight:600;font-size:13px">${n.display_name}</span>
-        <span class="badge badge-pending" style="margin-left:6px">${n.category}</span>
-        <div class="text-dim" style="font-size:11px;margin-top:2px">${n.type}</div>
+    const color = categoryColors[n.category] || '#6366f1';
+    const officialDesc = (n.official_meta && n.official_meta.description) ? n.official_meta.description : '';
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div>
+          <span style="color:${color};font-weight:600;font-size:13px">${n.display_name}</span>
+          ${tierBadges[tier] || ''}
+          <span class="badge badge-pending" style="margin-left:6px">${n.category}</span>
+        </div>
+        <div class="text-dim" style="font-size:11px;margin-top:2px;font-family:monospace">${n.type}</div>
+        ${officialDesc ? `<div class="text-dim" style="font-size:11px;margin-top:4px">${officialDesc}</div>` : ''}
       </div>
-      ${!builtin ? `<button class="btn btn-danger btn-sm" onclick="deletePlugin('${n.type}')">删除</button>` : ''}
+      ${tier === 'custom' ? `<button class="btn btn-danger btn-sm" style="margin-left:10px" onclick="deletePlugin('${n.type}')">删除</button>` : ''}
     </div>`;
   }
   return html;
+}
+
+async function deletePlugin(nodeType) {
+  if (!confirm(`确认删除插件「${nodeType}」？源文件也会被删除，无法恢复。`)) return;
+  try {
+    const res = await api(`/api/workflows/plugins/${nodeType}`, { method: 'DELETE' });
+    alert(res.success ? `✅ 已删除插件 ${nodeType}` : `❌ ${res.message}`);
+    if (res.success) loadPluginMarket();
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+async function reloadPlugins() {
+  try {
+    const res = await api('/api/workflows/plugins/reload', { method: 'POST' });
+    alert(res.success ? `✅ ${res.message}` : `❌ ${res.message}`);
+    if (res.success) loadPluginMarket();
+  } catch(e) { alert('重新加载失败: ' + e.message); }
 }
 
 function openCreatePluginModal() {
@@ -7330,9 +8151,11 @@ function openCreatePluginModal() {
     <div class="form-group"><label>插件名称</label><input class="form-control" id="cp-name" placeholder="自定义过滤"></div>
     <div class="form-group"><label>节点类型标识</label><input class="form-control" id="cp-type" placeholder="my_filter（英文唯一标识）"></div>
     <div class="form-group"><label>分类</label>
-      <select class="form-control" id="cp-category">
+      <select class="form-control" id="cp-category" style="color:#333">
         <option value="数据处理">数据处理</option><option value="指标计算">指标计算</option>
         <option value="流程控制">流程控制</option><option value="高级">高级</option>
+        <option value="数据源">数据源</option><option value="数据输出">数据输出</option>
+        <option value="因子库">因子库</option>
       </select>
     </div>
     <div class="form-group"><label>Python 处理代码</label>
@@ -7340,7 +8163,7 @@ function openCreatePluginModal() {
     # df: pandas.DataFrame
     # params: dict
     return df"></textarea>
-    <div class="text-dim mt-8">插件保存到 plugins/ 目录，重启服务后生效。</div>
+    <div class="text-dim mt-8">插件保存到 <code>plugins/</code> 目录，创建后可在「插件中心」点「重新加载」立即生效。</div>
     </div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">取消</button>
@@ -7357,8 +8180,12 @@ async function doCreatePlugin() {
   if (!/^[a-z_][a-z0-9_]*$/.test(type)) { alert('类型标识只能包含小写字母、数字、下划线'); return; }
   try {
     const res = await api('/api/workflows/create-plugin', { method: 'POST', body: JSON.stringify({ name, node_type: type, category, code }) });
-    alert(res.success ? '✅ 插件创建成功（重启服务后生效）' : '❌ ' + res.message);
+    if (!res.success) { alert('❌ ' + res.message); return; }
+    alert('✅ 插件创建成功');
     closeModal();
+    // 创建后自动打开插件中心并重新加载
+    openPluginMarket();
+    setTimeout(() => reloadPlugins(), 300);
   } catch(e) { alert('创建失败: ' + e.message); }
 }
 
@@ -7366,11 +8193,13 @@ async function doImportPlugin() {
   const text = document.getElementById('plugin-import-json').value.trim();
   let data;
   try { data = JSON.parse(text); } catch(e) { alert('JSON 格式错误'); return; }
-  data.node_type = data.node_type || data.name.toLowerCase().replace(/\s+/g, '_');
+  data.node_type = data.node_type || (data.name || 'plugin').toLowerCase().replace(/\s+/g, '_');
   data.category = data.category || '数据处理';
   try {
-    await api('/api/workflows/create-plugin', { method: 'POST', body: JSON.stringify(data) });
-    alert('✅ 导入成功');
+    const res = await api('/api/workflows/create-plugin', { method: 'POST', body: JSON.stringify(data) });
+    if (!res.success) { alert('❌ ' + res.message); return; }
+    alert('✅ 导入成功，正在重新加载...');
+    await reloadPlugins();
     loadPluginMarket();
   } catch(e) { alert('导入失败: ' + e.message); }
 }

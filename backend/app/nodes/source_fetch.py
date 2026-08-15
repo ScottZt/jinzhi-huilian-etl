@@ -56,21 +56,40 @@ class SourceFetchNode(BaseNode):
     display_name = "数据源拉取"
     category = "数据接入"
     params_schema = {
+        "source_id": {
+            "type": "text",
+            "label": "数据源ID(从数据源管理选择)",
+            "default": "",
+        },
+        "manual_config": {
+            "type": "checkbox",
+            "label": "手动配置(高级模式)",
+            "default": False,
+        },
         "source_type": {
             "type": "select",
             "label": "数据源类型",
             "options": ["tdx", "mootdx", "akshare", "tushare", "binance", "yfinance", "tqsdk"],
             "default": "tdx",
+            "_advanced": True,
         },
         "source_config": {
             "type": "text",
             "label": "数据源配置(JSON)",
             "default": '{"data_dir": "D:/new_tdx64/vipdoc"}',
+            "_advanced": True,
         },
         "codes": {
             "type": "text",
-            "label": "交易对/股票代码(逗号分隔)",
-            "default": "BTCUSDT,ETHUSDT",
+            "label": "交易对/股票代码(逗号分隔，留空则从上游DataFrame读取)",
+            "default": "",
+            "placeholder": "留空=从上游stock_list/contract_list节点读取",
+        },
+        "code_column": {
+            "type": "text",
+            "label": "上游代码列名(默认自动检测)",
+            "default": "",
+            "placeholder": "code/symbol/股票代码，留空自动检测",
         },
         "interval": {
             "type": "select",
@@ -117,17 +136,70 @@ class SourceFetchNode(BaseNode):
     }
 
     def process(self, df: pd.DataFrame, params: dict) -> pd.DataFrame:
-        source_type = params.get("source_type", "tdx")
-        source_config_str = params.get("source_config", "{}")
         import json
+        from app.persistence import sqlite_repo
 
-        try:
-            cfg = json.loads(source_config_str)
-        except Exception:
-            cfg = {}
+        source_id = (params.get("source_id") or "").strip()
+        manual_config = params.get("manual_config", False)
 
-        codes_str = params.get("codes", "000001")
-        codes = [c.strip() for c in codes_str.split(",") if c.strip()]
+        # 优先从「数据源管理」读取已配置的数据源
+        if source_id and not manual_config:
+            source = sqlite_repo.get_kline_source(source_id)
+            if not source:
+                raise RuntimeError(f"数据源不存在: {source_id}，请到数据源管理中检查")
+            source_type = source.get("type", "http")
+            cfg = dict(source.get("config", {}))
+            cred_id = source.get("credential_id", "")
+            if cred_id:
+                cfg["credential_id"] = cred_id
+            try:
+                from app.api.kline_sources import _inject_credential
+                from app.adapters.source_adapters.kline_base import normalize_config
+                cfg = _inject_credential(cfg)
+                cfg = normalize_config(cfg)
+            except Exception:
+                # 注入失败时回退到原始配置，避免完全无法使用
+                pass
+        else:
+            # 向后兼容：手动配置模式
+            source_type = params.get("source_type", "tdx")
+            source_config_str = params.get("source_config", "{}")
+            try:
+                cfg = json.loads(source_config_str)
+            except Exception:
+                cfg = {}
+
+        codes_str = (params.get("codes") or "").strip()
+        code_column = (params.get("code_column") or "").strip()
+
+        # 如果 codes 参数为空，尝试从上游 DataFrame 读取
+        if not codes_str:
+            if not df.empty:
+                # 自动检测代码列：优先使用用户指定的列名，否则按优先级尝试常见列名
+                candidate_cols = [code_column] if code_column else [
+                    "code", "symbol", "股票代码", "代码", "ts_code", "contract_code"
+                ]
+                for col in candidate_cols:
+                    if col and col in df.columns:
+                        codes = df[col].dropna().astype(str).str.strip().tolist()
+                        codes = [c for c in codes if c]
+                        if codes:
+                            break
+                else:
+                    codes = []
+                if not codes:
+                    raise RuntimeError(
+                        "未指定股票代码，且上游 DataFrame 中未找到代码列。"
+                        "请手动填写 codes 参数，或连接 stock_list/contract_list 节点到本节点上游。"
+                    )
+            else:
+                raise RuntimeError(
+                    "未指定股票代码且上游无数据。请手动填写 codes 参数，"
+                    "或连接 stock_list/contract_list 节点到本节点上游。"
+                )
+        else:
+            codes = [c.strip() for c in codes_str.split(",") if c.strip()]
+
         if not codes:
             return pd.DataFrame()
 
@@ -193,6 +265,12 @@ class SourceFetchNode(BaseNode):
         else:
             # 串行拉取
             result = adapter.fetch_kline(cfg, codes, start_time, end_time, interval)
+            if not result.empty:
+                # 标准化列名：部分适配器返回 datetime/vol，统一为 dt/volume
+                if "datetime" in result.columns and "dt" not in result.columns:
+                    result = result.rename(columns={"datetime": "dt"})
+                if "vol" in result.columns and "volume" not in result.columns:
+                    result = result.rename(columns={"vol": "volume"})
             if session_only and interval == "1min":
                 result = filter_session(result)
 

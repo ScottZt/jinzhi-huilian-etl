@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>复权因子查询</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px 32px;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .controls {
+            padding: 24px 32px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-group label {
+            font-size: 14px;
+            color: #495057;
+            font-weight: 500;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        button {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .stats {
+            padding: 16px 32px;
+            background: #e7f3ff;
+            border-bottom: 1px solid #b3d9ff;
+            display: flex;
+            gap: 32px;
+            font-size: 14px;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-label {
+            color: #0066cc;
+            font-weight: 500;
+        }
+        .stat-value {
+            color: #004499;
+            font-weight: 600;
+        }
+        .table-container {
+            padding: 24px 32px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            color: #333;
+        }
+        tr:hover td {
+            background: #f8f9fa;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 16px 32px;
+            border-left: 4px solid #c33;
+        }
+        .empty {
+            text-align: center;
+            padding: 60px 32px;
+            color: #6c757d;
+        }
+        .empty h3 {
+            margin-bottom: 12px;
+            color: #495057;
+        }
+        .pagination {
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #e9ecef;
+        }
+        .pagination-info {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .fore-factor {
+            color: #0066cc;
+            font-weight: 600;
+        }
+        .back-factor {
+            color: #cc0066;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 复权因子查询</h1>
+            <p>查看 baostock 获取的股票复权因子数据（前复权因子 fore / 后复权因子 back）</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>股票代码：</label>
+                <input type="text" id="codeInput" placeholder="如 000001，留空查询全部" style="width: 200px;">
+            </div>
+            <div class="control-group">
+                <label>显示条数：</label>
+                <select id="limitSelect">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                </select>
+            </div>
+            <button onclick="loadData()">查询</button>
+            <button onclick="loadStats()">刷新统计</button>
+        </div>
+
+        <div class="stats" id="statsPanel" style="display: none;">
+            <div class="stat-item">
+                <span class="stat-label">总记录数：</span>
+                <span class="stat-value" id="totalRecords">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">股票数量：</span>
+                <span class="stat-value" id="totalCodes">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">最早日期：</span>
+                <span class="stat-value" id="earliestDate">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">最新日期：</span>
+                <span class="stat-value" id="latestDate">-</span>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/adj-factors';
+        let currentOffset = 0;
+        let currentLimit = 100;
+
+        async function loadData(offset = 0) {
+            const code = document.getElementById('codeInput').value.trim();
+            const limit = parseInt(document.getElementById('limitSelect').value);
+            currentLimit = limit;
+            currentOffset = offset;
+
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const params = new URLSearchParams({
+                    limit: limit,
+                    offset: offset
+                });
+                if (code) {
+                    params.append('code', code);
+                }
+
+                const response = await fetch(`${API_BASE}/?${params}`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.detail || '查询失败');
+                }
+
+                if (!result.success || !result.data || result.data.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty">
+                            <h3>暂无数据</h3>
+                            <p>请先执行示例12工作流生成复权因子数据</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                renderTable(result.data, result.total);
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="error">
+                        <strong>错误：</strong>${error.message}
+                    </div>
+                    <div class="empty">
+                        <h3>无法加载数据</h3>
+                        <p>请确保后端服务已启动，且已执行示例12工作流</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTable(data, total) {
+            const content = document.getElementById('content');
+
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>股票代码</th>
+                                <th>日期</th>
+                                <th>前复权因子 (fore)</th>
+                                <th>后复权因子 (back)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            data.forEach(row => {
+                html += `
+                    <tr>
+                        <td><strong>${row.code}</strong></td>
+                        <td>${row.dt.split(' ')[0]}</td>
+                        <td class="fore-factor">${row.fore ? row.fore.toFixed(4) : '-'}</td>
+                        <td class="back-factor">${row.back ? row.back.toFixed(4) : '-'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination">
+                    <div class="pagination-info">
+                        显示 ${currentOffset + 1} - ${currentOffset + data.length} 条，共 ${total} 条
+                    </div>
+                    <div class="pagination-controls">
+                        <button onclick="loadData(0)" ${currentOffset === 0 ? 'disabled' : ''}>首页</button>
+                        <button onclick="loadData(${Math.max(0, currentOffset - currentLimit)})" ${currentOffset === 0 ? 'disabled' : ''}>上一页</button>
+                        <button onclick="loadData(${currentOffset + currentLimit})" ${currentOffset + data.length >= total ? 'disabled' : ''}>下一页</button>
+                    </div>
+                </div>
+            `;
+
+            content.innerHTML = html;
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const result = await response.json();
+
+                if (result.success && result.total_records > 0) {
+                    document.getElementById('statsPanel').style.display = 'flex';
+                    document.getElementById('totalRecords').textContent = result.total_records.toLocaleString();
+                    document.getElementById('totalCodes').textContent = result.total_codes;
+                    document.getElementById('earliestDate').textContent = result.earliest_date ? result.earliest_date.split(' ')[0] : '-';
+                    document.getElementById('latestDate').textContent = result.latest_date ? result.latest_date.split(' ')[0] : '-';
+                } else {
+                    document.getElementById('statsPanel').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+
+        // 页面加载时自动查询
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadData();
+        });
+
+        // 回车键触发查询
+        document.getElementById('codeInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html>

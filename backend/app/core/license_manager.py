@@ -1,4 +1,10 @@
-"""License 授权管理系统 — 机器码绑定 + 在线/离线激活 + 版本权限控制。"""
+"""License 授权管理系统 — 机器码绑定 + 在线/离线激活 + 版本权限控制。
+
+签名验证使用 Ed25519 非对称加密：
+  - 私钥签名：在闭源仓库中，仅开发者持有
+  - 公钥验证：在此文件中，所有用户可见
+  - 因此开源用户无法伪造激活码
+"""
 import hashlib
 import hmac
 import platform
@@ -6,57 +12,47 @@ import uuid
 import json
 import time
 import os
+import base64
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 
-# ---- Activation code signing ----
-# The secret key is obfuscated and should be replaced before build.
-# In development, a default key is used for testing activation codes.
-_SECRET_KEY_PARTS = [
-    "9a7f3b2e1c4d",
-    "5e8a0f6c3b7d",
-    "2d4e6f8a0b1c",
-]
-_SIGNING_SALT = b"jzhl_etl_license_v1"
-
-
-def _get_signing_key() -> bytes:
-    """Get the signing key, optionally overridden by env variable."""
-    env_key = os.environ.get("JZHL_LICENSE_SIGNING_KEY", "")
-    if env_key:
-        return env_key.encode("utf-8")
-    # Obfuscated default key — segments concatenated at runtime
-    return ("".join(_SECRET_KEY_PARTS)).encode("utf-8")
-
-
-def _sign_activation(lic_type: str, expires: str) -> str:
-    """Create HMAC-SHA256 signature for an activation code."""
-    message = f"{lic_type}:{expires}".encode("utf-8")
-    key = _get_signing_key()
-    sig = hmac.new(key, _SIGNING_SALT + message, hashlib.sha256).hexdigest()[:16]
-    return sig
+# ---- Activation code verification (Ed25519 public key) ----
+# 公钥用于验证激活码签名，私钥在闭源仓库中
+# 此公钥无法用于生成激活码，仅用于验证
+_PUBLIC_KEY_PEM = b"""-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAyskopTjdzLHdDnNBkyvGzT68qB/oHejiQ+KLYqA4eDM=
+-----END PUBLIC KEY-----"""
 
 
 def _verify_activation(lic_type: str, expires: str, signature: str) -> bool:
-    """Verify HMAC-SHA256 signature on an activation code."""
-    expected = _sign_activation(lic_type, expires)
-    return hmac.compare_digest(expected, signature)
+    """验证 Ed25519 签名。"""
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        from cryptography.hazmat.primitives import serialization
 
+        # 加载公钥
+        public_key = serialization.load_pem_public_key(_PUBLIC_KEY_PEM)
 
-def generate_activation_code(lic_type: str, expires: str = "lifetime") -> str:
-    """
-    Generate a valid activation code (for licensing server / build script use).
-    Format: type:expires:signature
+        # 解码签名（hex -> bytes）
+        sig_bytes = bytes.fromhex(signature)
 
-    Example usage in license server:
-        code = generate_activation_code("personal", "2026-12-31")
-    """
-    sig = _sign_activation(lic_type, expires)
-    return f"{lic_type}:{expires}:{sig}"
+        # 构造待验证的消息
+        message = f"{lic_type}:{expires}".encode("utf-8")
+
+        # 验证签名（失败会抛出异常）
+        public_key.verify(sig_bytes, message)
+        return True
+    except Exception:
+        return False
 
 
 LICENSE_DB_KEY = "_license_meta"
+
+
+def is_dev_mode() -> bool:
+    """是否为开发者模式（跳过所有 License 检查）。"""
+    return os.environ.get("JZHL_DEV_MODE", "").strip().lower() in ("true", "1", "yes")
 
 
 class LicenseType:
@@ -82,6 +78,7 @@ LICENSE_FEATURES = {
         "advanced_monitoring": False,
         "backup_recovery": False,
         "pro_support": False,
+        "pro_content_import": False,
     },
     LicenseType.PERSONAL: {
         "max_workflows": 5,
@@ -99,6 +96,7 @@ LICENSE_FEATURES = {
         "advanced_monitoring": False,
         "backup_recovery": False,
         "pro_support": False,
+        "pro_content_import": True,
     },
     LicenseType.PROFESSIONAL: {
         "max_workflows": -1,
@@ -116,6 +114,7 @@ LICENSE_FEATURES = {
         "advanced_monitoring": True,
         "backup_recovery": True,
         "pro_support": True,
+        "pro_content_import": True,
     },
 }
 
@@ -222,6 +221,8 @@ def clear_license():
 
 def check_feature(feature: str) -> bool:
     """检查当前 License 是否支持某功能。"""
+    if is_dev_mode():
+        return True
     info = get_license_info()
     features = info.get("features", {})
     return features.get(feature, False)

@@ -205,9 +205,44 @@ def init_db():
                 rows_read INTEGER DEFAULT 0, rows_written INTEGER DEFAULT 0,
                 rows_skipped INTEGER DEFAULT 0, error_message TEXT,
                 duration REAL DEFAULT 0, started_at TEXT NOT NULL, finished_at TEXT,
-                config_json TEXT NOT NULL, FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
+                config_json TEXT,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
             )
         """)
+        # 兼容旧表：自动补加缺失的列
+        try:
+            cols = [r["name"] for r in conn.execute("PRAGMA table_info(pipeline_runs)").fetchall()]
+            if "created_at" not in cols:
+                conn.execute("ALTER TABLE pipeline_runs ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
+            if "updated_at" not in cols:
+                conn.execute("ALTER TABLE pipeline_runs ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
+            # 如果 config_json 是旧版的 NOT NULL 且现有数据为空，无法直接改约束
+            # SQLite 不支持 ALTER COLUMN，所以如果旧表有 NOT NULL 约束且没数据，直接 DROP 重建
+            if "config_json" in cols:
+                col_info = conn.execute("PRAGMA table_info(pipeline_runs)").fetchall()
+                config_col = [c for c in col_info if c["name"] == "config_json"]
+                if config_col and config_col[0]["notnull"] == 1:
+                    # config_json 是 NOT NULL，检查是否有数据
+                    row_count = conn.execute("SELECT COUNT(*) FROM pipeline_runs").fetchone()[0]
+                    if row_count == 0:
+                        # 没数据，直接 DROP 重建
+                        conn.execute("DROP TABLE pipeline_runs")
+                        conn.execute("""
+                            CREATE TABLE pipeline_runs (
+                                id TEXT PRIMARY KEY, pipeline_id TEXT NOT NULL,
+                                status TEXT NOT NULL DEFAULT 'running',
+                                rows_read INTEGER DEFAULT 0, rows_written INTEGER DEFAULT 0,
+                                rows_skipped INTEGER DEFAULT 0, error_message TEXT,
+                                duration REAL DEFAULT 0, started_at TEXT NOT NULL, finished_at TEXT,
+                                config_json TEXT,
+                                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                                FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
+                            )
+                        """)
+                        print("[DB] 已重建 pipeline_runs 表（修复 config_json NOT NULL 约束）")
+        except Exception as e:
+            print(f"[DB] pipeline_runs 表迁移失败: {e}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS metadata (
                 key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
