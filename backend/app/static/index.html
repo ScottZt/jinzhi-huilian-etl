@@ -7229,18 +7229,28 @@ function openPurchaseGuide() {
       </div>
     </div>
 
-    <div style="background:var(--bg);border-radius:12px;padding:16px">
-      <div style="font-weight:600;margin-bottom:8px">购买后如何使用？</div>
-      <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
-        <div>1. 购买后获得 <strong>激活码</strong> + <strong>.jspack 内容包文件</strong></div>
-        <div>2. 在本页面「License 管理」中输入激活码，解锁功能权限</div>
-        <div>3. 上传 .jspack 文件，导入 25 个专业工作流 + 6 个高级插件</div>
-        <div>4. 在「导入示例」中选择专业版工作流，一键导入使用</div>
+    <!-- 已购买引导 - 突出显示 -->
+    <div style="background:linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(59,130,246,0.1) 100%);border-radius:12px;padding:20px;border:2px solid rgba(16,185,129,0.3)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <span style="font-size:32px">✅</span>
+        <div>
+          <div style="font-weight:700;font-size:16px">已经购买？一键激活</div>
+          <div style="font-size:13px;color:var(--text-dim)">导入内容包即可自动激活专业版</div>
+        </div>
       </div>
+      <div style="font-size:13px;color:var(--text);line-height:1.8;margin-bottom:16px">
+        <strong>使用步骤：</strong><br>
+        1. 购买后获得 <code style="background:var(--bg);padding:2px 8px;border-radius:4px">.jspack</code> 内容包文件<br>
+        2. 点击下方按钮，进入 License 管理页面<br>
+        3. 上传内容包文件 → 系统自动激活 License 并导入全部内容
+      </div>
+      <button class="btn btn-primary" onclick="closeModal(); openLicenseModal();" style="width:100%;padding:12px;font-size:14px;font-weight:600">
+        📦 导入内容包（自动激活）
+      </button>
     </div>
 
     <div style="margin-top:16px;padding:12px;background:var(--card);border-radius:8px;font-size:12px;color:var(--text-dim)">
-      💡 已有激活码？点击上方「激活」按钮直接激活。已有 .jspack 文件？在上方「导入专业版内容包」区域上传。
+      💡 如果你只有激活码（无 .jspack 文件），可在 License 管理页面直接输入激活码激活。
     </div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
