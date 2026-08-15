@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────┐     ┌──────────────────────────────┐
-│  开源仓库 (quantsync-etl)        │     │  闭源仓库 (quantsync-pro)     │
+│  开源仓库 (quantsync-etl)        │     │  私有仓库 (pro-content/)     │
 │                                 │     │                              │
 │  ✅ Ed25519 公钥（验证用）        │     │  🔒 Ed25519 私钥（签名用）     │
 │  ✅ _verify_activation()        │     │  🔒 gen_license.py           │
@@ -27,7 +27,7 @@
 ### 生成激活码
 
 ```bash
-cd D:/04.量化/quantsync-pro
+cd D:/04.量化/quantsync-etl/pro-content
 
 # 个人版永久
 python gen_license.py personal
@@ -69,7 +69,7 @@ personal:2027-12-31:a7c5b1fb281c1f19439619d70f9916c7e8f368dd5b3e6e6706c8b79b1076
 
 ```bash
 # 在闭源仓库生成
-cd D:/04.量化/quantsync-pro
+cd D:/04.量化/quantsync-etl/pro-content
 python gen_license.py personal --expires 2027-12-31
 
 # 复制生成的激活码

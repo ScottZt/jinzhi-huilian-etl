@@ -20,7 +20,7 @@ pip install -r backend/requirements.txt
 # 删除 backend/data/quantsync.db 重置数据库
 
 # 确认内容包文件存在
-ls D:/04.量化/quantsync-pro/金智汇联专业版内容包_v1.jspack
+ls D:/04.量化/quantsync-etl/pro-content/金智汇联专业版内容包_v1.jspack
 ```
 
 ---
@@ -190,6 +190,6 @@ JZHL_DEV_MODE=true python backend/run_server.py
 python -c "from backend.app.core.license_manager import generate_activation_code; print(generate_activation_code('personal', '2026-12-31'))"
 
 # 重建内容包（如果修改了专业版内容）
-cd D:/04.量化/quantsync-pro
+cd D:/04.量化/quantsync-etl/pro-content
 python build_pack.py v1
 ```
