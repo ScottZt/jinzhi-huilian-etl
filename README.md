@@ -124,8 +124,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/scottzt/jinhui-zhilian-etl.git
-cd jinhui-zhilian-etl
+git clone https://github.com/scottzt/jinzhi-huilian-etl.git
+cd jinzhi-huilian-etl
 
 # 安装依赖
 pip install -r requirements.txt
