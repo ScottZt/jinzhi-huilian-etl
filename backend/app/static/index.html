@@ -1384,10 +1384,16 @@ function sendWS(msg) {
 }
 
 // ---------- Modal helpers ----------
-function openModal(title, bodyHtml, footerHtml) {
+function openModal(title, bodyHtml, footerHtml, options = {}) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
-  document.getElementById('modal-footer').innerHTML = footerHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml || '';
+  // 设置弹窗宽度
+  const modalContent = document.querySelector('.modal-content');
+  if (modalContent) {
+    modalContent.style.width = options.width || '';
+    modalContent.style.maxWidth = options.maxWidth || '';
+  }
   // Force reflow before showing modal — avoids Electron focus/input issues.
   const overlay = document.getElementById('modal-overlay');
   overlay.offsetHeight;
@@ -8068,41 +8074,58 @@ async function refreshWorkflows() {
 }
 
 function openPluginMarket() {
-  openModal('插件中心', `
-    <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:4px">🧩 内置基础插件</div>
-      <div class="text-dim" style="font-size:11px;margin-bottom:8px">随工具安装，覆盖常用 ETL 场景。不可删除。</div>
-      <div id="plugin-market-builtin"></div>
-    </div>
-    <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:4px">⭐ 官方精选插件</div>
-      <div class="text-dim" style="font-size:11px;margin-bottom:8px">
-        由官方维护的高质量插件。编辑 <code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/official.json</code> 维护清单。
+  // 使用更宽的弹窗
+  const modalContent = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- 左侧：已安装插件 -->
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span>🧩 已安装插件</span>
+          <span style="font-size:11px;color:var(--text-dim);font-weight:400">可直接在工作流中使用</span>
+        </div>
+        <div class="panel" style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">📦 内置节点（31个）</div>
+          <div class="text-dim" style="font-size:11px;margin-bottom:8px">随工具安装，覆盖常用 ETL 场景</div>
+          <div id="plugin-market-builtin" style="max-height:200px;overflow-y:auto"></div>
+        </div>
+        <div class="panel" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--accent)">📦 我的自定义插件</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm" onclick="reloadPlugins()" style="font-size:11px">🔄 重载</button>
+              <button class="btn btn-secondary btn-sm" onclick="openCreatePluginModal()" style="font-size:11px">+ 创建</button>
+            </div>
+          </div>
+          <div id="plugin-market-custom" style="max-height:150px;overflow-y:auto"></div>
+        </div>
       </div>
+
+      <!-- 右侧：专业版插件（锁定状态展示） -->
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span>⭐ 专业版插件</span>
+          <span style="font-size:11px;background:rgba(139,92,246,0.15);color:#8b5cf6;padding:2px 8px;border-radius:10px">需内容包</span>
+        </div>
+        <div class="panel" style="margin-bottom:12px;border:1px solid rgba(139,92,246,0.2)">
+          <div class="text-dim" style="font-size:11px;margin-bottom:12px">
+            导入专业版内容包后解锁以下 6 个高级插件，可直接在工作流中拖拽使用。
+          </div>
+          <div id="plugin-market-pro"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <button class="btn btn-primary btn-sm" onclick="closeModal(); openPurchaseGuide();" style="width:100%">📦 获取专业版内容包</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部：官方插件状态 -->
+    <div class="panel" style="margin-bottom:0">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">⭐ 官方精选插件（已安装）</div>
       <div id="plugin-market-official"></div>
     </div>
-    <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:4px">📦 我的自定义插件</div>
-      <div class="text-dim" style="font-size:11px;margin-bottom:8px">
-        存放目录：<code style="background:var(--bg);padding:2px 6px;border-radius:4px">plugins/</code>。
-        修改后点「重新加载」立即生效，无需重启服务。
-      </div>
-      <div id="plugin-market-custom"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" onclick="reloadPlugins()">🔄 重新加载插件</button>
-        <button class="btn btn-secondary btn-sm" onclick="openCreatePluginModal()">+ 创建自定义插件</button>
-      </div>
-    </div>
-    <details class="panel" style="margin-bottom:0">
-      <summary style="cursor:pointer;font-size:13px;color:var(--text-dim);padding:4px 0">📥 高级：从 JSON 导入插件配置</summary>
-      <div style="margin-top:8px">
-        <div class="form-group">
-          <textarea class="form-control" id="plugin-import-json" rows="5" placeholder='{"name":"自定义插件","node_type":"my_filter","category":"数据处理","code":"def process(df, params):\n    return df"}'></textarea>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="doImportPlugin()">导入插件</button>
-      </div>
-    </details>
-  `, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`);
+  `;
+
+  openModal('🧩 插件中心', modalContent, `<button class="btn btn-secondary" onclick="closeModal()">关闭</button>`, { width: '900px' });
   loadPluginMarket();
 }
 
@@ -8113,28 +8136,65 @@ async function loadPluginMarket() {
     const builtin = nodes.filter(n => n.tier === 'built-in');
     const official = nodes.filter(n => n.tier === 'official');
     const custom = nodes.filter(n => n.tier === 'custom');
+
     document.getElementById('plugin-market-builtin').innerHTML =
-      renderPluginList(builtin, { tier: 'built-in' });
+      renderPluginList(builtin, { tier: 'built-in', compact: true });
     document.getElementById('plugin-market-official').innerHTML =
       official.length
         ? renderPluginList(official, { tier: 'official' })
-        : '<div class="text-dim" style="font-size:12px;padding:8px 0">暂无官方精选插件。在 <code>plugins/official.json</code> 中添加插件清单即可。</div>';
+        : '<div class="text-dim" style="font-size:12px">导入内容包后，专业版插件会出现在这里。</div>';
     document.getElementById('plugin-market-custom').innerHTML =
       custom.length
-        ? renderPluginList(custom, { tier: 'custom' })
-        : '<div class="text-dim" style="font-size:12px;padding:8px 0">暂无自定义插件。点下方「创建自定义插件」开始。</div>';
+        ? renderPluginList(custom, { tier: 'custom', compact: true })
+        : '<div class="text-dim" style="font-size:12px">暂无自定义插件。点「+ 创建」开始。</div>';
+
+    // 渲染专业版插件（锁定状态）
+    const proPlugins = [
+      { name: '异常值处理', type: 'outlier_handler', category: '数据处理', desc: '基于 MAD/Z-score 检测并处理乌龙指、除权脏数据' },
+      { name: '停牌日填充', type: 'fill_suspended', category: '数据处理', desc: 'A股停牌日数据填充，输出停牌标记列' },
+      { name: '未来收益标签', type: 'label_future_return', category: '标签制作', desc: '生成未来 N 日收益率标签，机器学习打标签神器' },
+      { name: '量价背离检测', type: 'volume_price_divergence', category: '技术分析', desc: '识别顶背离、底背离、恐慌放量四种经典信号' },
+      { name: 'K线形态识别', type: 'candlestick_pattern', category: '技术分析', desc: '覆盖 10 种经典形态（十字星/锤头/阳包阴等）' },
+      { name: '最大回撤', type: 'max_drawdown', category: '回测评估', desc: '最大回撤/年化收益/夏普比率/胜率一站式计算' },
+    ];
+    document.getElementById('plugin-market-pro').innerHTML = renderProPluginList(proPlugins);
   } catch(e) {
     document.getElementById('plugin-market-builtin').innerHTML = '<div class="text-dim">加载失败：' + e.message + '</div>';
   }
 }
 
-function renderPluginList(nodes, opts = {}) {
-  if (!nodes.length) return '<div class="text-dim">无</div>';
-  const tier = opts.tier || 'custom';
+function renderProPluginList(plugins) {
   const categoryColors = {
     '指标计算': '#6366f1', '数据处理': '#22c55e', '流程控制': '#ec4899',
     '高级': '#f59e0b', '数据源': '#3b82f6', '数据输出': '#8b5cf6',
-    '因子库': '#14b8a6',
+    '因子库': '#14b8a6', '技术分析': '#f97316', '标签制作': '#06b6d4', '回测评估': '#a855f7',
+  };
+  let html = '';
+  for (const p of plugins) {
+    const color = categoryColors[p.category] || '#6366f1';
+    html += `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div>
+            <span style="color:${color};font-weight:600;font-size:13px">${p.name}</span>
+            <span style="background:rgba(139,92,246,0.15);color:#8b5cf6;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">🔒 专业版</span>
+            <span class="badge badge-pending" style="margin-left:6px">${p.category}</span>
+          </div>
+          <div class="text-dim" style="font-size:11px;margin-top:2px">${p.desc}</div>
+        </div>
+      </div>`;
+  }
+  return html;
+}
+
+function renderPluginList(nodes, opts = {}) {
+  if (!nodes.length) return '<div class="text-dim">无</div>';
+  const tier = opts.tier || 'custom';
+  const compact = opts.compact || false;
+  const categoryColors = {
+    '指标计算': '#6366f1', '数据处理': '#22c55e', '流程控制': '#ec4899',
+    '高级': '#f59e0b', '数据源': '#3b82f6', '数据输出': '#8b5cf6',
+    '因子库': '#14b8a6', '技术分析': '#f97316', '标签制作': '#06b6d4', '回测评估': '#a855f7',
   };
   const tierBadges = {
     'built-in': '<span style="background:#e0e7ff;color:#4338ca;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:6px">内置</span>',
@@ -8145,15 +8205,17 @@ function renderPluginList(nodes, opts = {}) {
   for (const n of nodes) {
     const color = categoryColors[n.category] || '#6366f1';
     const officialDesc = (n.official_meta && n.official_meta.description) ? n.official_meta.description : '';
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+    const padding = compact ? '6px 0' : '10px 0';
+    const fontSize = compact ? '12px' : '13px';
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:${padding};border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0">
         <div>
-          <span style="color:${color};font-weight:600;font-size:13px">${n.display_name}</span>
+          <span style="color:${color};font-weight:600;font-size:${fontSize}">${n.display_name}</span>
           ${tierBadges[tier] || ''}
           <span class="badge badge-pending" style="margin-left:6px">${n.category}</span>
         </div>
-        <div class="text-dim" style="font-size:11px;margin-top:2px;font-family:monospace">${n.type}</div>
-        ${officialDesc ? `<div class="text-dim" style="font-size:11px;margin-top:4px">${officialDesc}</div>` : ''}
+        ${!compact ? `<div class="text-dim" style="font-size:11px;margin-top:2px;font-family:monospace">${n.type}</div>` : ''}
+        ${officialDesc && !compact ? `<div class="text-dim" style="font-size:11px;margin-top:4px">${officialDesc}</div>` : ''}
       </div>
       ${tier === 'custom' ? `<button class="btn btn-danger btn-sm" style="margin-left:10px" onclick="deletePlugin('${n.type}')">删除</button>` : ''}
     </div>`;
