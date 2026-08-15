@@ -2061,7 +2061,12 @@ overview: async () => ({
           <img src="static/logo.png" alt="logo" style="width:64px;height:64px;border-radius:12px;object-fit:contain;margin-bottom:8px">
           <div style="font-size:32px;font-weight:700;color:var(--accent);margin-bottom:8px">金智汇连ETL</div>
           <div style="color:var(--text-dim);margin-bottom:4px">通用可视化ETL数据同步工具</div>
-          <div style="color:var(--text-dim);font-size:12px" id="about-version">版本 1.0.0 | 免费基础版</div>
+          <div style="margin-top:12px" id="about-version-badge">
+            <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3)">
+              🟢 开源版 · 完整功能
+            </span>
+          </div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:8px" id="about-version">版本 1.0.0</div>
         </div>
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px">🏢 产品介绍</div>
@@ -7033,14 +7038,24 @@ async function loadLicenseInfo() {
     _licenseInfo = info;
     const el = document.getElementById('about-version');
     if (el) {
-      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
-      const typeName = typeNames[info.type] || '免费基础版';
-      el.textContent = `版本 1.0.0 | ${typeName}`;
+      el.textContent = `版本 1.0.0`;
+    }
+    // 更新版本徽章
+    const badge = document.getElementById('about-version-badge');
+    if (badge) {
+      const isDev = info.dev_mode || false;
+      const typeConfig = {
+        'free': { text: '🟢 开源版 · 完整功能', bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
+        'personal': { text: '🔵 个人版', bg: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: 'rgba(59,130,246,0.3)' },
+        'professional': { text: '🟣 专业版', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: 'rgba(139,92,246,0.3)' },
+      };
+      const cfg = isDev ? { text: '🔧 开发者模式', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' } : (typeConfig[info.type] || typeConfig['free']);
+      badge.innerHTML = `<span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:13px;font-weight:600;background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border}">${cfg.text}</span>`;
     }
     const licInfo = document.getElementById('about-license-info');
     if (licInfo) {
-      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
-      const typeName = typeNames[info.type] || '免费基础版';
+      const typeNames = { 'free': '开源版（完整功能）', 'personal': '个人版', 'professional': '专业版' };
+      const typeName = typeNames[info.type] || '开源版（完整功能）';
       let html = `<p>当前版本：<strong>${typeName}</strong></p>`;
       html += `<p>机器码：<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${info.machine_code || '-'}</code></p>`;
       if (info.type !== 'free' && info.expires_at) {
