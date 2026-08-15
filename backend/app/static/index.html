@@ -7278,9 +7278,26 @@ async function previewContentPack(input) {
     const manifest = data.manifest || {};
     const workflows = data.workflows_preview || [];
     const plugins = data.plugins_preview || [];
+    const hasActivation = data.has_activation || false;
+    const activationType = data.activation_type || '';
+    const activationExpires = data.activation_expires || '';
+
+    let licenseInfo = '';
+    if (hasActivation) {
+      const typeNames = {'personal': '个人版', 'professional': '专业版'};
+      const typeName = typeNames[activationType] || activationType;
+      const expiresText = activationExpires === 'lifetime' ? '永久' : activationExpires;
+      licenseInfo = `
+        <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px">
+          <strong style="color:#10b981">🎫 包含 License</strong><br>
+          导入后将自动激活 <strong>${escapeHtml(typeName)}</strong>（${escapeHtml(expiresText)}）
+        </div>
+      `;
+    }
 
     let html = `
       <div style="background:var(--bg);padding:12px;border-radius:8px;font-size:13px">
+        ${licenseInfo}
         <div style="font-weight:600;margin-bottom:8px">${escapeHtml(manifest.name || '内容包')}</div>
         <div class="text-dim" style="margin-bottom:8px">版本: ${escapeHtml(manifest.pack_version || '-')} | 创建: ${escapeHtml(manifest.created_at || '-')}</div>
         <div style="margin-bottom:6px"><strong>工作流 (${workflows.length} 个):</strong></div>

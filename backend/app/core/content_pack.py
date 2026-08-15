@@ -1,9 +1,21 @@
 """内容包管理 -- .jspack 格式的定义、校验、解析、导入。
 
 .jspack 本质是一个 ZIP 文件，包含：
-  - manifest.json  包描述（版本、名称、工作流数量、插件列表）
+  - manifest.json  包描述（版本、名称、工作流数量、插件列表、可选激活码）
   - workflows.json 工作流列表 [{name, description, workflow_json}, ...]
   - plugins/       (可选) 插件 .py 文件
+
+manifest.json 格式：
+  {
+    "pack_version": "1.0",
+    "name": "金智汇联专业版内容包 v1",
+    "activation_code": "personal:2027-12-31:xxx",  // 可选，嵌入激活码
+    "workflows_count": 25,
+    "plugins": [...],
+    "created_at": "2026-08-15"
+  }
+
+如果 manifest 包含 activation_code，导入时会自动激活 License。
 """
 import json
 import os
@@ -95,11 +107,22 @@ def validate_pack(file_path: str) -> dict:
             "node_count": node_count,
         })
 
-    return {
+    result = {
         "manifest": manifest,
         "workflows_preview": workflows_preview,
         "plugins_preview": plugins,
     }
+
+    # 如果有嵌入的激活码，显示信息
+    activation_code = manifest.get("activation_code", "")
+    if activation_code:
+        parts = activation_code.split(":")
+        if len(parts) >= 2:
+            result["has_activation"] = True
+            result["activation_type"] = parts[0]
+            result["activation_expires"] = parts[1]
+
+    return result
 
 
 def extract_pack(file_path: str) -> Tuple[dict, List[dict], List[Tuple[str, bytes]]]:
@@ -136,6 +159,8 @@ def import_pack(
 ) -> dict:
     """导入 .jspack 内容包。
 
+    如果内容包内嵌激活码，会自动激活 License。
+
     Args:
         file_path: .jspack 文件路径
         overwrite_existing: 是否覆盖同名工作流
@@ -147,17 +172,35 @@ def import_pack(
             "workflows_skipped": int,
             "plugins_imported": list[str],
             "manifest": dict,
+            "license_activated": bool,  # 是否自动激活了 License
+            "license_type": str,        # 激活的版本类型
         }
     """
-    from app.core.license_manager import check_feature, is_dev_mode
-
-    if license_check and not is_dev_mode():
-        if not check_feature("pro_content_import"):
-            raise PermissionError(
-                "导入专业版内容包需要 Personal 或 Professional License"
-            )
+    from app.core.license_manager import check_feature, is_dev_mode, activate_online
 
     manifest, workflows, plugins = extract_pack(file_path)
+
+    # 检查是否有内嵌激活码，如果有则先激活
+    license_activated = False
+    license_type = None
+    activation_code = manifest.get("activation_code", "")
+
+    if activation_code and not is_dev_mode():
+        try:
+            result = activate_online(activation_code)
+            license_activated = True
+            license_type = result.get("type")
+        except Exception as e:
+            # 激活失败不阻止导入，但记录错误
+            pass
+
+    # 检查 License 权限（如果未自动激活）
+    if license_check and not is_dev_mode() and not license_activated:
+        if not check_feature("pro_content_import"):
+            raise PermissionError(
+                "导入专业版内容包需要 Personal 或 Professional License。"
+                "请确保内容包内嵌激活码，或先在 License 管理中手动激活。"
+            )
 
     workflows_imported = 0
     workflows_skipped = 0
@@ -215,6 +258,8 @@ def import_pack(
         "workflows_skipped": workflows_skipped,
         "plugins_imported": plugins_imported,
         "manifest": manifest,
+        "license_activated": license_activated,
+        "license_type": license_type,
     }
 
 
