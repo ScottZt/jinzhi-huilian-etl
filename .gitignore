@@ -59,13 +59,45 @@ backend/build/
 frontend/dist/
 frontend/node_modules/
 
+# =========================
+# 公开仓库防泄漏（2026-08-16 加）
+# open-source 分支会被推到 GitHub 公开仓库，
+# 以下路径仅允许存在于 main 分支（私有 Gitee），
+# 任何情况下都不应该进入 open-source 分支。
+# =========================
 
+# 内容包物料（手册、工作流 JSON 源、打包产物、License 目录）
+pro-content/
+
+# 打包脚本（仅 main 使用）
+scripts/pack_jspack.py
+scripts/export_pro_workflows.py
+
+# 付费插件源码（元数据 official.json 可保留）
+backend/plugins/official_*.py
+
+# 打包产物
+dist/*.jspack
+*.jspack
+
+# =========================
+# 构建工具产物（大体积二进制）
+# =========================
+*.exe
+*.pkg
+*.pyz
+*.pyz-manifest
+*.whl
+build/
+dist/
+
+# =========================
+# 其他第三方视频素材
+# =========================
 hyperframes-video/renders/
 hyperframes-video/1111.mp4
-
 hyperframes-video/2222.mp4
 hyperframes-video/飞书20260608-211342.mp4
-
 hyperframes-video/.thumbnails/
 renders/
 hyperframes-video/
