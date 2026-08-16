@@ -96,6 +96,7 @@ async def pack_status():
 
     return {
         "installed_packs": packs,
+        "installed_packs_count": len(packs),
         "license_type": lic_info.get("type", "free"),
         "dev_mode": is_dev_mode(),
         "can_import": is_dev_mode() or lic_info.get("features", {}).get("pro_content_import", False),
