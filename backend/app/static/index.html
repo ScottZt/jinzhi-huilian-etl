@@ -145,6 +145,106 @@
       gap: 8px;
     }
 
+    /* ---------- 全局版本徽章 ---------- */
+    #topbar-edition {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      margin-right: 16px;
+    }
+
+    .edition-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: default;
+      user-select: none;
+      transition: all 0.25s ease;
+      line-height: 1;
+    }
+
+    /* 开源版：低调银灰胶囊 */
+    .edition-badge.edition-open {
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #94a3b8;
+    }
+    .edition-badge.edition-open .edition-icon {
+      font-size: 12px;
+    }
+
+    /* 专业版：金色尊贵标识 */
+    .edition-badge.edition-pro {
+      background: linear-gradient(135deg, #fde68a 0%, #f59e0b 45%, #d97706 100%);
+      border: 1px solid rgba(251, 191, 36, 0.6);
+      color: #3b2a08;
+      box-shadow:
+        0 0 0 1px rgba(251, 191, 36, 0.2),
+        0 4px 14px rgba(245, 158, 11, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+    /* 金色流光扫过 */
+    .edition-badge.edition-pro::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -120%;
+      width: 80%; height: 100%;
+      background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.55) 50%, transparent 80%);
+      animation: edition-shine 3.2s ease-in-out infinite;
+    }
+    @keyframes edition-shine {
+      0%   { left: -120%; }
+      60%  { left: 140%;  }
+      100% { left: 140%;  }
+    }
+    .edition-badge.edition-pro .edition-icon {
+      font-size: 14px;
+      filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.4));
+    }
+    .edition-badge.edition-pro .edition-label-pro {
+      font-weight: 700;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .edition-badge.edition-pro:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 0 0 1px rgba(251, 191, 36, 0.3),
+        0 6px 18px rgba(245, 158, 11, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    /* 关于页大号版本徽章（更尊贵） */
+    #about-edition-hero {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0 16px;
+    }
+    #about-edition-hero .edition-badge {
+      padding: 10px 24px;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+    #about-edition-hero .edition-icon {
+      font-size: 20px;
+    }
+    #about-edition-hero .edition-label-pro {
+      font-size: 16px;
+    }
+    #about-edition-hero .edition-subtitle {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+
     #content {
       flex: 1;
       overflow-y: auto;
@@ -1056,6 +1156,7 @@
 <div id="main">
   <div id="topbar">
     <div id="topbar-title">总览</div>
+    <div id="topbar-edition"></div>
     <div id="topbar-actions"></div>
   </div>
   <div id="content"></div>
@@ -1267,9 +1368,11 @@ async function api(url, opts = {}) {
     // Ensure API key is loaded
     const apiKey = await ensureApiKey();
     const privateToken = getPrivateFeatureToken();
+    // FormData 时让浏览器自动设置 multipart boundary，不要手动覆盖 Content-Type
+    const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
     const res = await fetch(API + url, {
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(apiKey ? { 'X-API-Key': apiKey } : {}),
         ...(privateToken ? { 'X-Private-Feature-Token': privateToken } : {}),
         ...opts.headers,
@@ -1393,8 +1496,9 @@ function openModal(title, bodyHtml, footerHtml) {
   overlay.offsetHeight;
   overlay.classList.remove('hidden');
   // Focus the first editable field after modal content is rendered.
+  // 排除 type="file"：file 控件 click 会弹系统文件选择框，不适合自动触发，让用户自己点。
   setTimeout(() => {
-    const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), #modal-body textarea, #modal-body select');
+    const firstEditable = document.querySelector('#modal-body input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), #modal-body textarea, #modal-body select');
     if (firstEditable) {
       firstEditable.focus();
       firstEditable.click();
@@ -2061,7 +2165,7 @@ overview: async () => ({
           <img src="static/logo.png" alt="logo" style="width:64px;height:64px;border-radius:12px;object-fit:contain;margin-bottom:8px">
           <div style="font-size:32px;font-weight:700;color:var(--accent);margin-bottom:8px">金智汇连ETL</div>
           <div style="color:var(--text-dim);margin-bottom:4px">通用可视化ETL数据同步工具</div>
-          <div style="color:var(--text-dim);font-size:12px" id="about-version">版本 1.0.0 | 免费基础版</div>
+          <div style="color:var(--text-dim);font-size:12px" id="about-version">版本 1.0.0 | 开源版（全功能）</div>
         </div>
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px">🏢 产品介绍</div>
@@ -2084,8 +2188,8 @@ overview: async () => ({
           <div style="margin-top:12px">
             <p style="margin-bottom:10px"><strong>第一条 软件定位</strong><br>本软件为本地部署型通用数据ETL处理工具，仅提供数据接入、清洗、转换、入库、任务调度、内网私有API调用等技术能力，不生产、不采集、不转发、不对外分发任何证券、期货、金融行情原始数据，不属于金融数据服务、行情授权服务机构。</p>
             <p style="margin-bottom:10px"><strong>第二条 数据源使用责任</strong><br>1. 本软件支持用户自行配置第三方合规数据源（含Tushare Pro等），由用户自行注册账号、购买会员、填写专属Token/密钥。<br>2. 本软件支持读取用户个人电脑本地已自行下载的通达信客户端数据文件，仅做本地解析加工，不联网抓取官方服务器数据、不破解、不逆向商用接口。<br>3. 所有第三方数据源、本地行情数据的著作权、版权、服务协议合规责任均由用户自行承担，本软件不承担数据源合规、版权纠纷连带责任。</p>
-            <p style="margin-bottom:10px"><strong>第三条 使用限制与禁止行为</strong><br>用户承诺不得利用本软件从事以下行为：<br>1. 将通达信、Tushare及其他数据源原始行情、K线、分时、财务数据通过公网API、接口、文件、数据库等形式二次分发、售卖、共享、公开；<br>2. 绕过软件默认安全限制，私自将内网API暴露至公网，对外提供金融数据查询服务；<br>3. 多用户共用同一个Tushare Token、批量爬取、聚合后对外提供数据服务；<br>4. 未取得金融数据相关资质，利用本工具变相从事经营性行情数据服务；<br>5. 逆向工程、篡改软件授权、绕过功能限制破解商用模块。</p>
-            <p style="margin-bottom:10px"><strong>第四条 软件授权规则</strong><br>1. 本软件分免费版、专业版、企业版，采用激活码/序列号授权方式；<br>2. 免费版永久开放基础ETL能力，无时间限制；<br>3. 专业版、企业版为付费授权，仅限单用户/单内网环境使用，禁止转租、转售、多机构共用授权；<br>4. 授权仅限软件功能解锁，不含任何金融数据授权、行情数据使用权。</p>
+            <p style="margin-bottom:10px"><strong>第三条 使用限制与禁止行为</strong><br>用户承诺不得利用本软件从事以下行为：<br>1. 将通达信、Tushare及其他数据源原始行情、K线、分时、财务数据通过公网API、接口、文件、数据库等形式二次分发、售卖、共享、公开；<br>2. 绕过软件默认安全限制，私自将内网API暴露至公网，对外提供金融数据查询服务；<br>3. 多用户共用同一个Tushare Token、批量爬取、聚合后对外提供数据服务；<br>4. 未取得金融数据相关资质，利用本工具变相从事经营性行情数据服务；<br>5. 逆向工程、非法复制与分发付费内容包。</p>
+            <p style="margin-bottom:10px"><strong>第四条 软件授权与内容包说明</strong><br>1. 本软件为开源项目，所有功能（节点、数据源、调度、清洗等）均完整开放，不区分免费版与付费版；<br>2. 官方精选的「内容包」（含生产级工作流模板与高级插件）作为增值服务提供，购买后以 .jspack 文件形式交付；<br>3. 内容包仅限单用户/单内网环境使用，禁止转租、转售、多机构共用；<br>4. 内容包为数字商品，一经导入不支持退款，不含任何金融数据授权、行情数据使用权。</p>
             <p style="margin-bottom:10px"><strong>第五条 隐私与数据安全</strong><br>1. 本软件所有数据处理、文件读取、数据库存储均仅在用户本地设备/内网完成，不会自动上传用户原始行情数据、Token密钥、业务数据至开发者服务器；<br>2. 软件自动留存任务日志、API调用日志，仅用于用户本地审计排查，不上传外泄；<br>3. 用户需自行做好本地数据备份、内网访问权限管控。</p>
             <p style="margin-bottom:10px"><strong>第六条 免责声明</strong><br>1. 本软件仅为技术工具，不构成任何投资建议、金融咨询服务；<br>2. 用户违规使用本工具进行数据分发、商用行情服务、版权侵权等行为，全部法律责任由用户自行承担；<br>3. 因用户自行配置数据源、私自修改网络监听配置、公网暴露接口造成的版权纠纷、监管处罚、经济损失，开发者不承担任何赔偿及连带责任。</p>
             <p style="margin-bottom:10px"><strong>第七条 其他</strong><br>本协议自用户安装、使用本软件之日起生效，开发者有权对协议及软件版本进行更新，更新后将在软件内公示。</p>
@@ -2093,20 +2197,21 @@ overview: async () => ({
         </details>
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📋 版本说明</div>
+        <div id="about-edition-hero"></div>
         <div style="color:var(--text-dim);line-height:1.8;font-size:13px">
           <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:12px">
             <strong style="color:#10b981">💡 开源声明</strong><br>
-            本工具<strong>完整功能开源，无任何阉割</strong>。所有节点、数据源连接、调度功能均可免费使用。<br>
-            <strong>仅工作流示例模板</strong>（25 个生产级模板 + 6 个高级插件）作为专业版内容付费提供。
+            本工具<strong>完整功能开源，无任何阉割</strong>。所有节点、数据源连接、调度、清洗等能力均可免费使用，自由创建和运行工作流。<br>
+            <strong>内容包</strong>（25 个生产级工作流模板 + 6 个高级插件）作为官方增值服务提供，帮助用户节省开发时间。
           </div>
-          <p><strong>免费版</strong>：完整 ETL 工具功能，包含所有节点、数据源连接、调度、清洗等能力。可自由创建和运行工作流。</p>
-          <p style="margin-top:8px"><strong>专业版内容包</strong>：25 个生产级工作流模板 + 6 个高级官方插件（异常值处理、停牌填充、K线形态等）。适合快速上手、节省开发时间。</p>
         </div>
 
-        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">🔑 License 管理</div>
-        <div id="about-license-info" style="color:var(--text-dim);line-height:1.8;font-size:13px"></div>
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="openLicenseModal()">管理 License</button>
+        <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📦 内容包导入</div>
+        <div style="color:var(--text-dim);line-height:1.8;font-size:13px;margin-bottom:12px">
+          购买内容包后获得 <strong>.jspack</strong> 文件，点击下方按钮一键导入，即可获得 25 个专业工作流模板 + 6 个高级插件。
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="openContentPackModal()">导入内容包</button>
         </div>
 
         <div class="panel-title" style="color:var(--accent);margin-bottom:12px;margin-top:20px">📦 SDK 使用指南</div>
@@ -2135,7 +2240,7 @@ LogHandler.info("处理完成", extra={"rows": len(df)})</pre>
             <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">WorkflowScheduler</td><td style="padding:4px 8px">定时任务调度（Cron/间隔/一次性）</td></tr>
             <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">ScriptExecutor</td><td style="padding:4px 8px">安全沙箱执行 Python 脚本</td></tr>
             <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">LogHandler</td><td style="padding:4px 8px">结构化日志记录（文件+控制台）</td></tr>
-            <tr><td style="padding:4px 8px">LicenseManager</td><td style="padding:4px 8px">授权等级查询、功能权限校验</td></tr>
+            <tr><td style="padding:4px 8px">LicenseManager</td><td style="padding:4px 8px">授权与内容包管理</td></tr>
           </table>
 
           <p style="margin-top:10px">使用 <strong>AI 脚本生成</strong>功能（左侧菜单）可自动生成适配 SDK 的脚本代码。</p>
@@ -6737,8 +6842,66 @@ async function deletePipeline(id) {
   } catch(e) { alert('删除失败: ' + e.message); }
 }
 
-// ---------- License 管理 ----------
-let _licenseInfo = { type: 'free', machine_code: 'N/A', expires_at: null };
+// ---------- 内容包导入 / 授权信息 ----------
+let _licenseInfo = { edition: 'open_source', installed_packs_count: 0, installed_pack_names: [] };
+
+// 渲染顶栏 + 关于页全局版本徽章
+function renderEditionBadge() {
+  const edition = (_licenseInfo && _licenseInfo.edition) || 'open_source';
+  const count = (_licenseInfo && _licenseInfo.installed_packs_count) || 0;
+
+  // 1) 顶栏徽章（常驻）
+  const host = document.getElementById('topbar-edition');
+  if (host) {
+    if (edition === 'pro') {
+      const tip = count > 0
+        ? `专业版 PRO · 已导入 ${count} 个内容包`
+        : '专业版 PRO · 尊享全部官方精选模板';
+      host.innerHTML = `
+        <div class="edition-badge edition-pro" onclick="openContentPackModal()" title="${tip}">
+          <span class="edition-icon">👑</span>
+          <span class="edition-label-pro">专业版 PRO</span>
+        </div>
+      `;
+    } else {
+      host.innerHTML = `
+        <div class="edition-badge edition-open" onclick="openContentPackModal()" title="点击导入内容包，解锁专业版尊贵标识">
+          <span class="edition-icon">🌱</span>
+          <span>开源版</span>
+        </div>
+      `;
+    }
+  }
+
+  // 2) 关于页大号徽章（更尊贵）
+  const hero = document.getElementById('about-edition-hero');
+  if (hero) {
+    if (edition === 'pro') {
+      const sub = count > 0
+        ? `已导入 ${count} 个内容包 · 尊享全部官方精选模板与高级插件`
+        : '尊享全部官方精选模板与高级插件';
+      hero.innerHTML = `
+        <div style="width:100%">
+          <div class="edition-badge edition-pro" style="cursor:pointer" onclick="openContentPackModal()">
+            <span class="edition-icon">👑</span>
+            <span class="edition-label-pro">专业版 PRO</span>
+          </div>
+          <div class="edition-subtitle">${sub}</div>
+        </div>
+      `;
+    } else {
+      hero.innerHTML = `
+        <div style="width:100%">
+          <div class="edition-badge edition-open" style="cursor:pointer" onclick="openContentPackModal()">
+            <span class="edition-icon">🌱</span>
+            <span>开源版 · 全功能开放</span>
+          </div>
+          <div class="edition-subtitle">所有节点 / 数据源 / 调度 / 清洗能力均已开放 · 导入内容包可升级为专业版</div>
+        </div>
+      `;
+    }
+  }
+}
 
 async function loadAboutData() {
   await loadLicenseInfo();
@@ -7028,121 +7191,81 @@ async function loadAssistantMetrics() {
 }
 
 async function loadLicenseInfo() {
+  // 拉取当前版本信息（含 edition / 已装内容包数量）
   try {
     const info = await api('/api/license/info', { silent: true });
-    _licenseInfo = info;
-    const el = document.getElementById('about-version');
-    if (el) {
-      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
-      const typeName = typeNames[info.type] || '免费基础版';
-      el.textContent = `版本 1.0.0 | ${typeName}`;
-    }
-    const licInfo = document.getElementById('about-license-info');
-    if (licInfo) {
-      const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
-      const typeName = typeNames[info.type] || '免费基础版';
-      let html = `<p>当前版本：<strong>${typeName}</strong></p>`;
-      html += `<p>机器码：<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${info.machine_code || '-'}</code></p>`;
-      if (info.type !== 'free' && info.expires_at) {
-        html += `<p>到期时间：${new Date(info.expires_at).toLocaleDateString()}</p>`;
-      }
-      if (info.type === 'free') {
-        html += `<p style="margin-top:12px;color:var(--accent)">💡 升级付费版可获得大模型脚本生成（无次数限制）、断点续传、多工作流并发、高级数据库连接等更多功能。</p>`;
-      }
-      licInfo.innerHTML = html;
-    }
-  } catch(e) {
-    // License API not available yet (backend not implemented)
-    const licInfo = document.getElementById('about-license-info');
-    if (licInfo) {
-      licInfo.innerHTML = `<p>当前版本：<strong>免费基础版</strong></p>
-        <p style="margin-top:8px;color:var(--text-dim)">💡 升级付费版可获得更多功能。</p>
-        <p class="text-dim mt-8">License 管理系统正在开发中...</p>`;
+    _licenseInfo = info || _licenseInfo;
+  } catch (e) {
+    // 接口不可用时保持默认开源版
+  }
+
+  // 关于页版本号展示
+  const el = document.getElementById('about-version');
+  if (el) {
+    if (_licenseInfo.edition === 'pro') {
+      el.textContent = `版本 1.0.0 | 专业版 PRO · 已导入 ${_licenseInfo.installed_packs_count || 0} 个内容包`;
+    } else {
+      el.textContent = `版本 1.0.0 | 开源版（全功能）`;
     }
   }
+
+  // 刷新全局徽章
+  renderEditionBadge();
 }
 
-async function openLicenseModal() {
-  try {
-    const info = await api('/api/license/info', { silent: true });
-    _licenseInfo = info;
-  } catch(e) {
-    // API not ready yet
-  }
+async function openContentPackModal() {
+  const edition = (_licenseInfo && _licenseInfo.edition) || 'open_source';
+  const count = (_licenseInfo && _licenseInfo.installed_packs_count) || 0;
+  const isPro = edition === 'pro';
 
-  const typeNames = { 'free': '免费基础版', 'personal': '个人版', 'professional': '专业版' };
-  const currentType = _licenseInfo.type || 'free';
-  const typeName = typeNames[currentType] || '免费基础版';
+  const title = isPro ? '👑 专业版 PRO · 内容包管理' : '🌱 导入内容包';
+  const intro = isPro
+    ? `<div style="background:linear-gradient(135deg,rgba(251,191,36,0.12) 0%,rgba(217,119,6,0.08) 100%);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:12px;margin-bottom:16px">
+        <strong style="color:#f59e0b">👑 尊贵专业版</strong><br>
+        <span style="font-size:13px;color:var(--text-dim)">
+          您已解锁全部官方精选工作流与高级插件。<br>
+          当前已导入 <strong style="color:#f59e0b">${count}</strong> 个内容包，可继续导入新内容包。
+        </span>
+       </div>`
+    : `<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px">
+        <strong style="color:#10b981">💡 开源说明</strong><br>
+        <span style="font-size:13px;color:var(--text-dim)">
+          本工具<strong>完整功能开源，无任何阉割</strong>，所有节点、数据源、调度能力均可免费使用。<br>
+          导入内容包可解锁<strong>专业版尊贵标识</strong> + <strong>生产级工作流模板</strong> + <strong>高级插件</strong>。
+        </span>
+       </div>`;
 
-  openModal('License 管理', `
-    <div class="panel-title mb-16">当前授权信息</div>
-    <div style="margin-bottom:16px">
-      <div class="form-row">
-        <div class="form-group"><label>当前版本</label><div style="padding:8px;background:var(--bg);border-radius:6px">${typeName}</div></div>
-        <div class="form-group"><label>机器码</label><div style="padding:8px;background:var(--bg);border-radius:6px;font-family:monospace;font-size:12px">${_licenseInfo.machine_code || '未初始化'}</div></div>
-      </div>
-    </div>
+  openModal(title, `
+    ${intro}
 
-    <div class="panel-title mb-16">激活 License</div>
+    <div class="panel-title mb-16">上传 .jspack 内容包</div>
     <div class="form-group">
-      <label>激活码（在线激活）</label>
-      <div class="form-row">
-        <input class="form-control" id="license-activate-code" placeholder="输入 License 激活码">
-        <button class="btn btn-primary" onclick="activateLicense()" style="white-space:nowrap">激活</button>
-      </div>
-    </div>
-
-    <div class="panel-title mb-16 mt-16">离线授权</div>
-    <div class="form-group">
-      <label>导入授权文件</label>
-      <input type="file" id="license-file" accept=".lic" style="color:var(--text)">
-      <div class="text-dim mt-8">适用于无网络环境，请联系客服获取 .lic 文件</div>
-    </div>
-
-    <div class="panel-title mb-16 mt-16">导入专业版内容包</div>
-    <div class="form-group">
-      <label>上传 .jspack 内容包文件</label>
+      <label>选择内容包文件</label>
       <input type="file" id="pack-file" accept=".jspack" style="color:var(--text)" onchange="previewContentPack(this)">
-      <div class="text-dim mt-8">购买专业版后获得 .jspack 文件，导入后解锁 25 个专业工作流 + 6 个高级插件</div>
+      <div class="text-dim mt-8">导入后解锁更多专业工作流模板与高级插件</div>
       <div id="pack-preview" style="margin-top:12px"></div>
     </div>
 
-    <div class="panel-title mb-16 mt-16">版本说明</div>
-    <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
-      <div style="background:rgba(16,185,129,0.1);border-radius:6px;padding:10px;margin-bottom:10px">
-        <strong style="color:#10b981">💡 本工具完整功能开源，无任何阉割。</strong><br>
-        免费版可正常使用所有节点、数据源连接、调度等功能。专业版仅提供工作流示例模板。
-      </div>
-      <p><strong>免费版</strong>：完整 ETL 工具功能。可自由创建、运行、调试工作流。</p>
-      <p style="margin-top:8px"><strong>专业版内容包</strong>：25 个生产级工作流模板 + 6 个高级官方插件。导入后即可使用，节省开发时间。</p>
+    <div class="panel-title mb-16 mt-16">如何使用？</div>
+    <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+      <div>1. 从知识星球 / 闲鱼获取 <strong>.jspack 内容包文件</strong></div>
+      <div>2. 在上方选择文件，确认后自动导入</div>
+      <div>3. 在「导入示例」中选择专业版工作流，一键导入使用</div>
     </div>
-
-    ${currentType !== 'free' ? `
-    <div class="panel-title mt-16">解绑设备</div>
-    <div class="text-dim mb-8">解绑后可在新设备激活，每月限1次。</div>
-    <button class="btn btn-warning btn-sm" onclick="deactivateLicense()">解绑当前设备</button>
-    ` : ''}
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
-    ${currentType === 'free' ? '<button class="btn btn-primary" onclick="closeModal(); openPurchaseGuide();">升级付费版</button>' : ''}
   `);
 }
 
-// ---------- 购买指南弹框 ----------
+// ---------- 获取内容包（购买指南）弹框 ----------
 function openPurchaseGuide() {
-  openModal('升级专业版', `
+  openModal('获取内容包', `
     <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px">
-      <strong style="color:#10b981">💡 开源说明</strong><br>
+      <strong style="color:#10b981">💡 说明</strong><br>
       <span style="font-size:13px;color:var(--text-dim)">
-        本工具<strong>完整功能开源，无任何阉割</strong>，所有节点、数据源、调度能力均可免费使用。<br>
-        专业版仅提供<strong>工作流示例模板</strong>（节省开发时间的生产级模板 + 高级插件）。
+        本工具<strong>完整功能开源，无任何阉割</strong>，所有内容均可免费使用。<br>
+        内容包仅用于提供<strong>生产级工作流模板</strong>（节省开发时间）和<strong>高级插件</strong>。
       </span>
-    </div>
-
-    <div style="text-align:center;margin-bottom:20px">
-      <div style="font-size:14px;color:var(--text-dim);line-height:1.8">
-        专业版内容包包含 <strong>25 个生产级工作流模板</strong> + <strong>6 个高级官方插件</strong>
-      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -7176,45 +7299,17 @@ function openPurchaseGuide() {
     </div>
 
     <div style="background:var(--bg);border-radius:12px;padding:16px">
-      <div style="font-weight:600;margin-bottom:8px">购买后如何使用？</div>
+      <div style="font-weight:600;margin-bottom:8px">获取后如何使用？</div>
       <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
-        <div>1. 购买后获得 <strong>激活码</strong> + <strong>.jspack 内容包文件</strong></div>
-        <div>2. 在本页面「License 管理」中输入激活码，解锁功能权限</div>
-        <div>3. 上传 .jspack 文件，导入 25 个专业工作流 + 6 个高级插件</div>
-        <div>4. 在「导入示例」中选择专业版工作流，一键导入使用</div>
+        <div>1. 获取 <strong>.jspack 内容包文件</strong></div>
+        <div>2. 点击下方按钮，上传并一键导入</div>
+        <div>3. 在「导入示例」中选择专业版工作流，直接使用</div>
       </div>
-    </div>
-
-    <div style="margin-top:16px;padding:12px;background:var(--card);border-radius:8px;font-size:12px;color:var(--text-dim)">
-      💡 已有激活码？点击上方「激活」按钮直接激活。已有 .jspack 文件？在上方「导入专业版内容包」区域上传。
+      <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="closeModal(); openContentPackModal();">去导入内容包</button>
     </div>
   `, `
     <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
   `);
-}
-
-async function activateLicense() {
-  const code = document.getElementById('license-activate-code').value;
-  if (!code) { alert('请输入激活码'); return; }
-  try {
-    const res = await api('/api/license/activate', {
-      method: 'POST',
-      body: JSON.stringify({ activation_code: code }),
-    });
-    alert('激活成功！版本：' + (res.type || '已激活'));
-    closeModal();
-    loadLicenseInfo();
-  } catch(e) { alert('激活失败: ' + e.message); }
-}
-
-async function deactivateLicense() {
-  if (!confirm('确定解绑当前设备？')) return;
-  try {
-    await api('/api/license/deactivate', { method: 'POST' });
-    alert('解绑成功');
-    closeModal();
-    loadLicenseInfo();
-  } catch(e) { alert('解绑失败: ' + e.message); }
 }
 
 // ---------- 内容包导入 ----------
@@ -7231,8 +7326,10 @@ async function previewContentPack(input) {
   formData.append('file', file);
 
   try {
-    const res = await fetch('/api/content-packs/validate', { method: 'POST', body: formData });
-    const data = await res.json();
+    const data = await api('/api/content-packs/validate', {
+      method: 'POST',
+      body: formData,
+    });
 
     if (data.error) {
       previewEl.innerHTML = `<div style="color:#ef4444">${escapeHtml(data.error)}</div>`;
@@ -7280,8 +7377,10 @@ async function importContentPack() {
   formData.append('overwrite_existing', 'false');
 
   try {
-    const res = await fetch('/api/content-packs/import', { method: 'POST', body: formData });
-    const data = await res.json();
+    const data = await api('/api/content-packs/import', {
+      method: 'POST',
+      body: formData,
+    });
 
     if (data.error) {
       previewEl.innerHTML = `<div style="color:#ef4444">${escapeHtml(data.error)}</div>`;
@@ -7291,12 +7390,15 @@ async function importContentPack() {
     previewEl.innerHTML = `<div style="color:#10b981">${escapeHtml(data.message || '导入成功')}</div>`;
     alert(data.message || '导入成功！');
 
+    // 刷新版本徽章（开源版 -> 专业版 即时升级感）
+    if (typeof loadLicenseInfo === 'function') loadLicenseInfo();
+
     // 刷新工作流列表
     if (typeof refreshWorkflows === 'function') refreshWorkflows();
     // 关闭弹框后重新打开以刷新状态
     setTimeout(() => {
       closeModal();
-      openLicenseModal();
+      openContentPackModal();
     }, 1000);
   } catch(e) {
     previewEl.innerHTML = `<div style="color:#ef4444">导入失败: ${escapeHtml(e.message)}</div>`;
@@ -7759,10 +7861,6 @@ function closeExampleDoc() {
     document.getElementById('modal-title').textContent = _importModalState.title;
     document.getElementById('modal-body').innerHTML = _importModalState.body;
     document.getElementById('modal-footer').innerHTML = _importModalState.footer;
-    document.getElementById('modal-body').dataset.presetsCache = _importModalState.presetsCache;
-    // 重新绑定事件
-    document.querySelectorAll('#modal-body .import-cb').forEach(cb =>
-      cb.addEventListener('change', updateImportCount));
     _importModalState = null;
   } else {
     closeModal();
@@ -7789,21 +7887,31 @@ async function openImportExamplesModal() {
       console.warn('[import] 动态加载 example_workflows.js 异常:', e);
     }
   }
-  // 1) 拉后端 preset（6 个内置 transform 流水线）
+  // 1) 取前端文档示例
+  const docExamples = Array.isArray(window.EXAMPLE_WORKFLOWS) ? window.EXAMPLE_WORKFLOWS : [];
+  const CR = window.CONTENT_REGISTRY || { isPro: () => false, getExampleTier: () => ({ tier: 'free' }), acquisition: {} };
+
+  // 拉取内容包安装状态
+  let packStatus = { installed_packs: [], installed_packs_count: 0 };
+  try {
+    packStatus = await api('/api/content-packs/status', { silent: true }) || packStatus;
+  } catch (e) {
+    // 接口不可用时默认视为未安装
+  }
+  const isPackInstalled = (packStatus.installed_packs_count || 0) > 0;
+
+  // 拉后端内置预设（可直接导入的工作流模板）
   let presets = [];
   try {
     presets = await api('/api/workflows/presets');
   } catch (e) {
     console.warn('拉 preset 失败:', e);
   }
-  // 2) 取前端文档示例
-  const docExamples = Array.isArray(window.EXAMPLE_WORKFLOWS) ? window.EXAMPLE_WORKFLOWS : [];
-  const CR = window.CONTENT_REGISTRY || { isPro: () => false, getExampleTier: () => ({ tier: 'free' }), acquisition: {} };
 
-  // 分离免费 / 专业示例
-  const freeExamples = docExamples.filter(ex => !CR.isPro(ex.id));
+  // 仅渲染专业版示例（免费示例已不再展示）
   const proExamples = docExamples.filter(ex => CR.isPro(ex.id));
 
+  // 渲染内置预设卡片（可勾选导入）
   const presetBody = presets.map((p, i) => {
     const nodes = (p.workflow_json?.nodes || []).length;
     const desc = (p.description || '').slice(0, 80);
@@ -7884,12 +7992,10 @@ async function openImportExamplesModal() {
       screenshotHtml = `<div class="pro-screenshot-placeholder">📷 ${escapeHtml(ex.title)}</div>`;
     }
 
-    let acqHtml = '';
-    acqHtml = `<div class="pro-acquisition">
-      <div class="pro-acquisition-title">📦 获取方式</div>
+    let acqHtml = `<div class="pro-acquisition">
+      <div class="pro-acquisition-title" style="color:#10b981">✅ 已导入</div>
       <div class="pro-acquisition-method">
-        <a href="javascript:void(0)" onclick="event.stopPropagation(); closeModal(); setTimeout(openPurchaseGuide, 100);" style="color:var(--accent);text-decoration:underline">点击查看购买指南</a>
-        ，获取激活码 + 内容包后在「License 管理」中导入即可解锁
+        请前往 <strong>「ETL工作流」</strong> 列表查看并使用
       </div>
     </div>`;
 
@@ -7900,7 +8006,7 @@ async function openImportExamplesModal() {
 
     return `
       <div class="import-item import-item-pro">
-        <div class="pro-badge">🔒 专业版</div>
+        <div class="pro-badge" style="background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.3)">✅ 专业版</div>
         <div style="display:flex;gap:12px;align-items:flex-start;width:100%">
           <div class="idx" style="margin-top:2px">#${ex.id}</div>
           <div class="meta" style="flex:1;min-width:0">
@@ -7917,71 +8023,49 @@ async function openImportExamplesModal() {
       </div>`;
   }
 
-  const freeBody = freeExamples.map(renderDocExample).join('');
+  const freeBody = '';
   const proBody = proExamples.map(renderDocExample).join('');
 
   const body = `
     <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim)">
-      💡 <strong>工具本身完全开源</strong>，可自由创建和运行工作流。下方的专业版示例是<strong>生产级模板</strong>，购买内容包后可一键导入使用。
-    </div>
-    <div class="import-toolbar">
-      <label><input type="checkbox" id="import-select-all" onchange="toggleAllImport(this.checked)"> 全选免费示例</label>
-      <span class="text-dim" style="font-size:12px" id="import-count">已选 0 / ${presets.length + freeExamples.length} 项免费</span>
-      <span style="flex:1"></span>
-      <span class="text-dim" style="font-size:12px">🔒 专业版示例需获取内容包后使用</span>
+      💡 <strong>工具本身完全开源</strong>，可自由创建和运行工作流。已导入内容包的用户可直接在「ETL工作流」列表使用专业版模板。
     </div>
     <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:8px">🧩 内置预设（${presets.length} 个）</div>
+      <div class="panel-title" style="margin-bottom:8px">🧩 内置预设（${presets.length} 个）<span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">勾选后点击下方「导入选中」即可使用</span></div>
       <div class="import-list" id="import-list-presets">${presetBody || '<div class="text-dim">未加载到内置预设</div>'}</div>
-    </div>
-    <div class="panel" style="margin-bottom:12px">
-      <div class="panel-title" style="margin-bottom:4px">
-        🆓 免费示例（${freeExamples.length} 个）
-        <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可直接导入使用</span>
-      </div>
-      <div class="import-list" id="import-list-free">${freeBody || '<div class="text-dim">暂无免费示例</div>'}</div>
     </div>
     ${proExamples.length > 0 ? `
     <div class="panel">
-      <div class="panel-title" style="margin-bottom:4px">
-        🔒 专业版示例（${proExamples.length} 个）
-        <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">展示截图预览，完整内容需获取</span>
-      </div>
-      <div class="import-list" id="import-list-pro">${proBody}</div>
-    </div>` : ''}
+      ${isPackInstalled ? `
+        <div class="panel-title" style="margin-bottom:4px">
+          ✅ 专业版示例（${proExamples.length} 个）
+          <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">已导入 · 在「ETL工作流」列表直接使用</span>
+        </div>
+        <div class="import-list" id="import-list-pro">${proBody}</div>
+      ` : `
+        <div class="panel-title" style="margin-bottom:4px">📦 专业版示例</div>
+        <div style="text-align:center;padding:36px 24px;border:1px dashed var(--border);border-radius:8px;color:var(--text-dim)">
+          <div style="font-size:32px;margin-bottom:8px;opacity:0.6">📦</div>
+          <div style="margin-bottom:4px;font-size:14px;color:var(--text)">尚未导入内容包</div>
+          <div style="font-size:12px;margin-bottom:16px">导入 .jspack 内容包后，此处将出现 ${proExamples.length} 个专业工作流模板</div>
+          <button class="btn btn-primary btn-sm" onclick="closeModal(); openContentPackModal();">导入内容包</button>
+        </div>
+      `}
+    </div>` : '<div class="text-dim" style="text-align:center;padding:24px">暂无专业版示例</div>'}
   `;
   const footer = `
-    <button class="btn btn-secondary" onclick="closeModal(); openLicenseModal();">📦 导入内容包</button>
-    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+    <button class="btn btn-secondary" onclick="closeModal(); openContentPackModal();">📦 导入内容包</button>
+    <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
     <button class="btn btn-primary" onclick="importSelectedExamples()">导入选中</button>
   `;
   openModal('💡 导入示例工作流', body, footer);
   // 把 preset 数据暂存到 modal-body，供 importSelectedExamples 读取
   document.getElementById('modal-body').dataset.presetsCache = JSON.stringify(presets);
-  // 重新绑定计数
-  document.querySelectorAll('#modal-body .import-cb').forEach(cb =>
-    cb.addEventListener('change', updateImportCount));
-  // 确保默认不选中所有，让用户自己选择
-  document.querySelectorAll('#modal-body .import-cb').forEach(cb => { cb.checked = false; });
-  const selectAll = document.getElementById('import-select-all');
-  if (selectAll) selectAll.checked = false;
-  updateImportCount();
 }
-function toggleAllImport(checked) {
-  document.querySelectorAll('#modal-body .import-cb').forEach(cb => { cb.checked = checked; });
-  updateImportCount();
-}
-function updateImportCount() {
-  const all = document.querySelectorAll('#modal-body .import-cb');
-  const sel = document.querySelectorAll('#modal-body .import-cb:checked');
-  const el = document.getElementById('import-count');
-  if (el) el.textContent = `已选 ${sel.length} / ${all.length} 项`;
-  const sa = document.getElementById('import-select-all');
-  if (sa) sa.indeterminate = sel.length > 0 && sel.length < all.length;
-}
+
 async function importSelectedExamples() {
   const checked = Array.from(document.querySelectorAll('#modal-body .import-cb:checked'));
-  if (!checked.length) { alert('请先勾选要导入的示例'); return; }
+  if (!checked.length) { alert('请先勾选要导入的预设'); return; }
   const presets = JSON.parse(document.getElementById('modal-body').dataset.presetsCache || '[]');
   const docMap = {};
   (window.EXAMPLE_WORKFLOWS || []).forEach(ex => { docMap[ex.id] = ex; });
@@ -8316,6 +8400,7 @@ setTheme(getTheme());
 connectWS();
 
 // Start with overview
+loadLicenseInfo();
 navigate('overview');
 initQuickStartGuide();
 </script>

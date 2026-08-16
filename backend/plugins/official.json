@@ -1,1 +1,44 @@
-[]
+[
+  {
+    "node_type": "outlier_detect",
+    "display_name": "异常值检测",
+    "category": "官方插件",
+    "description": "检测异常值（乌龙指 / 脏数据），支持 zscore / iqr / multiplier 三种方法"
+  },
+  {
+    "node_type": "outlier_treat",
+    "display_name": "异常值处理",
+    "category": "官方插件",
+    "description": "处理检测到的异常值，支持 clip / fill_median / fill_zero / drop / flag_only"
+  },
+  {
+    "node_type": "suspended_fill",
+    "display_name": "停牌日填充",
+    "category": "官方插件",
+    "description": "补齐 A 股停牌 / 缺失交易日，支持 ffill / interpolate / zero"
+  },
+  {
+    "node_type": "future_return_label",
+    "display_name": "未来收益标签",
+    "category": "官方插件",
+    "description": "基于未来 N 日收益率生成机器学习标签（分类 / 回归）"
+  },
+  {
+    "node_type": "divergence_detect",
+    "display_name": "量价背离检测",
+    "category": "官方插件",
+    "description": "检测价格与指标之间的顶背离 / 底背离（MACD / RSI / 成交量 / 自定义）"
+  },
+  {
+    "node_type": "kline_pattern",
+    "display_name": "K线形态识别",
+    "category": "官方插件",
+    "description": "识别 10 种经典 K 线形态：锤子、倒锤、十字星、吞没、乌云、刺透、启明、黄昏、三兵、三鸦"
+  },
+  {
+    "node_type": "backtest_metrics",
+    "display_name": "最大回撤与回测指标",
+    "category": "官方插件",
+    "description": "计算最大回撤 / 回撤持续天数 / 夏普比率 / 索提诺比率 / 卡尔玛比率"
+  }
+]

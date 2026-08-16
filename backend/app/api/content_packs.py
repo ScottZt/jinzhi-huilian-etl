@@ -57,12 +57,18 @@ async def import_pack(
         wf_count = result['workflows_imported']
         plugin_count = len(result['plugins_imported'])
         skipped = result['workflows_skipped']
+        license_activated = result.get('license_activated', False)
+        license_type = result.get('license_type')
 
         msg = f"导入完成: {wf_count} 个工作流"
         if plugin_count > 0:
             msg += f", {plugin_count} 个插件"
         if skipped > 0:
             msg += f", 跳过 {skipped} 个已存在"
+        if license_activated:
+            type_names = {'personal': '个人版', 'professional': '专业版'}
+            type_name = type_names.get(license_type, license_type)
+            msg += f"。已自动激活 {type_name} License"
 
         return {
             "success": True,

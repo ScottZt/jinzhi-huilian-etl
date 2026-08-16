@@ -166,37 +166,28 @@ def get_machine_code() -> str:
 
 
 def get_license_info() -> dict:
-    """读取当前 License 状态。"""
+    """返回当前授权状态。
+
+    开源模式：所有用户视为 professional，全部功能开放。
+    仍保留数据库读取，以便记录用户导入的内容包等元信息。
+    """
     from app.persistence import sqlite_repo
     meta = sqlite_repo.get_metadata(LICENSE_DB_KEY)
-    if not meta:
-        return {
-            "type": LicenseType.FREE,
-            "machine_code": get_machine_code(),
-            "expires_at": None,
-            "activated_at": None,
-            "features": LICENSE_FEATURES[LicenseType.FREE],
-        }
-
-    lic = json.loads(meta) if isinstance(meta, str) else meta
-    lic_type = lic.get("type", LicenseType.FREE)
-
-    # 检查过期
-    expires_at = lic.get("expires_at")
-    if expires_at:
+    lic = None
+    if meta:
         try:
-            exp = datetime.fromisoformat(expires_at)
-            if datetime.now() > exp:
-                lic_type = LicenseType.FREE
+            lic = json.loads(meta) if isinstance(meta, str) else meta
         except Exception:
-            pass
+            lic = None
 
+    # 开源模式：固定返回 professional，确保所有功能门槛均通过
     return {
-        "type": lic_type,
-        "machine_code": lic.get("machine_code", get_machine_code()),
-        "expires_at": expires_at,
-        "activated_at": lic.get("activated_at"),
-        "features": LICENSE_FEATURES.get(lic_type, LICENSE_FEATURES[LicenseType.FREE]),
+        "type": LicenseType.PROFESSIONAL,
+        "machine_code": get_machine_code(),
+        "expires_at": None,
+        "activated_at": None,
+        "features": LICENSE_FEATURES[LicenseType.PROFESSIONAL],
+        "activated": False,
     }
 
 
@@ -220,21 +211,17 @@ def clear_license():
 
 
 def check_feature(feature: str) -> bool:
-    """检查当前 License 是否支持某功能。"""
-    if is_dev_mode():
-        return True
-    info = get_license_info()
-    features = info.get("features", {})
-    return features.get(feature, False)
+    """检查功能是否可用。
+
+    开源模式：所有功能对全体用户开放，付费仅用于支持官方精选内容包。
+    如需恢复分级授权，可将下方 `return True` 改回原实现。
+    """
+    return True
 
 
 def check_feature_or_raise(feature: str):
-    """检查功能，不支持则抛出异常。"""
-    if not check_feature(feature):
-        lic_type = get_license_info()["type"]
-        if lic_type == LicenseType.FREE:
-            raise PermissionError(f"该功能需要付费版 License，免费版不支持")
-        raise PermissionError(f"该功能需要专业版 License")
+    """检查功能，不支持则抛出异常（当前模式恒通过）。"""
+    return True
 
 
 def get_ai_daily_remaining() -> int:
