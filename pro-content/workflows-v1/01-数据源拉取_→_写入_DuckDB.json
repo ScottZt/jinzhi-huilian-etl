@@ -1,0 +1,42 @@
+{
+  "id": 1,
+  "title": "数据源拉取 → 写入 DuckDB",
+  "description": "从 tdx 本地数据拉取股票分钟线，写入 DuckDB。需要先确保本地有 TDX 数据。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "拉取1分钟K线",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "tdx",
+          "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+          "codes": "000001",
+          "interval": "1min",
+          "time_mode": "lookback",
+          "lookback_days": 3,
+          "parallel": false,
+          "session_only": true
+        }
+      },
+      {
+        "id": "n2",
+        "name": "写入DuckDB",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/demo.db\"}",
+          "target_table": "stock_minute_kline",
+          "batch_size": 5000,
+          "on_duplicate": "ignore",
+          "columns": ""
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ]
+    }
+  }
+}

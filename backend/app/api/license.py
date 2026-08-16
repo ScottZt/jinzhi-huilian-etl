@@ -14,7 +14,24 @@ class LicenseActivateRequest(BaseModel):
 
 @router.get("/info")
 async def get_license_info():
-    return lm.get_license_info()
+    """返回当前版本信息。
+
+    开源模式：根据是否导入内容包判断版本
+      - edition = "open_source"（开源版）：未导入任何内容包
+      - edition = "pro"（专业版）：已导入至少一个内容包，享受尊贵标识
+    功能层面全版本一致（全功能开放），差异仅在官方精选模板/插件。
+    """
+    info = dict(lm.get_license_info())
+    try:
+        from app.core import content_pack
+        installed = content_pack.get_installed_packs() or []
+    except Exception:
+        installed = []
+
+    info["installed_packs_count"] = len(installed)
+    info["installed_pack_names"] = [p.get("name") or p.get("title") for p in installed if isinstance(p, dict)]
+    info["edition"] = "pro" if installed else "open_source"
+    return info
 
 
 @router.post("/activate")

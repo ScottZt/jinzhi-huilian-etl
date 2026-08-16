@@ -76,41 +76,21 @@ class LicenseManager:
     def check_feature(self, feature: str) -> bool:
         """检查功能是否可用。
 
-        Args:
-            feature: 功能名称（如 "db_duckdb", "ai_daily_limit"）
-        Returns:
-            True if available, False otherwise
+        开源模式：所有功能对全体用户开放，付费仅用于支持官方工作流模板与插件。
+        保留接口签名以兼容调用方（executor / connector / scheduler / cleaner 等）。
         """
-        tier = self.get_tier()
-        matrix = self.FEATURE_MATRIX.get(feature, {})
-        val = matrix.get(tier, False)
-        if val == -1:  # unlimited
-            return True
-        return bool(val)
+        return True
 
     def check_feature_or_raise(self, feature: str):
-        """检查功能并抛出异常（不可用时）。"""
-        if not self.check_feature(feature):
-            raise PermissionError(
-                f"功能 [{feature}] 需要更高授权等级。当前等级：{self.get_tier()}。"
-                f"请升级至 Personal 或 Professional 版本。"
-            )
+        """检查功能，当前模式恒通过。"""
+        return True
 
     def get_ai_daily_remaining(self) -> int:
         """获取今日 AI 生成剩余次数。
 
-        Returns:
-            -1 表示无限制（付费版），0 表示已达上限，>0 表示剩余次数
+        开源模式：返回 -1 表示无限制。
         """
-        if not self.check_feature("ai_daily_limit"):
-            return 3  # free tier default
-        core = self._get_core()
-        if core is None:
-            return -1
-        try:
-            return core.get_ai_daily_remaining()
-        except Exception:
-            return -1
+        return -1
 
     def increment_ai_count(self) -> int:
         """增加 AI 生成计数。返回剩余次数。"""
@@ -160,16 +140,14 @@ class LicenseManager:
             return {"success": False, "message": str(e)}
 
     def get_license_info(self) -> dict:
-        """获取当前授权详细信息。"""
-        core = self._get_core()
-        if core is None:
-            return {
-                "activated": False,
-                "tier": self.FEATURE_FREE,
-                "expires_at": None,
-                "machine_code": "",
-            }
-        try:
-            return core.get_license_info() or {}
-        except Exception:
-            return {"activated": False, "tier": self.FEATURE_FREE}
+        """获取当前授权信息。
+
+        开源模式：始终返回 professional 已激活状态，功能门槛全部开放。
+        """
+        return {
+            "activated": True,
+            "type": self.FEATURE_PROFESSIONAL,
+            "tier": self.FEATURE_PROFESSIONAL,
+            "expires_at": None,
+            "machine_code": self.get_machine_code(),
+        }

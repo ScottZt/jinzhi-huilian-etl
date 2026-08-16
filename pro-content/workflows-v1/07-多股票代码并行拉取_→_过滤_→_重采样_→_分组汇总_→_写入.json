@@ -1,0 +1,91 @@
+{
+  "id": 7,
+  "title": "多股票代码并行拉取 → 过滤 → 重采样 → 分组汇总 → 写入",
+  "description": "测试并行拉取能力 + 完整 ETL 流程。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "并行拉取多股票",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "mootdx",
+          "source_config": "{}",
+          "codes": "000001,600000,000002",
+          "interval": "1min",
+          "time_mode": "lookback",
+          "lookback_days": 5,
+          "parallel": true,
+          "max_workers": 3,
+          "session_only": true
+        }
+      },
+      {
+        "id": "n2",
+        "name": "过滤空值",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "close",
+              "operator": "is_not_null",
+              "value": ""
+            },
+            {
+              "column": "vol",
+              "operator": "is_not_null",
+              "value": ""
+            }
+          ]
+        }
+      },
+      {
+        "id": "n3",
+        "name": "重采样30分钟",
+        "type": "resample",
+        "parameters": {
+          "rule": "30min",
+          "time_column": "dt",
+          "group_column": "code"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "分组汇总",
+        "type": "group_by",
+        "parameters": {
+          "group_by": "code",
+          "aggregations": "open=first,high=max,low=min,close=last,vol=sum"
+        }
+      },
+      {
+        "id": "n5",
+        "name": "写入DuckDB",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/etl_output.db\"}",
+          "target_table": "stock_30min_summary",
+          "batch_size": 5000,
+          "on_duplicate": "ignore",
+          "columns": ""
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n3": [
+        "n4"
+      ],
+      "n4": [
+        "n5"
+      ]
+    }
+  }
+}

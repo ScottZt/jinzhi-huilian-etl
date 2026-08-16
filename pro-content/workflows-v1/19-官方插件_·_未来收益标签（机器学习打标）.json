@@ -1,0 +1,50 @@
+{
+  "id": 19,
+  "title": "官方插件 · 未来收益标签（机器学习打标）",
+  "description": "演示官方精选插件 `label_future_return`。基于收盘价生成未来 5 日收益率标签，支持三分类模式（涨=1 / 平=0 / 跌=-1），阈值 0.5%。ML 量化必备。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "生成价格数据",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    import pandas as pd, numpy as np\n    np.random.seed(42)\n    n = 60\n    dates = pd.bdate_range(end='2026-07-22', periods=n)\n    price = 10 * np.cumprod(1 + np.random.normal(0, 0.02, n))\n    return pd.DataFrame({\n        'code': '000001', 'dt': dates,\n        'open': price * (1 + np.random.normal(0, 0.005, n)),\n        'high': price * (1 + np.abs(np.random.normal(0, 0.01, n))),\n        'low':  price * (1 - np.abs(np.random.normal(0, 0.01, n))),\n        'close': price,\n        'vol': np.random.randint(500, 5000, n).astype(float),\n    })"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "三分类标签(涨/平/跌)",
+        "type": "label_future_return",
+        "parameters": {
+          "source_column": "close",
+          "horizon": 5,
+          "mode": "ternary",
+          "threshold": 0.005,
+          "label_column": "label"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入DuckDB",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/official_demo.db\"}",
+          "target_table": "official_label_demo",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": ""
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ]
+    }
+  }
+}
