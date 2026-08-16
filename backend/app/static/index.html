@@ -8010,10 +8010,12 @@ async function openImportExamplesModal() {
       }
     }
 
+    // 每张卡片的操作区：状态提示 + 重新导入按钮
     let acqHtml = `<div class="pro-acquisition">
       <div class="pro-acquisition-title" style="color:#10b981">✅ 已导入</div>
       <div class="pro-acquisition-method">
-        请前往 <strong>「ETL工作流」</strong> 列表查看并使用
+        可在「ETL工作流」列表查看和使用
+        <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="event.stopPropagation(); openContentPackModal();">🔄 重新导入</button>
       </div>
     </div>`;
 
