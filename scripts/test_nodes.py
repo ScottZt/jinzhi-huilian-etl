@@ -192,6 +192,41 @@ register_test("time_window", "时间窗口分批", {
     "connections": {},
 }, make_kline_data)
 
+# --- factor_expression (基础) ---
+register_test("factor_expression", "因子表达式(MA)", {
+    "nodes": [{"id": "n1", "name": "因子表达式", "type": "factor_expression",
+               "parameters": {"expression": "MA($close, 5)", "output_column": "factor_value",
+                              "code_column": "code", "date_column": "dt"}}],
+    "connections": {},
+}, make_kline_data)
+
+# --- factor_expression (复杂表达式) ---
+register_test("factor_expression_complex", "因子表达式(波动率调整收益)", {
+    "nodes": [{"id": "n1", "name": "因子表达式", "type": "factor_expression",
+               "parameters": {"expression": "($close - REF($close, 20)) / STD($close, 20)",
+                              "output_column": "factor_value",
+                              "code_column": "code", "date_column": "dt"}}],
+    "connections": {},
+}, make_kline_data)
+
+# --- factor_expression (多股票分组) ---
+register_test("factor_expression_grouped", "因子表达式(多股票)", {
+    "nodes": [{"id": "n1", "name": "因子表达式", "type": "factor_expression",
+               "parameters": {"expression": "EMA($close, 10) - EMA($close, 30)",
+                              "output_column": "factor_value",
+                              "code_column": "code", "date_column": "dt"}}],
+    "connections": {},
+}, make_multi_code_data)
+
+# --- factor_expression (IF 条件) ---
+register_test("factor_expression_if", "因子表达式(IF条件)", {
+    "nodes": [{"id": "n1", "name": "因子表达式", "type": "factor_expression",
+               "parameters": {"expression": "IF($close > MA($close, 20), 1, 0)",
+                              "output_column": "factor_value",
+                              "code_column": "code", "date_column": "dt"}}],
+    "connections": {},
+}, make_kline_data)
+
 
 # ============================================================
 # 执行器

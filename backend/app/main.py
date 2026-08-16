@@ -36,6 +36,9 @@ from app.api import llm; logger.info(f"[BOOT] app.api.llm loaded (t={_t():.1f}s)
 from app.api import file_utils; logger.info(f"[BOOT] app.api.file_utils loaded (t={_t():.1f}s)")
 from app.api import contracts; logger.info(f"[BOOT] app.api.contracts loaded (t={_t():.1f}s)")
 from app.api import deps; logger.info(f"[BOOT] app.api.deps loaded (t={_t():.1f}s)")
+from app.api import adj_factors; logger.info(f"[BOOT] app.api.adj_factors loaded (t={_t():.1f}s)")
+from app.api import factors; logger.info(f"[BOOT] app.api.factors loaded (t={_t():.1f}s)")
+from app.api import content_packs; logger.info(f"[BOOT] app.api.content_packs loaded (t={_t():.1f}s)")
 from app.core.websocket_manager import get_ws_manager; logger.info(f"[BOOT] websocket_manager loaded (t={_t():.1f}s)")
 from app.persistence.sqlite_repo import init_db; logger.info(f"[BOOT] sqlite_repo.init_db loaded (t={_t():.1f}s)")
 logger.info(f"[BOOT] All imports done")
@@ -91,6 +94,12 @@ async def lifespan(app: FastAPI):
     init_db()
     _init_audit_db()
     _check_optional_deps()
+
+    # 启动定时任务调度器，恢复 tasks 和 pipelines 的定时任务
+    from app.core.task_scheduler import init_scheduler
+    init_scheduler()
+    logger.info("[BOOT] Task scheduler initialized")
+
     # Pre-generate API key and log path for Electron/frontend
     api_key_path = get_api_key_path()
     api_key = get_or_create_api_key()
@@ -161,6 +170,9 @@ app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 app.include_router(file_utils.router, prefix="/api/files", tags=["files"])
 app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 app.include_router(deps.router, prefix="/api/deps", tags=["deps"])
+app.include_router(adj_factors.router, prefix="/api/adj-factors", tags=["adj-factors"])
+app.include_router(factors.router, prefix="/api/factors", tags=["factors"])
+app.include_router(content_packs.router, prefix="/api/content-packs", tags=["content-packs"])
 
 static_dir = _resource_path("static")
 
@@ -176,6 +188,12 @@ async def workflow_editor_static():
 @app.get("/static/index.html")
 async def index_html_static():
     return FileResponse(f"{static_dir}/index.html", headers=_NO_CACHE_HEADERS)
+
+
+@app.get("/adj-factors")
+async def adj_factors_page():
+    """复权因子查询页面"""
+    return FileResponse(f"{static_dir}/adj-factors.html", headers=_NO_CACHE_HEADERS)
 
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
