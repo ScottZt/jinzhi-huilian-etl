@@ -8069,12 +8069,10 @@ async function openImportExamplesModal() {
       }
     }
 
-    // 每张卡片的操作区：状态提示 + 导入按钮 + 重新导入内容包按钮
+    // 每张卡片的操作区：直接放两个按钮（已导入 vs 未导入的区别不再显示）
     let acqHtml = `<div class="pro-acquisition">
-      <div class="pro-acquisition-title" style="color:#10b981">✅ 已导入</div>
       <div class="pro-acquisition-method">
-        可在「ETL工作流」列表查看和使用
-        <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="event.stopPropagation(); importSingleWorkflow(${ex.id});">📥 导入此示例</button>
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); importSingleWorkflow(${ex.id});">📥 导入此示例</button>
         <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="event.stopPropagation(); openContentPackModal();">🔄 重新导入内容包</button>
       </div>
     </div>`;
@@ -8112,8 +8110,8 @@ async function openImportExamplesModal() {
     <div class="panel">
       ${isPackInstalled ? `
         <div class="panel-title" style="margin-bottom:4px">
-          ✅ 专业版示例（${proExamples.length} 个）
-          <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">已导入 · 在「ETL工作流」列表直接使用</span>
+          🧩 专业版示例（${proExamples.length} 个）
+          <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可重复导入到 ETL 工作流列表</span>
         </div>
         <div class="import-list" id="import-list-pro">${proBody}</div>
       ` : `
