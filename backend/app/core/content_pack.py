@@ -159,12 +159,11 @@ def import_pack(
 ) -> dict:
     """导入 .jspack 内容包。
 
-    如果内容包内嵌激活码，会自动激活 License。
-
-    Args:
-        file_path: .jspack 文件路径
-        overwrite_existing: 是否覆盖同名工作流
-        license_check: 是否检查 License（开发者模式可跳过）
+    支持两种包类型：
+      - 基础包（manifest.is_patch=False 或缺失）：按 name 去重，跳过已存在的工作流
+      - 增量补丁（manifest.is_patch=True）：
+          * 必须先已安装 base_version 对应的基础包，否则报错
+          * 只跳过 base_version 包内的工作流名，允许新增的工作流导入
 
     Returns:
         {
@@ -172,47 +171,46 @@ def import_pack(
             "workflows_skipped": int,
             "plugins_imported": list[str],
             "manifest": dict,
-            "license_activated": bool,  # 是否自动激活了 License
-            "license_type": str,        # 激活的版本类型
+            "is_patch": bool,
+            "base_version": str | None,
+            "skipped_by_base": int,      # 增量补丁：被基础包跳过的工作流数
         }
     """
-    from app.core.license_manager import check_feature, is_dev_mode, activate_online
-
     manifest, workflows, plugins = extract_pack(file_path)
 
-    # 检查是否有内嵌激活码，如果有则先激活
-    license_activated = False
-    license_type = None
-    activation_code = manifest.get("activation_code", "")
+    is_patch = bool(manifest.get("is_patch", False))
+    base_version = manifest.get("base_version")
 
-    if activation_code and not is_dev_mode():
-        try:
-            result = activate_online(activation_code)
-            license_activated = True
-            license_type = result.get("type")
-        except Exception as e:
-            # 激活失败不阻止导入，但记录错误
-            pass
-
-    # 检查 License 权限（如果未自动激活）
-    if license_check and not is_dev_mode() and not license_activated:
-        if not check_feature("pro_content_import"):
+    # 增量补丁：先校验基础包已装
+    if is_patch:
+        if not base_version:
+            raise ValueError("增量补丁 manifest 缺少 base_version")
+        installed = get_installed_packs()
+        base_installed = any(
+            p.get("pack_version_label") == base_version and not p.get("is_patch")
+            for p in installed
+        )
+        if not base_installed:
             raise PermissionError(
-                "导入专业版内容包需要 Personal 或 Professional License。"
-                "请确保内容包内嵌激活码，或先在 License 管理中手动激活。"
+                f"导入补丁前需先安装基础包 v{base_version}。"
+                f"当前已安装包: {[p.get('name') for p in installed]}"
             )
 
     workflows_imported = 0
     workflows_skipped = 0
+    skipped_by_base = 0
 
-    # 导入工作流
+    # 工作流去重策略
     from app.persistence import sqlite_repo
 
-    existing_names = set()
-    if not overwrite_existing:
-        existing_names = {
-            wf.get("name") for wf in sqlite_repo.list_workflows()
-        }
+    if is_patch:
+        # 补丁模式：只跳过「基础包内的工作流名」，允许其他新增工作流导入
+        base_names = _collect_base_workflow_names(base_version)
+        skip_names = base_names
+    elif overwrite_existing:
+        skip_names = set()
+    else:
+        skip_names = {wf.get("name") for wf in sqlite_repo.list_workflows()}
 
     for wf in workflows:
         name = wf.get("name", "").strip()
@@ -220,8 +218,11 @@ def import_pack(
             workflows_skipped += 1
             continue
 
-        if not overwrite_existing and name in existing_names:
-            workflows_skipped += 1
+        if name in skip_names:
+            if is_patch:
+                skipped_by_base += 1
+            else:
+                workflows_skipped += 1
             continue
 
         record = {
@@ -232,7 +233,9 @@ def import_pack(
         }
         sqlite_repo.save_workflow(record)
         workflows_imported += 1
-        existing_names.add(name)
+        # 非补丁模式下避免重复导入同名工作流
+        if not is_patch:
+            skip_names.add(name)
 
     # 导入插件
     plugins_imported = []
@@ -258,8 +261,9 @@ def import_pack(
         "workflows_skipped": workflows_skipped,
         "plugins_imported": plugins_imported,
         "manifest": manifest,
-        "license_activated": license_activated,
-        "license_type": license_type,
+        "is_patch": is_patch,
+        "base_version": base_version,
+        "skipped_by_base": skipped_by_base,
     }
 
 
@@ -275,8 +279,23 @@ def get_installed_packs() -> List[dict]:
         return []
 
 
+def _collect_base_workflow_names(base_version: str) -> set:
+    """从已安装的基础包中收集工作流名集合（含基础包 + 该版本之前的所有补丁）。
+
+    查找策略：在 _installed_packs 中找到所有 pack_version_label <= base_version
+    的包（包括基础包和该版本前的补丁），合并它们的 workflow_names。
+    """
+    installed = get_installed_packs()
+    names = set()
+    for p in installed:
+        if p.get("pack_version_label") and p.get("pack_version_label") <= base_version:
+            for n in p.get("workflow_names", []) or []:
+                names.add(n)
+    return names
+
+
 def _save_pack_record(manifest: dict):
-    """记录已安装的内容包信息。"""
+    """记录已安装的内容包信息（基础包 / 增量补丁均保存）。"""
     from app.persistence import sqlite_repo
     packs = get_installed_packs()
 

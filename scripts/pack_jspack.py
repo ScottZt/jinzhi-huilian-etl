@@ -68,10 +68,20 @@ def pack(
     workflows_dir: Path | None = None,
     plugins_dir: Path | None = None,
     from_db: bool = False,
+    is_patch: bool = False,
+    base_version: str | None = None,
+    base_workflow_names: set[str] | None = None,
 ) -> dict:
-    """生成 .jspack 文件。"""
+    """生成 .jspack 文件。
+
+    增量补丁模式（is_patch=True）：
+      - 跳过 name 已存在于 base_workflow_names 的工作流
+      - manifest 增加 is_patch / base_version 字段
+    """
     workflows: list[dict] = []
     plugins: list[Path] = []
+    skipped_by_base = 0
+    base_workflow_names = base_workflow_names or set()
 
     # 1) 工作流来源 A：目录扫描
     if workflows_dir:
@@ -79,7 +89,12 @@ def pack(
             raise FileNotFoundError(f"工作流目录不存在: {workflows_dir}")
         for f in sorted(workflows_dir.glob("*.json")):
             try:
-                workflows.append(_load_workflow_file(f))
+                wf = _load_workflow_file(f)
+                # 增量补丁模式：跳过基础包已有的工作流
+                if is_patch and wf["name"] in base_workflow_names:
+                    skipped_by_base += 1
+                    continue
+                workflows.append(wf)
             except Exception as e:
                 print(f"[warn] 跳过 {f.name}: {e}", file=sys.stderr)
 
@@ -117,10 +132,19 @@ def pack(
         "pack_version_label": version,
         "edition": "professional",
         "workflows_count": len(workflows),
+        "workflow_names": [wf["name"] for wf in workflows if wf.get("name")],
         "plugins": [p.stem for p in plugins],
         "created_at": datetime.now().strftime("%Y-%m-%d"),
         "description": description or f"包含 {len(workflows)} 个工作流模板 + {len(plugins)} 个插件",
     }
+    if is_patch:
+        if not base_version:
+            raise ValueError("补丁模式必须指定 base_version")
+        manifest["is_patch"] = True
+        manifest["base_version"] = base_version
+        manifest["skipped_by_base"] = skipped_by_base
+    else:
+        manifest["is_patch"] = False
 
     # 5) 写入 ZIP
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -133,6 +157,7 @@ def pack(
     return {
         "output": str(output),
         "workflows": len(workflows),
+        "skipped_by_base": skipped_by_base,
         "plugins": [p.stem for p in plugins],
         "manifest": manifest,
     }
@@ -147,10 +172,32 @@ def main():
     ap.add_argument("-o", "--output", required=True, type=Path, help="输出 .jspack 文件路径")
     ap.add_argument("--version", default="1.0", help="包版本号（默认 1.0）")
     ap.add_argument("--description", default="", help="包描述（可选）")
+    ap.add_argument("--patch", action="store_true",
+                    help="增量补丁模式：只打包比基础包新增的工作流")
+    ap.add_argument("--base-version", help="补丁针对的基础包版本号（--patch 时必填）")
+    ap.add_argument("--base-pack", type=Path,
+                    help="基础包 .jspack 路径（默认 pro-content/versions/<base_version>/content.jspack）")
     args = ap.parse_args()
 
     if not args.workflows_dir and not args.plugins_dir and not args.from_db:
         ap.error("至少需要指定 --workflows-dir / --plugins-dir / --from-db 之一")
+
+    # 增量补丁模式：读取基础包已有的工作流名
+    base_workflow_names: set[str] = set()
+    if args.patch:
+        if not args.base_version:
+            ap.error("--patch 必须搭配 --base-version")
+        base_pack_path = args.base_pack or (
+            Path(__file__).resolve().parent.parent
+            / "pro-content" / "versions" / args.base_version / "content.jspack"
+        )
+        if not base_pack_path.exists():
+            raise FileNotFoundError(f"找不到基础包: {base_pack_path}")
+        with zipfile.ZipFile(base_pack_path) as zf:
+            base_wfs = json.loads(zf.read("workflows.json").decode("utf-8"))
+        base_workflow_names = {wf.get("name", "") for wf in base_wfs if wf.get("name")}
+        print(f"[info] 基础包 {base_pack_path.name} 含 {len(base_workflow_names)} 个工作流，将跳过同名条目",
+              file=sys.stderr)
 
     result = pack(
         output=args.output,
@@ -160,9 +207,15 @@ def main():
         workflows_dir=args.workflows_dir,
         plugins_dir=args.plugins_dir,
         from_db=args.from_db,
+        is_patch=args.patch,
+        base_version=args.base_version,
+        base_workflow_names=base_workflow_names,
     )
     print(f"[OK] 打包完成: {result['output']}")
-    print(f"   工作流: {result['workflows']} 个")
+    if args.patch:
+        print(f"   新增工作流: {result['workflows']} 个  (跳过基础包已有 {result['skipped_by_base']} 个)")
+    else:
+        print(f"   工作流: {result['workflows']} 个")
     print(f"   插件:   {len(result['plugins'])} 个 {result['plugins']}")
 
 
