@@ -7929,9 +7929,11 @@ async function openImportExamplesModal() {
 
   // ---------- 渲染单个示例卡片 ----------
   function renderDocExample(ex) {
-    const nodeCount = (ex.workflow?.nodes || []).length;
-    const types = (ex.workflow?.nodes || []).map(n => n.name || n.type).join(' → ') || '';
+    const wfNodes = ex.workflow?.nodes || [];
+    const nodeCount = wfNodes.length;
+    const types = wfNodes.map(n => n.name || n.type).join(' → ') || '';
     const desc = ex.description || '';
+    const tags = Array.isArray(ex.tags) ? ex.tags : [];
     const hasDoc = EXAMPLE_DOCS[ex.id] ? '' : 'style="opacity:0.4;pointer-events:none"';
 
     if (!CR.isPro(ex.id)) {
@@ -7945,20 +7947,19 @@ async function openImportExamplesModal() {
             <div class="d">${escapeHtml(desc.slice(0, 80))}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>
+            ${nodeCount > 0 ? `<div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>` : ''}
             <button class="doc-btn" ${hasDoc} onclick="event.stopPropagation();showExampleDoc(${ex.id})">📖 详解</button>
           </div>
         </label>`;
     }
 
-    // ---- 专业示例：置灰、截图、获取方式 ----
+    // ---- 专业示例：目录卡（不依赖 workflow 字段也能渲染） ----
     const cfg = CR.getExampleTier(ex.id);
-    const acq = CR.acquisition || {};
-    
-    // 生成工作流可视化图
-    const wfNodes = ex.workflow?.nodes || [];
-    let workflowHtml = '';
+
+    // 预览区块：优先级 工作流节点图 > tags+描述预览 > 截图 > 文字占位符
+    let previewHtml = '';
     if (wfNodes.length > 0) {
+      // 有工作流数据，渲染节点图
       const nodeIcons = {
         'source_fetch': '📥', 'target_write': '📤',
         'filter': '🔍', 'condition': '🔀',
@@ -7973,23 +7974,31 @@ async function openImportExamplesModal() {
         const arrow = idx < wfNodes.length - 1 ? '<span class="workflow-arrow">→</span>' : '';
         return `<div class="workflow-node"><span class="workflow-icon">${icon}</span><span class="workflow-name">${escapeHtml(name)}</span></div>${arrow}`;
       }).join('');
-      workflowHtml = `<div class="pro-workflow-diagram">${nodesHtml}</div>`;
-    }
-    
-    // 生成截图 HTML（如果有配置）
-    // 优先级：工作流图 > 截图 > 文字占位符
-    const screenshotPath = cfg.screenshot ? `/static/${cfg.screenshot}` : '';
-    let screenshotHtml;
-    if (workflowHtml) {
-      // 有工作流数据，使用工作流可视化图
-      screenshotHtml = workflowHtml;
-    } else if (screenshotPath) {
-      // 没有工作流数据，但有截图配置
-      screenshotHtml = `<img src="${screenshotPath}" alt="${escapeHtml(ex.title)}" onerror="this.style.display='none';this.parentElement.querySelector('.pro-screenshot-placeholder').style.display='flex'">
-         <div class="pro-screenshot-placeholder" style="display:none">📷 ${escapeHtml(ex.title)}</div>`;
+      previewHtml = `<div class="pro-workflow-diagram">${nodesHtml}</div>`;
+    } else if (tags.length > 0 || desc) {
+      // 无工作流数据（专业版剥离了 workflow 字段），用 title+tags+描述渲染简洁预览
+      const tagsHtml = tags.length > 0
+        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+            ${tags.map(t => `<span style="display:inline-block;background:rgba(59,130,246,0.1);color:#3b82f6;border:1px solid rgba(59,130,246,0.2);padding:2px 10px;border-radius:12px;font-size:11px">${escapeHtml(t)}</span>`).join('')}
+           </div>`
+        : '';
+      const descHtml = desc
+        ? `<div style="color:var(--text-dim);font-size:12px;line-height:1.6;margin-top:8px">${escapeHtml(desc.slice(0, 160))}</div>`
+        : '';
+      previewHtml = `
+        <div style="padding:12px 16px">
+          <div style="font-size:13px;color:var(--text);font-weight:500">${escapeHtml(ex.title)}</div>
+          ${tagsHtml}
+          ${descHtml}
+        </div>
+      `;
     } else {
-      // 什么都没有，显示文字占位符
-      screenshotHtml = `<div class="pro-screenshot-placeholder">📷 ${escapeHtml(ex.title)}</div>`;
+      const screenshotPath = cfg.screenshot ? `/static/${cfg.screenshot}` : '';
+      if (screenshotPath) {
+        previewHtml = `<img src="${screenshotPath}" alt="${escapeHtml(ex.title)}" onerror="this.outerHTML='<div class=\\'pro-screenshot-placeholder\\'>📷 ${escapeHtml(ex.title)}</div>'">`;
+      } else {
+        previewHtml = `<div class="pro-screenshot-placeholder">📷 ${escapeHtml(ex.title)}</div>`;
+      }
     }
 
     let acqHtml = `<div class="pro-acquisition">
@@ -7998,11 +8007,6 @@ async function openImportExamplesModal() {
         请前往 <strong>「ETL工作流」</strong> 列表查看并使用
       </div>
     </div>`;
-
-    // 生成标签 HTML（如果有预览标签）
-    const tags = (cfg.previewTags && cfg.previewTags.length > 0)
-      ? cfg.previewTags.map(tag => `<span class="pro-tag">${escapeHtml(tag)}</span>`).join('')
-      : '';
 
     return `
       <div class="import-item import-item-pro">
@@ -8013,13 +8017,12 @@ async function openImportExamplesModal() {
             <div class="t">${escapeHtml(ex.title)}</div>
             <div class="d">${escapeHtml(desc.slice(0, 100))}</div>
           </div>
-          <div class="nodes">${nodeCount} 节点</div>
+          ${nodeCount > 0 ? `<div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>` : ''}
         </div>
         <div class="pro-screenshot" onclick="event.stopPropagation()">
-          ${screenshotHtml}
+          ${previewHtml}
         </div>
-        ${tags ? `<div class="pro-tags">${tags}</div>` : ''}
-        ${acqHtml ? `<div class="pro-acquisition"><div class="pro-acquisition-title">📦 获取完整版</div>${acqHtml}</div>` : ''}
+        ${acqHtml}
       </div>`;
   }
 
