@@ -1,0 +1,117 @@
+{
+  "id": 13,
+  "title": "baostock 直接获取复权 K 线（推荐）",
+  "description": "直接使用 baostock 的 `query_history_k_data_plus` 接口获取已复权的 K 线数据，无需手动计算。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "baostock 获取K线数据",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    import pandas as pd\n    import baostock as bs\n    \n    # 显式指定市场，避免代码冲突（000001 可以是上证指数也可以是平安银行）\n    CODES = [\n        ('sh', '000001'),  # 上证指数\n        ('sz', '000001'),  # 平安银行\n        ('sh', '600000'),  # 浦发银行\n    ]\n    START_DATE = '2020-01-01'\n    END_DATE = '2026-12-31'\n    FREQUENCY = 'd'\n    FIELDS = 'date,code,open,high,low,close,volume,amount,turn,pctChg'\n    \n    bs.login()\n    all_data = []\n    \n    for market, code in CODES:\n        bs_code = f'{market}.{code}'\n        \n        for adjust_type, adjust_flag in [('raw', '3'), ('qfq', '2'), ('hfq', '1')]:\n            rs = bs.query_history_k_data_plus(\n                bs_code, FIELDS,\n                start_date=START_DATE, end_date=END_DATE,\n                frequency=FREQUENCY, adjustflag=adjust_flag\n            )\n            while rs.error_code == '0' and rs.next():\n                row = rs.get_row_data()\n                all_data.append({\n                    'market': market,\n                    'code': code,\n                    'date': row[0],\n                    'open': float(row[2]) if row[2] else 0,\n                    'high': float(row[3]) if row[3] else 0,\n                    'low': float(row[4]) if row[4] else 0,\n                    'close': float(row[5]) if row[5] else 0,\n                    'volume': float(row[6]) if row[6] else 0,\n                    'amount': float(row[7]) if row[7] else 0,\n                    'turn': float(row[8]) if row[8] else None,\n                    'pctChg': float(row[9]) if row[9] else None,\n                    'adjust_type': adjust_type\n                })\n    \n    bs.logout()\n    df = pd.DataFrame(all_data)\n    df['date'] = pd.to_datetime(df['date'])\n    df = df.rename(columns={'date': 'dt'})\n    print(f'[baostock] 获取数据: {len(df)} 条')\n    return df"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "过滤不复权数据",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "adjust_type",
+              "operator": "==",
+              "value": "raw"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入不复权表",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+          "target_table": "kline_raw",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": "market,code,dt,open,high,low,close,volume,amount,turn,pctChg"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "过滤前复权数据",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "adjust_type",
+              "operator": "==",
+              "value": "qfq"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n5",
+        "name": "写入前复权表",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+          "target_table": "kline_qfq",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": "market,code,dt,open,high,low,close,volume,amount,turn,pctChg"
+        }
+      },
+      {
+        "id": "n6",
+        "name": "过滤后复权数据",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "adjust_type",
+              "operator": "==",
+              "value": "hfq"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n7",
+        "name": "写入后复权表",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+          "target_table": "kline_hfq",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": "market,code,dt,open,high,low,close,volume,amount,turn,pctChg"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2",
+        "n4",
+        "n6"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n4": [
+        "n5"
+      ],
+      "n6": [
+        "n7"
+      ]
+    }
+  }
+}

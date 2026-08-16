@@ -1,0 +1,71 @@
+{
+  "id": 5,
+  "title": "数据过滤 + 排序 + 分组聚合 + 去重",
+  "description": "测试数据处理链路：过滤 → 排序 → 聚合 → 去重。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "过滤空成交量",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "vol",
+              "operator": "is_not_null",
+              "value": ""
+            },
+            {
+              "column": "vol",
+              "operator": ">",
+              "value": 0
+            }
+          ]
+        }
+      },
+      {
+        "id": "n2",
+        "name": "按股票和时间排序",
+        "type": "sort",
+        "parameters": {
+          "by": "code,dt",
+          "ascending": true
+        }
+      },
+      {
+        "id": "n3",
+        "name": "分组聚合",
+        "type": "group_by",
+        "parameters": {
+          "group_by": "code",
+          "aggregations": "open=first,close=max,low=min,vol=sum"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "按code去重",
+        "type": "dedup",
+        "parameters": {
+          "mode": "keep_last",
+          "columns": "code",
+          "target_type": "",
+          "target_config": "{}",
+          "target_table": "",
+          "keep_existing_rows": "0"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n3": [
+        "n4"
+      ]
+    }
+  }
+}

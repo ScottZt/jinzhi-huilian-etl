@@ -1,0 +1,66 @@
+{
+  "id": 11,
+  "title": "TDX 本地日 K 复权（前复权 / 后复权）",
+  "description": "通达信本地 `.day` 文件读出的是原始价。本示例演示如何基于用户自维护的「复权因子表」，在同一支流水里产出前复权 + 后复权两套价格，并写入 DuckDB 的两张表。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "拉取TDX日K",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "tdx",
+          "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+          "codes": "000001,600000",
+          "interval": "D",
+          "time_mode": "lookback",
+          "lookback_days": 3650,
+          "parallel": false,
+          "session_only": false
+        }
+      },
+      {
+        "id": "n2",
+        "name": "复权计算",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    import pandas as pd, os\n    # 0) 防御：上游 source_fetch 未产出标准 K 线（预览模式 / 本地无 TDX 数据）→ 造一份 sample\n    if df.empty or 'dt' not in df.columns or 'code' not in df.columns:\n        import numpy as np\n        dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=1200)\n        rows = []\n        for c in ['000001', '600000']:\n            p = 10.0 if c == '000001' else 8.0\n            for d in dates:\n                p *= (1 + np.random.normal(0, 0.02))\n                rows.append({'code': c, 'dt': d, 'open': round(p*0.999,3),\n                             'high': round(p*1.01,3), 'low': round(p*0.99,3),\n                             'close': round(p,3), 'vol': int(np.random.randint(500,5000)),\n                             'amount': round(p*np.random.randint(500,5000),2)})\n        df = pd.DataFrame(rows)\n    # 1) 加载用户自维护的复权因子表；若 Excel 未准备，预览时自动回落到 baostock\n    fp = r'D:/data/adj_factor.xlsx'\n    if os.path.exists(fp):\n        adj = pd.read_excel(fp, sheet_name='复权因子', parse_dates=['dt'])\n        df = df.merge(adj[['code', 'dt', 'factor']], on=['code', 'dt'], how='left')\n        df['factor'] = df.groupby('code')['factor'].ffill().bfill()\n    else:\n        import baostock as bs\n        bs.login()\n        def to_bs(c):\n            s = str(c).zfill(6)\n            return ('sh.' + s) if s.startswith(('6','9')) else ('sz.' + s)\n        rows = []\n        code_min = (df['dt'].min() - pd.Timedelta(days=3650)).strftime('%Y-%m-%d')\n        code_max = df['dt'].max().strftime('%Y-%m-%d')\n        for c in df['code'].unique():\n            rs = bs.query_adjust_factor(code=to_bs(c), start_date=code_min, end_date=code_max)\n            while rs.next():\n                r = rs.get_row_data()\n                rows.append({'code': c, 'dt': r[1], 'fore': float(r[2]), 'back': float(r[3])})\n        bs.logout()\n        adj = pd.DataFrame(rows); adj['dt'] = pd.to_datetime(adj['dt'])\n        df = df.sort_values('dt'); adj = adj.sort_values('dt')\n        df = pd.merge_asof(df, adj, on='dt', by='code', direction='backward')\n        first = adj.groupby('code')[['fore','back']].first()\n        df = df.set_index('code')\n        for col in ['fore','back']:\n            df[col] = df[col].fillna(df.index.to_series().map(first[col]))\n        df = df.reset_index()\n        # 复用 factor 列的统一计算路径：fore 即前复权因子；后复权单独走 back\n        df['factor'] = df['fore']\n        df['back'] = df['back']\n    # 2) 计算前复权 / 后复权\n    cols = ['open', 'high', 'low', 'close']\n    if 'back' in df.columns:\n        # baostock 回落分支：fore/back 都齐\n        for c in cols:\n            df[c + '_qfq'] = (df[c] * df['fore']).round(3)\n            df[c + '_hfq'] = (df[c] * df['back']).round(3)\n    else:\n        # Excel 分支：factor 单列，last = 每 code 最后一个 factor\n        def _adj(g):\n            last = g['factor'].iloc[-1]\n            for c in cols:\n                g[c + '_hfq'] = (g[c] * g['factor']).round(3)\n                g[c + '_qfq'] = (g[c] * g['factor'] / last).round(3)\n            return g\n        df = df.groupby('code', group_keys=False).apply(_adj)\n    return df"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入后复权表",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+          "target_table": "kline_hfq",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": "code,dt,open_hfq,high_hfq,low_hfq,close_hfq,vol,amount"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "写入前复权表",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/stock_adj.duckdb\"}",
+          "target_table": "kline_qfq",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": "code,dt,open_qfq,high_qfq,low_qfq,close_qfq,vol,amount"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n4"
+      ]
+    }
+  }
+}

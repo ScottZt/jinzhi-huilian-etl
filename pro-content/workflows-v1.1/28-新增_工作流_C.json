@@ -1,0 +1,17 @@
+{
+  "name": "新增工作流 C（v1.1）",
+  "description": "测试补丁包新增条目 C",
+  "workflow_json": {
+    "nodes": [
+      {
+        "name": "X",
+        "type": "source"
+      },
+      {
+        "name": "Y",
+        "type": "target"
+      }
+    ],
+    "edges": []
+  }
+}

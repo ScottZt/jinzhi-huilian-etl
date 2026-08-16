@@ -1,0 +1,49 @@
+{
+  "id": 22,
+  "title": "官方插件 · 最大回撤与回测三大指标",
+  "description": "演示官方精选插件 `max_drawdown`。输入净值序列，一次算完最大回撤、年化收益、年化波动、夏普比率、胜率、回撤起止日期等 9 个核心回测指标。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "生成净值序列",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    import pandas as pd, numpy as np\n    np.random.seed(42)\n    n = 252  # 一年交易日\n    dates = pd.bdate_range(end='2026-07-22', periods=n)\n    # 模拟一个带回撤的净值曲线\n    ret = np.random.normal(0.0003, 0.015, n)\n    ret[50:70] = -0.02  # 注入一段回撤\n    nv = 1.0 * np.cumprod(1 + ret)\n    return pd.DataFrame({\n        'code': 'strategy_01', 'dt': dates,\n        'open': nv, 'high': nv*1.005, 'low': nv*0.995, 'close': nv,\n        'vol': np.random.randint(1000, 10000, n).astype(float),\n    })"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "计算回测三大指标",
+        "type": "max_drawdown",
+        "parameters": {
+          "net_value_column": "close",
+          "risk_free_rate": 0.02,
+          "trading_days_per_year": 252,
+          "output_prefix": "backtest"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入DuckDB",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/official_demo.db\"}",
+          "target_table": "official_backtest_demo",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": ""
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ]
+    }
+  }
+}
