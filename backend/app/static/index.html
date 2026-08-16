@@ -6848,7 +6848,10 @@ let _licenseInfo = { edition: 'open_source', installed_packs_count: 0, installed
 // 渲染顶栏 + 关于页全局版本徽章
 function renderEditionBadge() {
   const edition = (_licenseInfo && _licenseInfo.edition) || 'open_source';
-  const count = (_licenseInfo && _licenseInfo.installed_packs_count) || 0;
+  // 健壮判断：兼容两种后端响应格式
+  const count = typeof _licenseInfo?.installed_packs_count === 'number'
+    ? _licenseInfo.installed_packs_count
+    : (Array.isArray(_licenseInfo?.installed_pack_names) ? _licenseInfo.installed_pack_names.length : 0);
 
   // 1) 顶栏徽章（常驻）
   const host = document.getElementById('topbar-edition');
@@ -7898,7 +7901,13 @@ async function openImportExamplesModal() {
   } catch (e) {
     // 接口不可用时默认视为未安装
   }
-  const isPackInstalled = (packStatus.installed_packs_count || 0) > 0;
+  // 健壮判断：兼容两种后端响应格式
+  //   - 新后端：返回 installed_packs_count 字段
+  //   - 旧后端：只返回 installed_packs 数组（需 .length）
+  const packsCount = typeof packStatus.installed_packs_count === 'number'
+    ? packStatus.installed_packs_count
+    : (Array.isArray(packStatus.installed_packs) ? packStatus.installed_packs.length : 0);
+  const isPackInstalled = packsCount > 0;
 
   // 拉后端内置预设（可直接导入的工作流模板）
   let presets = [];
