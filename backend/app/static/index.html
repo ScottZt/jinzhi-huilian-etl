@@ -7870,6 +7870,65 @@ function closeExampleDoc() {
   }
 }
 
+// ---------- 从内容包导入单条示例工作流 ----------
+async function importSingleWorkflow(exampleId) {
+  // 从 EXAMPLE_WORKFLOWS 里找到该示例的元数据
+  const ex = (window.EXAMPLE_WORKFLOWS || []).find(e => e.id === exampleId);
+  if (!ex) {
+    alert('示例未找到');
+    return;
+  }
+
+  // 找到该示例所属的已安装包（取第一个包含此工作流的包）
+  let packStatus;
+  try {
+    packStatus = await api('/api/content-packs/status', { silent: true });
+  } catch (e) {
+    alert('获取内容包状态失败：' + e.message);
+    return;
+  }
+
+  // 找包含此示例的包
+  let packName = null;
+  let workflowName = ex.title;
+  for (const pack of (packStatus.installed_packs || [])) {
+    const wfNames = pack.workflow_names || [];
+    if (wfNames.includes(workflowName)) {
+      packName = pack.name;
+      break;
+    }
+  }
+  if (!packName) {
+    alert('此示例不在任何已安装的内容包中');
+    return;
+  }
+
+  // 调用后端接口获取单条工作流 JSON
+  try {
+    const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(packName)}/${encodeURIComponent(workflowName)}`, { silent: true });
+    if (wf.error) {
+      alert('获取工作流失败：' + wf.error);
+      return;
+    }
+
+    // POST 到 /api/workflows/ 创建新工作流
+    const result = await api('/api/workflows/', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: wf.name,
+        description: wf.description || '',
+        workflow_json: wf.workflow_json || {},
+      }),
+    });
+
+    alert(`✅ 已导入「${wf.name}」到 ETL 工作流列表`);
+    // 刷新工作流列表（如果在 ETL 工作流页面）
+    if (typeof refreshWorkflows === 'function') refreshWorkflows();
+  } catch (e) {
+    alert('导入失败：' + e.message);
+  }
+}
+
 // ---------- 导入示例工作流（多选弹框） ----------
 async function openImportExamplesModal() {
   // 0) 兜底：若 <script src="example_workflows.js"> 未加载（如浏览器缓存了旧 HTML），
@@ -8010,12 +8069,13 @@ async function openImportExamplesModal() {
       }
     }
 
-    // 每张卡片的操作区：状态提示 + 重新导入按钮
+    // 每张卡片的操作区：状态提示 + 导入按钮 + 重新导入内容包按钮
     let acqHtml = `<div class="pro-acquisition">
       <div class="pro-acquisition-title" style="color:#10b981">✅ 已导入</div>
       <div class="pro-acquisition-method">
         可在「ETL工作流」列表查看和使用
-        <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="event.stopPropagation(); openContentPackModal();">🔄 重新导入</button>
+        <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="event.stopPropagation(); importSingleWorkflow(${ex.id});">📥 导入此示例</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="event.stopPropagation(); openContentPackModal();">🔄 重新导入内容包</button>
       </div>
     </div>`;
 

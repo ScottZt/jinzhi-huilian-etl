@@ -101,3 +101,20 @@ async def pack_status():
         "dev_mode": is_dev_mode(),
         "can_import": is_dev_mode() or lic_info.get("features", {}).get("pro_content_import", False),
     }
+
+
+@router.get("/workflow/{pack_name}/{workflow_name}")
+async def get_workflow(pack_name: str, workflow_name: str):
+    """从已安装的内容包中读取单条工作流（用于「导入示例」弹窗的单条导入）。
+
+    前端不暴露 workflow JSON，通过此接口按需获取。
+    """
+    from urllib.parse import unquote
+    # URL 里的中文需要解码
+    pack_name = unquote(pack_name)
+    workflow_name = unquote(workflow_name)
+
+    wf = content_pack.get_workflow_from_pack(pack_name, workflow_name)
+    if wf is None:
+        return {"error": "工作流未找到（包名或工作流名不匹配）"}
+    return wf

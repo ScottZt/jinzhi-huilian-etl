@@ -260,8 +260,8 @@ def import_pack(
         except Exception:
             pass
 
-    # 记录已安装的内容包
-    _save_pack_record(manifest)
+    # 记录已安装的内容包（含完整 workflows 数组，用于后续按名称读取单条）
+    _save_pack_record(manifest, workflows)
 
     return {
         "workflows_imported": workflows_imported,
@@ -319,8 +319,13 @@ def _collect_base_workflow_names(base_version: str) -> set:
     return names
 
 
-def _save_pack_record(manifest: dict):
-    """记录已安装的内容包信息（基础包 / 增量补丁均保存）。"""
+def _save_pack_record(manifest: dict, workflows: list = None):
+    """记录已安装的内容包信息（基础包 / 增量补丁均保存）。
+
+    Args:
+        manifest: 包元数据
+        workflows: 完整的工作流数组（用于后续按名称读取单条）
+    """
     from app.persistence import sqlite_repo
     packs = get_installed_packs()
 
@@ -329,9 +334,33 @@ def _save_pack_record(manifest: dict):
     for i, p in enumerate(packs):
         if p.get("name") == manifest.get("name"):
             packs[i] = manifest
+            if workflows is not None:
+                packs[i]["workflows"] = workflows
             found = True
             break
     if not found:
         packs.append(manifest)
+        if workflows is not None:
+            packs[-1]["workflows"] = workflows
 
     sqlite_repo.save_metadata("_installed_packs", json.dumps(packs, ensure_ascii=False))
+
+
+def get_workflow_from_pack(pack_name: str, workflow_name: str) -> dict | None:
+    """从已安装的内容包中按包名 + 工作流名读取单条工作流。
+
+    用于前端「导入示例」弹窗里每张卡片的「📥 导入」按钮，
+    让用户可以把单条示例工作流导入到 ETL 工作流列表。
+
+    Returns:
+        工作流 dict (含 name/description/workflow_json)，找不到返回 None
+    """
+    installed = get_installed_packs()
+    for pack in installed:
+        if pack.get("name") != pack_name:
+            continue
+        workflows = pack.get("workflows", [])
+        for wf in workflows:
+            if wf.get("name") == workflow_name:
+                return wf
+    return None
