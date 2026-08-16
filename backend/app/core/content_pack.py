@@ -201,6 +201,11 @@ def import_pack(
     skipped_by_base = 0
 
     # 工作流去重策略
+    # 关键判断：专业版示例的"已存在"判断依据是「已导入过的内容包」（_installed_packs 元数据），
+    # 而非 DB workflows 表。因为：
+    #   - 用户在 ETL 工作流列表里自建的同名工作流 ≠ 专业版示例已导入
+    #   - 用户可能删除过专业版示例（从 DB 移除）但想重新导入
+    #   - "导入示例"界面的专业版区域显示状态来自 _installed_packs，不是 DB workflows
     from app.persistence import sqlite_repo
 
     if is_patch:
@@ -208,9 +213,11 @@ def import_pack(
         base_names = _collect_base_workflow_names(base_version)
         skip_names = base_names
     elif overwrite_existing:
+        # 强制覆盖：不跳过
         skip_names = set()
     else:
-        skip_names = {wf.get("name") for wf in sqlite_repo.list_workflows()}
+        # 基础包模式（默认）：跳过「已导入过的内容包内的工作流名」
+        skip_names = _collect_all_installed_workflow_names()
 
     for wf in workflows:
         name = wf.get("name", "").strip()
@@ -277,6 +284,24 @@ def get_installed_packs() -> List[dict]:
         return json.loads(raw) if isinstance(raw, str) else raw
     except (json.JSONDecodeError, TypeError):
         return []
+
+
+def _collect_all_installed_workflow_names() -> set:
+    """从「已导入过的所有内容包」收集工作流名集合。
+
+    用于基础包导入时的去重：如果工作流名已经出现在任意已安装包内，
+    就认为「导入示例」界面的专业版示例已存在，本次导入跳过。
+
+    关键区别于 sqlite_repo.list_workflows()：
+      - list_workflows() 是 DB 中实际存在的工作流（含用户自建、可能被删除）
+      - 本函数是「曾经导入过的内容包」的集合，匹配「导入示例」界面展示逻辑
+    """
+    installed = get_installed_packs()
+    names = set()
+    for p in installed:
+        for n in p.get("workflow_names", []) or []:
+            names.add(n)
+    return names
 
 
 def _collect_base_workflow_names(base_version: str) -> set:
