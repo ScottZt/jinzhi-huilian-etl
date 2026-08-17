@@ -2091,6 +2091,7 @@ overview: async () => ({
             <span style="font-size:12px;color:var(--text-dim)">-</span>
             <input type="date" id="wf-updated-end" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="filterWorkflows()">
           </div>
+          <button class="btn btn-secondary btn-sm" onclick="clearWorkflowFilters()" style="margin-left:8px">🗑️ 清除筛选</button>
         </div>
         <div class="table-toolbar" style="margin-bottom:8px">
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
@@ -8278,15 +8279,38 @@ function filterWorkflows() {
     if (search && !w.name.toLowerCase().includes(search) && !(w.description || '').toLowerCase().includes(search)) {
       return false;
     }
-    // 创建时间筛选
-    if (createdStart && w.created_at < createdStart) return false;
-    if (createdEnd && w.created_at > createdEnd + 'T23:59:59') return false;
+    // 创建时间筛选（比较日期部分）
+    if (createdStart) {
+      const wCreated = w.created_at?.split('T')[0];  // 取日期部分 2026-08-17
+      if (wCreated < createdStart) return false;
+    }
+    if (createdEnd) {
+      const wCreated = w.created_at?.split('T')[0];
+      if (wCreated > createdEnd) return false;
+    }
     // 修改时间筛选
-    if (updatedStart && w.updated_at < updatedStart) return false;
-    if (updatedEnd && w.updated_at > updatedEnd + 'T23:59:59') return false;
+    if (updatedStart) {
+      const wUpdated = w.updated_at?.split('T')[0];
+      if (wUpdated < updatedStart) return false;
+    }
+    if (updatedEnd) {
+      const wUpdated = w.updated_at?.split('T')[0];
+      if (wUpdated > updatedEnd) return false;
+    }
     return true;
   });
 
+  _workflowPage = 0;
+  renderWorkflowTable();
+}
+
+function clearWorkflowFilters() {
+  document.getElementById('wf-search').value = '';
+  document.getElementById('wf-created-start').value = '';
+  document.getElementById('wf-created-end').value = '';
+  document.getElementById('wf-updated-start').value = '';
+  document.getElementById('wf-updated-end').value = '';
+  _filteredWorkflows = [..._allWorkflows];
   _workflowPage = 0;
   renderWorkflowTable();
 }
