@@ -8058,11 +8058,10 @@ async function openImportExamplesModal() {
       }
     }
 
-    // 每张卡片的操作区：直接放两个按钮（已导入 vs 未导入的区别不再显示）
+    // 每张卡片的操作区：只放一个「导入此示例」按钮
     let acqHtml = `<div class="pro-acquisition">
       <div class="pro-acquisition-method">
         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); importSingleWorkflow(${ex.id});">📥 导入此示例</button>
-        <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="event.stopPropagation(); openContentPackModal();">🔄 重新导入内容包</button>
       </div>
     </div>`;
 
@@ -8098,9 +8097,12 @@ async function openImportExamplesModal() {
     ${proExamples.length > 0 ? `
     <div class="panel">
       ${isPackInstalled ? `
-        <div class="panel-title" style="margin-bottom:4px">
-          🧩 专业版示例（${proExamples.length} 个）
-          <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可重复导入到 ETL 工作流列表</span>
+        <div class="panel-title" style="margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            🧩 专业版示例（${proExamples.length} 个）
+            <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可重复导入到 ETL 工作流列表</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openContentPackModal();">📥 导入内容包</button>
         </div>
         <div class="import-list" id="import-list-pro">${proBody}</div>
       ` : `
