@@ -863,16 +863,16 @@
     .import-item-pro {
       display: block;
       grid-template-columns: none;
-      opacity: 0.6;
-      filter: grayscale(0.5);
       position: relative;
-      border: 1px dashed var(--text-dim, #888);
-      cursor: not-allowed;
+      border: 1px solid var(--border, #ddd);
+      cursor: pointer;
+      background: var(--card-bg, #fff);
     }
 
     .import-item-pro:hover {
-      border-color: var(--text-dim, #888);
-      background: transparent;
+      border-color: var(--accent, #6366f1);
+      background: var(--card-hover-bg, #f9fafb);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .import-item-pro .pro-badge {
@@ -908,17 +908,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-
-    .import-item-pro .pro-screenshot::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255,255,255,0.3);
-      backdrop-filter: blur(2px);
+      border-radius: 6px;
     }
 
     .import-item-pro .pro-acquisition {
@@ -8002,7 +7992,6 @@ async function openImportExamplesModal() {
     const types = wfNodes.map(n => n.name || n.type).join(' → ') || '';
     const desc = ex.description || '';
     const tags = Array.isArray(ex.tags) ? ex.tags : [];
-    const hasDoc = EXAMPLE_DOCS[ex.id] ? '' : 'style="opacity:0.4;pointer-events:none"';
 
     if (!CR.isPro(ex.id)) {
       // ---- 免费示例：可勾选、可导入 ----
@@ -8016,7 +8005,7 @@ async function openImportExamplesModal() {
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             ${nodeCount > 0 ? `<div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>` : ''}
-            <button class="doc-btn" ${hasDoc} onclick="event.stopPropagation();showExampleDoc(${ex.id})">📖 详解</button>
+            <button class="doc-btn" onclick="event.stopPropagation();showExampleDoc(${ex.id})">📖 详解</button>
           </div>
         </label>`;
     }
