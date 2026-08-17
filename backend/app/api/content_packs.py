@@ -103,18 +103,25 @@ async def pack_status():
     }
 
 
-@router.get("/workflow/{pack_name}/{workflow_name}")
-async def get_workflow(pack_name: str, workflow_name: str):
-    """从已安装的内容包中读取单条工作流（用于「导入示例」弹窗的单条导入）。
+@router.get("/workflow/{pack_name}/{workflow_index}")
+async def get_workflow(pack_name: str, workflow_index: str):
+    """从已安装的内容包中按「包名 + 工作流索引」读取单条工作流。
 
+    workflow_index 是整数索引（从 0 起），对应打包时 workflows.json 数组的下标。
     前端不暴露 workflow JSON，通过此接口按需获取。
     """
     from urllib.parse import unquote
-    # URL 里的中文需要解码
     pack_name = unquote(pack_name)
-    workflow_name = unquote(workflow_name)
+    try:
+        idx = int(workflow_index)
+    except ValueError:
+        return {"error": "workflow_index 必须为整数"}
 
-    wf = content_pack.get_workflow_from_pack(pack_name, workflow_name)
-    if wf is None:
-        return {"error": "工作流未找到（包名或工作流名不匹配）"}
-    return wf
+    packs = content_pack.get_installed_packs()
+    for pack in packs:
+        if pack.get("name") != pack_name:
+            continue
+        workflows = pack.get("workflows", [])
+        if 0 <= idx < len(workflows):
+            return workflows[idx]
+    return {"error": "工作流未找到（包名或索引不匹配）"}

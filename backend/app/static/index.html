@@ -7862,14 +7862,14 @@ function closeExampleDoc() {
 
 // ---------- 从内容包导入单条示例工作流 ----------
 async function importSingleWorkflow(exampleId) {
-  // 从 EXAMPLE_WORKFLOWS 里找到该示例的元数据
+  // 从 EXAMPLE_WORKFLOWS 里找到该示例
   const ex = (window.EXAMPLE_WORKFLOWS || []).find(e => e.id === exampleId);
   if (!ex) {
     alert('示例未找到');
     return;
   }
 
-  // 找到该示例所属的已安装包（取第一个包含此工作流的包）
+  // 获取已安装的内容包列表
   let packStatus;
   try {
     packStatus = await api('/api/content-packs/status', { silent: true });
@@ -7878,31 +7878,26 @@ async function importSingleWorkflow(exampleId) {
     return;
   }
 
-  // 找包含此示例的包
-  let packName = null;
-  let workflowName = ex.title;
-  for (const pack of (packStatus.installed_packs || [])) {
-    const wfNames = pack.workflow_names || [];
-    if (wfNames.includes(workflowName)) {
-      packName = pack.name;
-      break;
-    }
-  }
-  if (!packName) {
-    alert('此示例不在任何已安装的内容包中');
+  // 找到第一个包含工作流的包
+  const pack = (packStatus.installed_packs || []).find(p => (p.workflows || []).length > 0);
+  if (!pack) {
+    alert('未找到已安装的内容包，请先导入内容包');
     return;
   }
 
+  // 用 ID 匹配索引：示例 ID 1 → 索引 0，ID 2 → 索引 1，...
+  const workflowIndex = ex.id - 1;
+
   // 调用后端接口获取单条工作流 JSON
   try {
-    const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(packName)}/${encodeURIComponent(workflowName)}`, { silent: true });
+    const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(pack.name)}/${workflowIndex}`, { silent: true });
     if (wf.error) {
       alert('获取工作流失败：' + wf.error);
       return;
     }
 
     // POST 到 /api/workflows/ 创建新工作流
-    const result = await api('/api/workflows/', {
+    await api('/api/workflows/', {
       method: 'POST',
       body: JSON.stringify({
         name: wf.name,
@@ -8180,25 +8175,22 @@ async function importSelectedExamples() {
   }
 
   // 导入专业版示例
+  // 获取第一个包含工作流的包（用于按索引读取）
+  const pack = (packStatus.installed_packs || []).find(p => (p.workflows || []).length > 0);
+
   for (const cb of checkedPro) {
-    const workflowName = cb.dataset.name;
-    // 找包含此工作流的包
-    let packName = null;
-    for (const pack of (packStatus.installed_packs || [])) {
-      const wfNames = pack.workflow_names || [];
-      if (wfNames.includes(workflowName)) {
-        packName = pack.name;
-        break;
-      }
-    }
-    if (!packName) {
+    const exampleId = Number(cb.dataset.id);
+    if (!pack) {
       fail++;
       continue;
     }
 
+    // 用 ID 匹配索引：示例 ID 1 → 索引 0，ID 2 → 索引 1，...
+    const workflowIndex = exampleId - 1;
+
     try {
-      // 从后端获取单条工作流 JSON
-      const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(packName)}/${encodeURIComponent(workflowName)}`, { silent: true });
+      // 从后端获取单条工作流 JSON（按包名 + 索引）
+      const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(pack.name)}/${workflowIndex}`, { silent: true });
       if (wf.error) {
         fail++;
         continue;
