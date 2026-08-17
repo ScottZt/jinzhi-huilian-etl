@@ -2072,12 +2072,47 @@ overview: async () => ({
           <button class="btn btn-primary" onclick="openWorkflowModal()">+ 新建工作流</button>
           <button class="btn btn-secondary" onclick="openAIAssistantModal('workflow', { mode: 'wizard' })">🤖 AI 辅助</button>
           <button class="btn btn-secondary" onclick="seedDemoWorkflow()">💡 导入示例</button>
-          <button class="btn btn-secondary" onclick="openPluginMarket()">🧩 插件中心</button>
-          <button class="btn btn-secondary" onclick="refreshWorkflows()">🔄 刷新</button>
+          <button class="btn btn-secondary" onclick="openPluginMarket()"> 插件中心</button>
+          <button class="btn btn-secondary" onclick="refreshWorkflows()"> 刷新</button>
         </div>
       </div>
       <div class="panel">
+        <div class="table-toolbar" style="margin-bottom:12px">
+          <input class="table-search" id="wf-search" placeholder="搜索工作流名称、描述..." style="flex:1;max-width:300px" oninput="filterWorkflows()">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;color:var(--text-dim)">创建时间:</span>
+            <input type="date" id="wf-created-start" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="filterWorkflows()">
+            <span style="font-size:12px;color:var(--text-dim)">-</span>
+            <input type="date" id="wf-created-end" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="filterWorkflows()">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;color:var(--text-dim)">修改时间:</span>
+            <input type="date" id="wf-updated-start" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="filterWorkflows()">
+            <span style="font-size:12px;color:var(--text-dim)">-</span>
+            <input type="date" id="wf-updated-end" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="filterWorkflows()">
+          </div>
+        </div>
+        <div class="table-toolbar" style="margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="wf-select-all" onchange="toggleSelectAllWorkflows(this.checked)"> 全选
+          </label>
+          <span class="text-dim" style="font-size:12px" id="wf-selected-count">已选 0 项</span>
+          <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="batchDeleteWorkflows()" id="wf-batch-delete-btn" disabled>🗑️ 批量删除</button>
+        </div>
         <div id="workflows-list"></div>
+        <div class="table-toolbar" style="margin-top:12px">
+          <span class="text-dim" style="font-size:12px" id="wf-pagination-info"></span>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <button class="btn btn-secondary btn-sm" onclick="changeWorkflowPage(-1)" id="wf-prev-btn">上一页</button>
+            <select id="wf-page-size" class="form-control" style="width:auto;padding:4px 8px;font-size:12px" onchange="changeWorkflowPageSize()">
+              <option value="10">10 条/页</option>
+              <option value="20" selected>20 条/页</option>
+              <option value="50">50 条/页</option>
+              <option value="100">100 条/页</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="changeWorkflowPage(1)" id="wf-next-btn">下一页</button>
+          </div>
+        </div>
       </div>
     `
   }),
@@ -8215,44 +8250,146 @@ async function importSelectedExamples() {
   refreshWorkflows();
 }
 
+// 工作流列表状态
+let _allWorkflows = [];  // 全部工作流
+let _filteredWorkflows = [];  // 筛选后的工作流
+let _workflowPage = 0;  // 当前页码（从 0 起）
+let _workflowPageSize = 20;  // 每页条数
+
 async function refreshWorkflows() {
   try {
     const list = await api('/api/workflows/');
-    const el = document.getElementById('workflows-list');
-    if (!list.length) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">🔀</div><p>暂无工作流</p><button class="btn btn-primary" onclick="openWorkflowModal()">新建工作流</button></div>';
-      return;
-    }
-    let html = `<div class="table-toolbar">
-      <input class="table-search" id="wf-search" placeholder="搜索工作流名称、描述..." oninput="filterTableRows('wf-table', this.value)">
-      <span class="text-dim" style="font-size:12px">共 ${list.length} 个</span>
-    </div>
-    <table class="data-table" id="wf-table"><thead><tr>
-      ${thPlain('名称')}${thPlain('描述')}${thPlain('节点数')}
-      ${th('创建时间', 'created_at', 'wf-table')}
-      ${th('更新时间', 'updated_at', 'wf-table')}
-      ${thPlain('操作')}
-    </tr></thead><tbody>`;
-    for (const w of list) {
-      const nodes = (w.workflow_json?.nodes || []).length;
-      html += `<tr>
-        <td>${w.name}</td>
-        <td class="text-dim">${w.description || '-'}</td>
-        <td>${nodes}</td>
-        ${timeCell(w.created_at)}
-        ${timeCell(w.updated_at)}
-        <td class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="openWorkflowModal('${w.id}')">编辑</button>
-          <button class="btn btn-secondary btn-sm" onclick="previewWorkflow('${w.id}')">预览</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportWorkflowJson('${w.id}')">导出</button>
-          <button class="btn btn-secondary btn-sm" onclick="importWorkflowJson()">导入</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteWorkflow('${w.id}')">删除</button>
-        </td>
-      </tr>`;
-    }
-    html += '</tbody></table>';
-    el.innerHTML = html;
+    _allWorkflows = list;
+    _filteredWorkflows = [...list];
+    _workflowPage = 0;
+    renderWorkflowTable();
   } catch(e) { console.error(e); }
+}
+
+function filterWorkflows() {
+  const search = (document.getElementById('wf-search')?.value || '').toLowerCase();
+  const createdStart = document.getElementById('wf-created-start')?.value;
+  const createdEnd = document.getElementById('wf-created-end')?.value;
+  const updatedStart = document.getElementById('wf-updated-start')?.value;
+  const updatedEnd = document.getElementById('wf-updated-end')?.value;
+
+  _filteredWorkflows = _allWorkflows.filter(w => {
+    // 名称/描述搜索
+    if (search && !w.name.toLowerCase().includes(search) && !(w.description || '').toLowerCase().includes(search)) {
+      return false;
+    }
+    // 创建时间筛选
+    if (createdStart && w.created_at < createdStart) return false;
+    if (createdEnd && w.created_at > createdEnd + 'T23:59:59') return false;
+    // 修改时间筛选
+    if (updatedStart && w.updated_at < updatedStart) return false;
+    if (updatedEnd && w.updated_at > updatedEnd + 'T23:59:59') return false;
+    return true;
+  });
+
+  _workflowPage = 0;
+  renderWorkflowTable();
+}
+
+function renderWorkflowTable() {
+  const el = document.getElementById('workflows-list');
+  const total = _filteredWorkflows.length;
+  const totalPages = Math.ceil(total / _workflowPageSize);
+  const start = _workflowPage * _workflowPageSize;
+  const end = Math.min(start + _workflowPageSize, total);
+  const pageItems = _filteredWorkflows.slice(start, end);
+
+  if (total === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon"></div><p>暂无工作流</p><button class="btn btn-primary" onclick="openWorkflowModal()">新建工作流</button></div>';
+    document.getElementById('wf-pagination-info').textContent = '';
+    return;
+  }
+
+  let html = `<table class="data-table" id="wf-table"><thead><tr>
+    <th style="width:40px"><input type="checkbox" id="wf-table-select-all" onchange="toggleSelectAllWorkflows(this.checked)"></th>
+    ${thPlain('名称')}${thPlain('描述')}${thPlain('节点数')}
+    ${th('创建时间', 'created_at', 'wf-table')}
+    ${th('更新时间', 'updated_at', 'wf-table')}
+    ${thPlain('操作')}
+  </tr></thead><tbody>`;
+
+  for (const w of pageItems) {
+    const nodes = (w.workflow_json?.nodes || []).length;
+    html += `<tr>
+      <td><input type="checkbox" class="wf-row-cb" data-id="${w.id}" onchange="updateWorkflowSelectedCount()"></td>
+      <td>${w.name}</td>
+      <td class="text-dim">${w.description || '-'}</td>
+      <td>${nodes}</td>
+      ${timeCell(w.created_at)}
+      ${timeCell(w.updated_at)}
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="openWorkflowModal('${w.id}')">编辑</button>
+        <button class="btn btn-secondary btn-sm" onclick="previewWorkflow('${w.id}')">预览</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportWorkflowJson('${w.id}')">导出</button>
+        <button class="btn btn-secondary btn-sm" onclick="importWorkflowJson()">导入</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWorkflow('${w.id}')">删除</button>
+      </td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+
+  // 更新分页信息
+  document.getElementById('wf-pagination-info').textContent =
+    `第 ${_workflowPage + 1}/${totalPages || 1} 页，共 ${total} 条，显示 ${start + 1}-${end} 条`;
+  document.getElementById('wf-prev-btn').disabled = _workflowPage === 0;
+  document.getElementById('wf-next-btn').disabled = _workflowPage >= totalPages - 1;
+
+  updateWorkflowSelectedCount();
+}
+
+function toggleSelectAllWorkflows(checked) {
+  document.querySelectorAll('.wf-row-cb').forEach(cb => { cb.checked = checked; });
+  updateWorkflowSelectedCount();
+}
+
+function updateWorkflowSelectedCount() {
+  const count = document.querySelectorAll('.wf-row-cb:checked').length;
+  document.getElementById('wf-selected-count').textContent = `已选 ${count} 项`;
+  document.getElementById('wf-batch-delete-btn').disabled = count === 0;
+  // 同步表头全选框
+  const allCb = document.getElementById('wf-table-select-all');
+  if (allCb) {
+    const total = document.querySelectorAll('.wf-row-cb').length;
+    allCb.checked = count > 0 && count === total;
+    allCb.indeterminate = count > 0 && count < total;
+  }
+}
+
+async function batchDeleteWorkflows() {
+  const ids = Array.from(document.querySelectorAll('.wf-row-cb:checked')).map(cb => cb.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`确定删除 ${ids.length} 个工作流？此操作不可恢复。`)) return;
+
+  let ok = 0, fail = 0;
+  for (const id of ids) {
+    try {
+      await api(`/api/workflows/${id}`, { method: 'DELETE' });
+      ok++;
+    } catch(e) { fail++; }
+  }
+  alert(`✅ 删除完成：成功 ${ok} 项${fail ? `，失败 ${fail} 项` : ''}`);
+  refreshWorkflows();
+}
+
+function changeWorkflowPage(delta) {
+  const totalPages = Math.ceil(_filteredWorkflows.length / _workflowPageSize);
+  const newPage = _workflowPage + delta;
+  if (newPage < 0 || newPage >= totalPages) return;
+  _workflowPage = newPage;
+  renderWorkflowTable();
+}
+
+function changeWorkflowPageSize() {
+  _workflowPageSize = parseInt(document.getElementById('wf-page-size').value);
+  _workflowPage = 0;
+  renderWorkflowTable();
 }
 
 function openPluginMarket() {
