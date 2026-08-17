@@ -8178,68 +8178,72 @@ async function importSelectedExamples() {
 
   const presets = JSON.parse(document.getElementById('modal-body').dataset.presetsCache || '[]');
 
-  // 获取已安装包信息（用于按名称读取专业版工作流）
-  let packStatus;
-  try {
-    packStatus = await api('/api/content-packs/status', { silent: true });
-  } catch (e) {
-    alert('获取内容包状态失败：' + e.message);
-    return;
-  }
-
-  let ok = 0, fail = 0, total = checkedPresets.length + checkedPro.length;
+  let ok = 0, fail = 0;
 
   // 显示进度
   const statusDiv = document.createElement('div');
   statusDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px';
   document.body.appendChild(statusDiv);
 
-  // 导入内置预设
-  for (const cb of checkedPresets) {
-    const p = presets[Number(cb.dataset.idx)];
-    if (!p) continue;
+  // 导入内置预设（调用 seed-presets 接口，后端有完整的 workflow_json）
+  if (checkedPresets.length > 0) {
+    statusDiv.textContent = `正在导入内置预设...`;
     try {
-      await api('/api/workflows/', {
+      const result = await api('/api/workflows/seed-presets', {
         method: 'POST',
-        body: JSON.stringify({ name: p.name, description: p.description || '', workflow_json: p.workflow_json })
+        body: JSON.stringify({ overwrite_existing: false }),
       });
-      ok++;
-      statusDiv.textContent = `正在导入... ${ok}/${total}`;
+      // seed-presets 返回 {"count": N, "workflows": [...]}
+      // 所有预设都会被写入，已存在的跳过
+      ok += checkedPresets.length;
+      statusDiv.textContent = `内置预设导入完成...`;
     } catch (e) {
-      fail++;
+      fail += checkedPresets.length;
+      statusDiv.textContent = `内置预设导入失败`;
     }
   }
 
   // 导入专业版示例
-  // 获取第一个包含工作流的包（用于按索引读取）
-  const pack = (packStatus.installed_packs || []).find(p => (p.workflows || []).length > 0);
-
-  for (const cb of checkedPro) {
-    const exampleId = Number(cb.dataset.id);
-    if (!pack) {
-      fail++;
-      continue;
+  if (checkedPro.length > 0) {
+    // 获取已安装包信息（用于按索引读取专业版工作流）
+    let packStatus;
+    try {
+      packStatus = await api('/api/content-packs/status', { silent: true });
+    } catch (e) {
+      alert('获取内容包状态失败：' + e.message);
+      statusDiv.remove();
+      return;
     }
 
-    // 用 ID 匹配索引：示例 ID 1 → 索引 0，ID 2 → 索引 1，...
-    const workflowIndex = exampleId - 1;
+    const pack = (packStatus.installed_packs || []).find(p => (p.workflows || []).length > 0);
+    if (!pack) {
+      alert('未找到已安装的内容包，请先导入内容包');
+      statusDiv.remove();
+      return;
+    }
 
-    try {
-      // 从后端获取单条工作流 JSON（按包名 + 索引）
-      const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(pack.name)}/${workflowIndex}`, { silent: true });
-      if (wf.error) {
+    for (const cb of checkedPro) {
+      const exampleId = Number(cb.dataset.id);
+      // 用 ID 匹配索引：示例 ID 1 → 索引 0，ID 2 → 索引 1，...
+      const workflowIndex = exampleId - 1;
+
+      try {
+        // 从后端获取单条工作流 JSON（按包名 + 索引）
+        const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(pack.name)}/${workflowIndex}`, { silent: true });
+        if (wf.error) {
+          fail++;
+          continue;
+        }
+        // POST 到 /api/workflows/
+        await api('/api/workflows/', {
+          method: 'POST',
+          body: JSON.stringify({ name: wf.name, description: wf.description || '', workflow_json: wf.workflow_json }),
+        });
+        ok++;
+        statusDiv.textContent = `正在导入专业版... ${ok} 个`;
+      } catch (e) {
         fail++;
-        continue;
       }
-      // POST 到 /api/workflows/
-      await api('/api/workflows/', {
-        method: 'POST',
-        body: JSON.stringify({ name: wf.name, description: wf.description || '', workflow_json: wf.workflow_json }),
-      });
-      ok++;
-      statusDiv.textContent = `正在导入... ${ok}/${total}`;
-    } catch (e) {
-      fail++;
     }
   }
 
