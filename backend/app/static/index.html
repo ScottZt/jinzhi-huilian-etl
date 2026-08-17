@@ -8058,9 +8058,10 @@ async function openImportExamplesModal() {
       }
     }
 
-    // 每张卡片的操作区：只放一个「导入此示例」按钮
+    // 每张卡片的操作区：checkbox + 导入此示例按钮
     let acqHtml = `<div class="pro-acquisition">
       <div class="pro-acquisition-method">
+        <input type="checkbox" class="import-cb-pro" data-id="${ex.id}" data-name="${escapeHtml(ex.title)}" style="margin-right:8px">
         <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); importSingleWorkflow(${ex.id});">📥 导入此示例</button>
       </div>
     </div>`;
@@ -8101,6 +8102,9 @@ async function openImportExamplesModal() {
           <div>
             🧩 专业版示例（${proExamples.length} 个）
             <span class="text-dim" style="font-size:11px;font-weight:400;margin-left:8px">可重复导入到 ETL 工作流列表</span>
+            <label style="margin-left:16px;font-size:12px;color:var(--accent);cursor:pointer">
+              <input type="checkbox" id="select-all-pro" onchange="toggleSelectAllPro(this.checked)" style="margin-right:4px"> 全选
+            </label>
           </div>
           <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openContentPackModal();">📥 导入内容包</button>
         </div>
@@ -8126,34 +8130,94 @@ async function openImportExamplesModal() {
   document.getElementById('modal-body').dataset.presetsCache = JSON.stringify(presets);
 }
 
-async function importSelectedExamples() {
-  const checked = Array.from(document.querySelectorAll('#modal-body .import-cb:checked'));
-  if (!checked.length) { alert('请先勾选要导入的预设'); return; }
-  const presets = JSON.parse(document.getElementById('modal-body').dataset.presetsCache || '[]');
-  const docMap = {};
-  (window.EXAMPLE_WORKFLOWS || []).forEach(ex => { docMap[ex.id] = ex; });
+function toggleSelectAllPro(checked) {
+  document.querySelectorAll('#modal-body .import-cb-pro').forEach(cb => {
+    cb.checked = checked;
+  });
+}
 
-  let ok = 0, fail = 0;
-  for (const cb of checked) {
-    const source = cb.dataset.source;
-    let body;
-    if (source === 'preset') {
-      const p = presets[Number(cb.dataset.idx)];
-      if (!p) continue;
-      body = { name: p.name, description: p.description || '', workflow_json: p.workflow_json };
-    } else {
-      const ex = docMap[Number(cb.dataset.id)];
-      if (!ex) continue;
-      body = { name: `示例${ex.id}: ${ex.title}`, description: ex.description || '', workflow_json: ex.workflow };
-    }
+async function importSelectedExamples() {
+  const checkedPresets = Array.from(document.querySelectorAll('#modal-body .import-cb:checked'));
+  const checkedPro = Array.from(document.querySelectorAll('#modal-body .import-cb-pro:checked'));
+
+  if (!checkedPresets.length && !checkedPro.length) {
+    alert('请先勾选要导入的预设或专业版示例');
+    return;
+  }
+
+  const presets = JSON.parse(document.getElementById('modal-body').dataset.presetsCache || '[]');
+
+  // 获取已安装包信息（用于按名称读取专业版工作流）
+  let packStatus;
+  try {
+    packStatus = await api('/api/content-packs/status', { silent: true });
+  } catch (e) {
+    alert('获取内容包状态失败：' + e.message);
+    return;
+  }
+
+  let ok = 0, fail = 0, total = checkedPresets.length + checkedPro.length;
+
+  // 显示进度
+  const statusDiv = document.createElement('div');
+  statusDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px';
+  document.body.appendChild(statusDiv);
+
+  // 导入内置预设
+  for (const cb of checkedPresets) {
+    const p = presets[Number(cb.dataset.idx)];
+    if (!p) continue;
     try {
-      await api('/api/workflows/', { method: 'POST', body: JSON.stringify(body) });
+      await api('/api/workflows/', {
+        method: 'POST',
+        body: JSON.stringify({ name: p.name, description: p.description || '', workflow_json: p.workflow_json })
+      });
       ok++;
+      statusDiv.textContent = `正在导入... ${ok}/${total}`;
     } catch (e) {
       fail++;
-      console.error('导入失败:', cb.dataset.name, e);
     }
   }
+
+  // 导入专业版示例
+  for (const cb of checkedPro) {
+    const workflowName = cb.dataset.name;
+    // 找包含此工作流的包
+    let packName = null;
+    for (const pack of (packStatus.installed_packs || [])) {
+      const wfNames = pack.workflow_names || [];
+      if (wfNames.includes(workflowName)) {
+        packName = pack.name;
+        break;
+      }
+    }
+    if (!packName) {
+      fail++;
+      continue;
+    }
+
+    try {
+      // 从后端获取单条工作流 JSON
+      const wf = await api(`/api/content-packs/workflow/${encodeURIComponent(packName)}/${encodeURIComponent(workflowName)}`, { silent: true });
+      if (wf.error) {
+        fail++;
+        continue;
+      }
+      // POST 到 /api/workflows/
+      await api('/api/workflows/', {
+        method: 'POST',
+        body: JSON.stringify({ name: wf.name, description: wf.description || '', workflow_json: wf.workflow_json }),
+      });
+      ok++;
+      statusDiv.textContent = `正在导入... ${ok}/${total}`;
+    } catch (e) {
+      fail++;
+    }
+  }
+
+  // 移除进度条
+  statusDiv.remove();
+
   alert(`✅ 导入完成：成功 ${ok} 项${fail ? `，失败 ${fail} 项` : ''}`);
   closeModal();
   refreshWorkflows();
