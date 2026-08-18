@@ -889,6 +889,10 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
+    .import-item-pro > div[style*="display:flex"][style*="gap:12px"] {
+      padding-right: 100px;
+    }
+
     .import-item-pro .pro-screenshot {
       width: 100%;
       height: 120px;
@@ -7866,8 +7870,19 @@ function renderMarkdown(md) {
 // 保存上层弹框状态，用于关闭详解后恢复
 let _importModalState = null;
 
-function showExampleDoc(exampleId) {
-  const md = EXAMPLE_DOCS[exampleId];
+async function showExampleDoc(exampleId) {
+  // 先从后端动态获取教程
+  let md = null;
+  try {
+    const doc = await api(`/api/content-packs/docs/${exampleId}`, { silent: true });
+    if (doc && doc.content) {
+      md = doc.content;
+    }
+  } catch (e) {
+    // 后端获取失败，尝试从硬编码的 EXAMPLE_DOCS 读取（向后兼容）
+    md = EXAMPLE_DOCS[exampleId];
+  }
+
   if (!md) {
     alert(`示例 ${exampleId} 暂无详解文档`);
     return;
@@ -8106,7 +8121,10 @@ async function openImportExamplesModal() {
             <div class="t">${escapeHtml(ex.title)}</div>
             <div class="d">${escapeHtml(desc.slice(0, 100))}</div>
           </div>
-          ${nodeCount > 0 ? `<div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>` : ''}
+          <div style="display:flex;gap:8px;align-items:center">
+            ${nodeCount > 0 ? `<div class="nodes" title="${escapeHtml(types)}">${nodeCount} 节点</div>` : ''}
+            <button class="doc-btn" onclick="event.stopPropagation();showExampleDoc(${ex.id})">📖 详解</button>
+          </div>
         </div>
         <div class="pro-screenshot" onclick="event.stopPropagation()">
           ${previewHtml}
