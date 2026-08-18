@@ -7843,7 +7843,8 @@ function renderMarkdown(md) {
       }).join('');
       return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
     })
-    // 标题
+    // 标题（h1-h4）
+    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
@@ -7859,11 +7860,9 @@ function renderMarkdown(md) {
     .replace(/<\/ul>\s*<ul>/g, '')
     // 分隔线
     .replace(/^---$/gm, '<hr>')
-    // 段落
-    .replace(/\n\n/g, '</p><p>')
-    // 换行
-    .replace(/\n/g, '<br>');
-  return `<p>${html}</p>`;
+    // 段落：只在非 HTML 标签的换行处添加 <br>
+    .replace(/\n(?!(?:<h[1-4]|<table|<pre|<ul|<hr))/g, '<br>');
+  return html;
 }
 
 // ---------- 显示示例文档弹框 ----------
