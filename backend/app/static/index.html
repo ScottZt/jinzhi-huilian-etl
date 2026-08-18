@@ -8189,13 +8189,18 @@ async function importSelectedExamples() {
   if (checkedPresets.length > 0) {
     statusDiv.textContent = `正在导入内置预设...`;
     try {
+      // 收集勾选的 preset key
+      const presetKeys = checkedPresets.map(cb => {
+        const idx = Number(cb.dataset.idx);
+        return presets[idx]?.key;
+      }).filter(Boolean);
+
       const result = await api('/api/workflows/seed-presets', {
         method: 'POST',
-        body: JSON.stringify({ overwrite_existing: false }),
+        body: JSON.stringify({ keys: presetKeys, overwrite_existing: false }),
       });
-      // seed-presets 返回 {"count": N, "workflows": [...]}
-      // 所有预设都会被写入，已存在的跳过
-      ok += checkedPresets.length;
+      const savedCount = result?.count || 0;
+      ok += savedCount;
       statusDiv.textContent = `内置预设导入完成...`;
     } catch (e) {
       fail += checkedPresets.length;

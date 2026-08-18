@@ -34,6 +34,12 @@ class PresetRunRequest(BaseModel):
     overwrite_existing: bool = False
 
 
+class SeedPresetsRequest(BaseModel):
+    """按需导入预设请求。keys 为空则导入全部。"""
+    keys: Optional[List[str]] = None
+    overwrite_existing: bool = False
+
+
 def _json_safe(value: Any) -> Any:
     """将返回数据转换为严格 JSON 安全格式，避免 NaN/Inf 导致响应序列化失败。"""
     # Python float 中的 NaN/Inf 在严格 JSON 中非法，需要统一转为 None。
@@ -76,15 +82,20 @@ async def list_workflow_presets():
 
 
 @router.post("/seed-presets")
-async def seed_workflow_presets(overwrite_existing: bool = False):
-    """写入内置预制工作流。"""
+async def seed_workflow_presets(body: Optional[SeedPresetsRequest] = None):
+    """写入内置预制工作流。keys 指定时只导入对应预设，否则导入全部。"""
+    if body is None:
+        body = SeedPresetsRequest()
     saved: List[Dict[str, Any]] = []
     for preset in get_workflow_presets():
+        # keys 非空时只导入指定的预设
+        if body.keys and preset["key"] not in body.keys:
+            continue
         wf = _upsert_workflow_by_name(
             name=preset["name"],
             description=preset["description"],
             workflow_json=preset["workflow_json"],
-            overwrite_existing=overwrite_existing,
+            overwrite_existing=body.overwrite_existing,
         )
         saved.append({"id": wf["id"], "name": wf["name"], "key": preset["key"]})
     return {"count": len(saved), "workflows": saved}
