@@ -19,6 +19,7 @@ manifest.json 格式：
 """
 import json
 import os
+import re
 import shutil
 import uuid
 import zipfile
@@ -125,13 +126,14 @@ def validate_pack(file_path: str) -> dict:
     return result
 
 
-def extract_pack(file_path: str) -> Tuple[dict, List[dict], List[Tuple[str, bytes]]]:
-    """解析 .jspack 文件，返回 (manifest, workflows, plugins)。
+def extract_pack(file_path: str) -> Tuple[dict, List[dict], List[Tuple[str, bytes]], List[Tuple[str, str]]]:
+    """解析 .jspack 文件，返回 (manifest, workflows, plugins, docs)。
 
     Returns:
         manifest: dict
         workflows: [{"name": str, "description": str, "workflow_json": dict}, ...]
         plugins: [(filename, file_content_bytes), ...]
+        docs: [(filename, file_content_str), ...]  # 教程 markdown
     """
     with zipfile.ZipFile(file_path, "r") as zf:
         manifest = _read_json_from_zip(zf, "manifest.json")
@@ -149,7 +151,14 @@ def extract_pack(file_path: str) -> Tuple[dict, List[dict], List[Tuple[str, byte
                 content = zf.read(name)
                 plugins.append((filename, content))
 
-    return manifest, workflows, plugins
+        docs = []
+        for name in zf.namelist():
+            if name.startswith("docs/") and name.endswith(".md"):
+                filename = name.split("/")[-1]
+                content = zf.read(name).decode("utf-8")
+                docs.append((filename, content))
+
+    return manifest, workflows, plugins, docs
 
 
 def import_pack(
@@ -170,13 +179,14 @@ def import_pack(
             "workflows_imported": int,
             "workflows_skipped": int,
             "plugins_imported": list[str],
+            "docs_imported": int,
             "manifest": dict,
             "is_patch": bool,
             "base_version": str | None,
             "skipped_by_base": int,      # 增量补丁：被基础包跳过的工作流数
         }
     """
-    manifest, workflows, plugins = extract_pack(file_path)
+    manifest, workflows, plugins, docs = extract_pack(file_path)
 
     is_patch = bool(manifest.get("is_patch", False))
     base_version = manifest.get("base_version")
@@ -260,6 +270,28 @@ def import_pack(
         except Exception:
             pass
 
+    # 导入教程
+    docs_imported = 0
+    if docs:
+        pack_name = manifest.get("name", "unknown")
+        for filename, content in docs:
+            # 从文件名提取示例 ID（如 "01-数据源拉取.md" → 1）
+            try:
+                example_id = int(filename[:2])
+            except ValueError:
+                continue
+            # 提取标题（去掉文件名前缀）
+            title_match = re.search(r'^\d{2}-(.+)\.md$', filename)
+            title = title_match.group(1).strip().replace("-", " ") if title_match else filename
+
+            sqlite_repo.save_example_doc({
+                "example_id": example_id,
+                "title": title,
+                "content": content,
+                "pack_name": pack_name,
+            })
+            docs_imported += 1
+
     # 记录已安装的内容包（含完整 workflows 数组，用于后续按名称读取单条）
     _save_pack_record(manifest, workflows)
 
@@ -267,6 +299,7 @@ def import_pack(
         "workflows_imported": workflows_imported,
         "workflows_skipped": workflows_skipped,
         "plugins_imported": plugins_imported,
+        "docs_imported": docs_imported,
         "manifest": manifest,
         "is_patch": is_patch,
         "base_version": base_version,

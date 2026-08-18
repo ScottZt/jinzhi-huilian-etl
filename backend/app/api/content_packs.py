@@ -56,6 +56,7 @@ async def import_pack(
         )
         wf_count = result['workflows_imported']
         plugin_count = len(result['plugins_imported'])
+        docs_count = result.get('docs_imported', 0)
         skipped = result['workflows_skipped']
         license_activated = result.get('license_activated', False)
         license_type = result.get('license_type')
@@ -125,3 +126,20 @@ async def get_workflow(pack_name: str, workflow_index: str):
         if 0 <= idx < len(workflows):
             return workflows[idx]
     return {"error": "工作流未找到（包名或索引不匹配）"}
+
+
+@router.get("/docs/{example_id}")
+async def get_example_doc(example_id: int):
+    """获取示例教程。"""
+    from app.persistence import sqlite_repo
+    doc = sqlite_repo.get_example_doc(example_id)
+    if doc:
+        return doc
+    return {"error": "教程未找到"}
+
+
+@router.get("/docs")
+async def list_example_docs(pack_name: Optional[str] = None):
+    """列出所有教程（可按包名筛选）。"""
+    from app.persistence import sqlite_repo
+    return sqlite_repo.list_example_docs(pack_name)

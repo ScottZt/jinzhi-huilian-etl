@@ -281,6 +281,18 @@ def init_db():
                 payload_json TEXT NOT NULL, created_at TEXT NOT NULL
             )
         """)
+        # 示例教程表（从内容包导入）
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS example_docs (
+                id INTEGER PRIMARY KEY,
+                example_id INTEGER NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                pack_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
         # 默认 LLM 配置：确保新用户开箱可体验 AI 辅助
         llm_count_row = conn.execute("SELECT COUNT(1) AS cnt FROM llm_config").fetchone()
         if llm_count_row is None or int(llm_count_row["cnt"]) == 0:
@@ -398,6 +410,68 @@ def list_workflows() -> List[Dict[str, Any]]:
 
 def delete_workflow(workflow_id: str) -> bool:
     return _workflow_repo.delete(workflow_id)
+
+
+# ---- Example Docs CRUD (教程) ----
+
+def save_example_doc(data: Dict[str, Any]) -> Dict[str, Any]:
+    """保存示例教程（upsert by example_id）。"""
+    now = _now_iso()
+    data.setdefault("created_at", now)
+    data["updated_at"] = now
+    with _get_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM example_docs WHERE example_id = ?",
+            (data["example_id"],),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE example_docs SET title=?, content=?, pack_name=?, updated_at=? "
+                "WHERE example_id=?",
+                (data["title"], data["content"], data["pack_name"], now, data["example_id"]),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO example_docs (example_id, title, content, pack_name, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (data["example_id"], data["title"], data["content"], data["pack_name"], now, now),
+            )
+    return data
+
+
+def get_example_doc(example_id: int) -> Optional[Dict[str, Any]]:
+    """根据示例 ID 获取教程。"""
+    with _get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM example_docs WHERE example_id = ?",
+            (example_id,),
+        ).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def list_example_docs(pack_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """列出所有教程（可按包名筛选）。"""
+    with _get_db() as conn:
+        if pack_name:
+            rows = conn.execute(
+                "SELECT * FROM example_docs WHERE pack_name = ? ORDER BY example_id",
+                (pack_name,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM example_docs ORDER BY example_id"
+            ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+
+def delete_example_docs(pack_name: str) -> int:
+    """删除指定包的所有教程。"""
+    with _get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM example_docs WHERE pack_name = ?",
+            (pack_name,),
+        )
+        return cursor.rowcount
 
 
 # ---- Sync Run Records CRUD ----
