@@ -6,13 +6,20 @@
   python scripts/ai_commit.py --scope "feat"     # 指定 scope（feat/fix/docs/chore 等）
   python scripts/ai_commit.py --no-ai            # 手动输入 message（不用 AI）
 
-环境变量：
-  AI_COMMIT_API_KEY      — API 密钥（默认使用 OPENAI_API_KEY 或 ANTHROPIC_API_KEY）
-  AI_COMMIT_BASE_URL     — API 地址（默认 https://api.openai.com/v1）
-  AI_COMMIT_MODEL        — 模型名称（默认 gpt-4o-mini）
-  AI_COMMIT_LANGUAGE     — 语言（默认 zh，生成中文 commit）
+配置方式（优先级从高到低）：
+  1. 配置文件：scripts/ai_commit.json（推荐，已加入 .gitignore）
+  2. 环境变量：AI_COMMIT_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
+
+配置文件格式：
+  {
+    "api_key": "sk-...",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "language": "zh"
+  }
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -59,18 +66,58 @@ def get_untracked_files() -> str:
     return result.stdout.strip()
 
 
+def load_config() -> dict:
+    """从配置文件加载设置。"""
+    config_path = Path(__file__).parent / "ai_commit.json"
+    if config_path.exists():
+        with open(config_path, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def get_config(key: str, default: str = "") -> str:
+    """获取配置值：配置文件 > 环境变量 > 默认值。"""
+    config = load_config()
+
+    # 配置文件优先
+    if key in config and config[key]:
+        return config[key]
+
+    # 环境变量作为后备
+    env_map = {
+        "api_key": ["AI_COMMIT_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+        "base_url": ["AI_COMMIT_BASE_URL"],
+        "model": ["AI_COMMIT_MODEL"],
+        "language": ["AI_COMMIT_LANGUAGE"],
+    }
+
+    env_keys = env_map.get(key, [])
+    for env_key in env_keys:
+        value = os.environ.get(env_key)
+        if value:
+            return value
+
+    return default
+
+
 def call_llm(prompt: str) -> str:
     """调用大模型 API 生成 commit message。"""
-    api_key = os.environ.get("AI_COMMIT_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    base_url = os.environ.get("AI_COMMIT_BASE_URL", "https://api.openai.com/v1")
-    model = os.environ.get("AI_COMMIT_MODEL", "gpt-4o-mini")
-    language = os.environ.get("AI_COMMIT_LANGUAGE", "zh")
+    api_key = get_config("api_key")
+    base_url = get_config("base_url", "https://api.openai.com/v1")
+    model = get_config("model", "gpt-4o-mini")
+    language = get_config("language", "zh")
 
     if not api_key:
-        print("[ERROR] 未设置 API 密钥，请设置以下环境变量之一：")
-        print("  - AI_COMMIT_API_KEY")
-        print("  - OPENAI_API_KEY")
-        print("  - ANTHROPIC_API_KEY")
+        print("[ERROR] 未配置 API 密钥")
+        print()
+        print("请在以下位置之一配置：")
+        print("  1. 配置文件：scripts/ai_commit.json")
+        print("     {")
+        print('       "api_key": "sk-...",')
+        print('       "base_url": "https://api.openai.com/v1",')
+        print('       "model": "gpt-4o-mini"')
+        print("     }")
+        print("  2. 环境变量：AI_COMMIT_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY")
         sys.exit(1)
 
     # 使用 OpenAI 兼容格式

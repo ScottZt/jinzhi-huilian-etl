@@ -53,6 +53,9 @@ logs/
 .env.*
 !.env.example
 
+# AI commit 脚本配置（含 API 密钥，禁止提交）
+scripts/ai_commit.json
+
 
 backend/dist/
 backend/build/
