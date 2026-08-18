@@ -8265,9 +8265,8 @@ async function refreshWorkflows() {
   try {
     const list = await api('/api/workflows/');
     _allWorkflows = list;
-    _filteredWorkflows = [...list];
-    _workflowPage = 0;
-    renderWorkflowTable();
+    // 重新应用当前筛选条件（保留搜索框、日期选择器的值）
+    filterWorkflows();
   } catch(e) { console.error(e); }
 }
 
@@ -8322,7 +8321,10 @@ function clearWorkflowFilters() {
 function renderWorkflowTable() {
   const el = document.getElementById('workflows-list');
   const total = _filteredWorkflows.length;
-  const totalPages = Math.ceil(total / _workflowPageSize);
+  const totalPages = Math.ceil(total / _workflowPageSize) || 1;
+  // 防止页码越界（删除数据后常见）
+  if (_workflowPage >= totalPages) _workflowPage = totalPages - 1;
+  if (_workflowPage < 0) _workflowPage = 0;
   const start = _workflowPage * _workflowPageSize;
   const end = Math.min(start + _workflowPageSize, total);
   const pageItems = _filteredWorkflows.slice(start, end);
