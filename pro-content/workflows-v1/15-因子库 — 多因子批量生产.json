@@ -1,0 +1,79 @@
+{
+  "name": "因子库 — 多因子批量生产",
+  "description": "批量计算 MACD、RSI 等多个因子，通过工作流串联生产。实际使用中建议每个因子单独一条工作流，便于独立调度和维护。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "拉取日 K 线",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "tdx",
+          "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+          "codes": "000001",
+          "interval": "D",
+          "time_mode": "lookback",
+          "lookback_days": 120,
+          "parallel": false,
+          "session_only": false
+        }
+      },
+      {
+        "id": "n2",
+        "name": "计算 MACD",
+        "type": "factor_compute",
+        "parameters": {
+          "factor_id": "macd",
+          "compute_type": "macd",
+          "params_json": "{\"fast\": 12, \"slow\": 26, \"signal\": 9}",
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入 MACD 因子",
+        "type": "factor_write",
+        "parameters": {
+          "factor_id": "macd",
+          "db_path": "D:/data/factor_data.duckdb",
+          "write_mode": "upsert",
+          "register_meta": true
+        }
+      },
+      {
+        "id": "n4",
+        "name": "计算 RSI",
+        "type": "factor_compute",
+        "parameters": {
+          "factor_id": "rsi_14",
+          "compute_type": "rsi",
+          "params_json": "{\"window\": 14}",
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n5",
+        "name": "写入 RSI 因子",
+        "type": "factor_write",
+        "parameters": {
+          "factor_id": "rsi_14",
+          "db_path": "D:/data/factor_data.duckdb",
+          "write_mode": "upsert",
+          "register_meta": true
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2",
+        "n4"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n4": [
+        "n5"
+      ]
+    }
+  }
+}

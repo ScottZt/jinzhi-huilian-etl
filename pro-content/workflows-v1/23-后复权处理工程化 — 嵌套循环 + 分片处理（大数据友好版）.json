@@ -1,0 +1,94 @@
+{
+  "name": "后复权处理工程化 — 嵌套循环 + 分片处理（大数据友好版）",
+  "description": "采用嵌套循环架构：外层遍历 7 张表，内层遍历每个股票代码。每次只处理一只股票的数据，内存占用极低。从 baostock 拉取 fore+back 因子，输出未复权/前复权/后复权 3 张表。共 21 张目标表。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "设置表名列表",
+        "type": "set_variable",
+        "parameters": {
+          "var_name": "tables",
+          "var_value": "[\"dat_day\",\"dat_60mins\",\"dat_30mins\",\"dat_15mins\",\"dat_10mins\",\"dat_5mins\",\"dat_1mins\"]",
+          "value_type": "json"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "遍历表（外层循环）",
+        "type": "for_each",
+        "parameters": {
+          "items": "{{tables}}",
+          "item_var": "current_table",
+          "index_var": "table_index",
+          "max_iterations": 10
+        }
+      },
+      {
+        "id": "n3",
+        "name": "获取股票列表",
+        "type": "custom_python",
+        "parameters": {
+          "code": "import duckdb\nimport pandas as pd\n\ndef process(df, context=None):\n    \"\"\"获取当前表的所有股票代码，存入 context['codes']\"\"\"\n    SOURCE_DB = 'C:/duckdb/quantifydata.duckdb'\n    current_table = context.get('current_table', 'dat_day') if context else 'dat_day'\n    \n    print(f'[INFO] 获取表 {current_table} 的股票列表...')\n    \n    try:\n        conn = duckdb.connect(SOURCE_DB, read_only=True)\n        rows = conn.execute(f'SELECT DISTINCT code FROM {current_table}').fetchall()\n        conn.close()\n        \n        # 归一化股票代码\n        codes = []\n        for r in rows:\n            c = str(r[0]).strip().upper()\n            if '.' in c:\n                codes.append(c)\n            elif len(c) == 6 and c.isdigit():\n                market = 'SH' if c.startswith(('6', '9')) else 'SZ'\n                codes.append(f'{c}.{market}')\n        codes = sorted(set(codes))\n        \n        # 存入 context 供内层 for_each 使用\n        if context:\n            context['codes'] = codes\n        \n        print(f'[INFO] {current_table}: 共 {len(codes)} 只股票')\n        \n        # 返回状态\n        return pd.DataFrame([{\n            'table': current_table,\n            'code_count': len(codes),\n            'status': 'ok'\n        }])\n    except Exception as e:\n        print(f'[ERROR] 获取股票列表失败: {e}')\n        return pd.DataFrame([{'table': current_table, 'error': str(e)}])"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "遍历股票（内层循环）",
+        "type": "for_each",
+        "parameters": {
+          "items": "{{codes}}",
+          "item_var": "current_code",
+          "index_var": "code_index",
+          "max_iterations": 10000
+        }
+      },
+      {
+        "id": "n5",
+        "name": "处理单只股票复权",
+        "type": "custom_python",
+        "parameters": {
+          "code": "import duckdb\nimport pandas as pd\nimport baostock as bs\n\ndef normalize_code(c):\n    c = str(c).strip().upper()\n    if '.' in c:\n        return c\n    if len(c) == 6 and c.isdigit():\n        market = 'SH' if c.startswith(('6', '9')) else 'SZ'\n        return f'{c}.{market}'\n    return c\n\ndef to_baostock_code(c):\n    c = str(c).strip().upper()\n    if '.' in c:\n        code, market = c.split('.')\n        return f'{market.lower()}.{code}'\n    c = c.zfill(6)\n    return ('sh.' + c) if c.startswith(('6', '9')) else ('sz.' + c)\n\ndef process(df, context=None):\n    \"\"\"处理单只股票的复权计算\"\"\"\n    SOURCE_DB = 'C:/duckdb/quantifydata.duckdb'\n    TARGET_DB = 'C:/duckdb/quantifydata_adj.duckdb'\n    \n    current_table = context.get('current_table', 'dat_day') if context else 'dat_day'\n    current_code = context.get('current_code', '') if context else ''\n    \n    if not current_code:\n        return pd.DataFrame([{'error': 'current_code is empty'}])\n    \n    code = normalize_code(current_code)\n    bare_code = code.split('.')[0] if '.' in code else code\n    \n    tbl_raw = current_table + '_raw'\n    tbl_qfq = current_table + '_qfq'\n    tbl_hfq = current_table + '_hfq'\n    \n    try:\n        # 1) 读取该股票的数据\n        src = duckdb.connect(SOURCE_DB, read_only=True)\n        chunk = src.execute(f'''\n            SELECT code, trade_time, open, high, low, close, vol, amount\n            FROM {current_table}\n            WHERE UPPER(code) = ?\n            ORDER BY trade_time\n        ''', [code]).fetchdf()\n        src.close()\n        \n        if chunk.empty:\n            return pd.DataFrame([{'code': code, 'status': 'skip', 'reason': 'no data'}])\n        \n        # 2) 转换数据类型\n        for c in ['open', 'high', 'low', 'close', 'amount']:\n            if c in chunk.columns and chunk[c].dtype == object:\n                chunk[c] = pd.to_numeric(chunk[c], errors='coerce')\n        if 'vol' in chunk.columns and chunk['vol'].dtype == object:\n            chunk['vol'] = pd.to_numeric(chunk['vol'], errors='coerce').astype('Int64')\n        \n        # 3) 拉取复权因子\n        lg = bs.login()\n        fore_factor = 1.0\n        back_factor = 1.0\n        \n        rs = bs.query_adjust_factor(\n            code=to_baostock_code(code),\n            start_date='2000-01-01',\n            end_date='2030-12-31'\n        )\n        factors = []\n        while rs.next():\n            r = rs.get_row_data()\n            if r[2] and r[2] != '' and r[3] and r[3] != '':\n                factors.append({'dt': r[1], 'fore': float(r[2]), 'back': float(r[3])})\n        bs.logout()\n        \n        # 4) 合并因子（日频因子广播到分钟级）\n        if factors:\n            factor_df = pd.DataFrame(factors)\n            factor_df['dt'] = pd.to_datetime(factor_df['dt'])\n            \n            chunk_dt = pd.to_datetime(chunk['trade_time'], utc=True).dt.tz_convert('Asia/Shanghai').dt.tz_localize(None)\n            chunk['day_key'] = chunk_dt.dt.floor('D').astype('int64') // (24 * 3600 * 10**9)\n            factor_df['day_key'] = factor_df['dt'].dt.floor('D').astype('int64') // (24 * 3600 * 10**9)\n            \n            merged = pd.merge_asof(\n                chunk[['day_key']].sort_values('day_key'),\n                factor_df[['day_key', 'fore', 'back']].sort_values('day_key'),\n                on='day_key',\n                direction='backward'\n            )\n            chunk['fore'] = merged['fore'].ffill().bfill().values\n            chunk['back'] = merged['back'].ffill().bfill().values\n        else:\n            chunk['fore'] = 1.0\n            chunk['back'] = 1.0\n        \n        # 5) 计算复权价格\n        chunk['open_qfq'] = (chunk['open'] * chunk['fore']).round(3)\n        chunk['high_qfq'] = (chunk['high'] * chunk['fore']).round(3)\n        chunk['low_qfq'] = (chunk['low'] * chunk['fore']).round(3)\n        chunk['close_qfq'] = (chunk['close'] * chunk['fore']).round(3)\n        chunk['open_hfq'] = (chunk['open'] * chunk['back']).round(3)\n        chunk['high_hfq'] = (chunk['high'] * chunk['back']).round(3)\n        chunk['low_hfq'] = (chunk['low'] * chunk['back']).round(3)\n        chunk['close_hfq'] = (chunk['close'] * chunk['back']).round(3)\n        \n        # 6) 写入目标表\n        tgt = duckdb.connect(TARGET_DB)\n        \n        # 建表（如果不存在）\n        tgt.execute(f'''\n            CREATE TABLE IF NOT EXISTS {tbl_raw} (\n                code VARCHAR, trade_time TIMESTAMPTZ,\n                open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE,\n                vol BIGINT, amount DOUBLE\n            )\n        ''')\n        tgt.execute(f'''\n            CREATE TABLE IF NOT EXISTS {tbl_qfq} (\n                code VARCHAR, trade_time TIMESTAMPTZ,\n                open_qfq DOUBLE, high_qfq DOUBLE, low_qfq DOUBLE, close_qfq DOUBLE,\n                vol BIGINT, amount DOUBLE\n            )\n        ''')\n        tgt.execute(f'''\n            CREATE TABLE IF NOT EXISTS {tbl_hfq} (\n                code VARCHAR, trade_time TIMESTAMPTZ,\n                open_hfq DOUBLE, high_hfq DOUBLE, low_hfq DOUBLE, close_hfq DOUBLE,\n                vol BIGINT, amount DOUBLE\n            )\n        ''')\n        \n        # 写入数据\n        chunk_raw = chunk[['code', 'trade_time', 'open', 'high', 'low', 'close', 'vol', 'amount']].copy()\n        chunk_qfq = chunk[['code', 'trade_time', 'open_qfq', 'high_qfq', 'low_qfq', 'close_qfq', 'vol', 'amount']].copy()\n        chunk_hfq = chunk[['code', 'trade_time', 'open_hfq', 'high_hfq', 'low_hfq', 'close_hfq', 'vol', 'amount']].copy()\n        \n        tgt.execute(f'INSERT INTO {tbl_raw} SELECT *, ? as code FROM chunk_raw', [code])\n        tgt.execute(f'INSERT INTO {tbl_qfq} SELECT * FROM chunk_qfq')\n        tgt.execute(f'INSERT INTO {tbl_hfq} SELECT * FROM chunk_hfq')\n        tgt.close()\n        \n        row_count = len(chunk)\n        return pd.DataFrame([{\n            'table': current_table,\n            'code': code,\n            'rows': row_count,\n            'status': 'ok'\n        }])\n        \n    except Exception as e:\n        return pd.DataFrame([{'table': current_table, 'code': code, 'status': 'error', 'error': str(e)}])"
+        }
+      },
+      {
+        "id": "n6",
+        "name": "股票间隔等待",
+        "type": "wait",
+        "parameters": {
+          "seconds": 0.1,
+          "mode": "delay"
+        }
+      },
+      {
+        "id": "n7",
+        "name": "表间隔等待",
+        "type": "wait",
+        "parameters": {
+          "seconds": 2,
+          "mode": "delay"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n3": [
+        "n4"
+      ],
+      "n4": [
+        "n5"
+      ],
+      "n5": [
+        "n6"
+      ],
+      "n6": [
+        "n7"
+      ]
+    }
+  }
+}

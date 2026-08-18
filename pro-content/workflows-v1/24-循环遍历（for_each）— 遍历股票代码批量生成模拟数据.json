@@ -1,0 +1,57 @@
+{
+  "name": "循环遍历（for_each）— 遍历股票代码批量生成模拟数据",
+  "description": "演示 `for_each` 节点的基本用法：外层用 `set_variable` 设置一组股票代码，`for_each` 逐个注入 `current_code` 到 context，下游 `custom_python` 读取当前代码生成 30 行模拟 K 线。每只股票处理完等待 0.2s 模拟 API 限流。最终合并为 120 行数据（4 只股票 × 30 行）。。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "设置股票代码列表",
+        "type": "set_variable",
+        "parameters": {
+          "var_name": "codes",
+          "var_value": "[\"000001\",\"600000\",\"000002\",\"300750\"]",
+          "value_type": "json"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "遍历股票代码",
+        "type": "for_each",
+        "parameters": {
+          "items": "{{codes}}",
+          "item_var": "current_code",
+          "index_var": "code_index",
+          "max_iterations": 100
+        }
+      },
+      {
+        "id": "n3",
+        "name": "生成该股票模拟K线",
+        "type": "custom_python",
+        "parameters": {
+          "code": "import pandas as pd\nfrom datetime import datetime, timedelta\n\ndef process(df, context=None):\n    \"\"\"根据 context['current_code'] 生成 30 行模拟 K 线\"\"\"\n    ctx = context or {}\n    code = ctx.get('current_code', '000001')\n    idx = ctx.get('code_index', 0)\n\n    # 不同股票用不同的基准价，便于区分\n    base_prices = {'000001': 12.0, '600000': 8.5, '000002': 15.0, '300750': 220.0}\n    base = base_prices.get(code, 10.0 + idx)\n\n    base_time = datetime(2026, 8, 12, 9, 30)\n    rows = []\n    for i in range(30):\n        p = round(base + i * 0.01, 2)\n        rows.append({\n            'code': code,\n            'dt': base_time + timedelta(minutes=i),\n            'open': p,\n            'high': round(p + 0.05, 2),\n            'low':  round(p - 0.03, 2),\n            'close': round(p + 0.02, 2),\n            'volume': 1000 + i * 10,\n        })\n\n    print(f'[INFO] 生成 {code} 模拟K线 {len(rows)} 行')\n    return pd.DataFrame(rows)"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "等待0.2秒（模拟限流）",
+        "type": "wait",
+        "parameters": {
+          "seconds": 0.2,
+          "mode": "delay"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n3": [
+        "n4"
+      ]
+    }
+  }
+}

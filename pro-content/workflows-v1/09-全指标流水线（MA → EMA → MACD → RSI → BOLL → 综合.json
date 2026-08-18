@@ -1,0 +1,100 @@
+{
+  "name": "全指标流水线（MA → EMA → MACD → RSI → BOLL → 综合过滤）",
+  "description": "一条流水线测试全部技术指标，验证数据流通畅性。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "MA均线",
+        "type": "ma",
+        "parameters": {
+          "windows": "5,10,20",
+          "source_column": "close",
+          "use_ema": false
+        }
+      },
+      {
+        "id": "n2",
+        "name": "EMA均线",
+        "type": "ma",
+        "parameters": {
+          "windows": "12,26",
+          "source_column": "close",
+          "use_ema": true
+        }
+      },
+      {
+        "id": "n3",
+        "name": "MACD",
+        "type": "macd",
+        "parameters": {
+          "fast": 12,
+          "slow": 26,
+          "signal": 9,
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n4",
+        "name": "RSI",
+        "type": "rsi",
+        "parameters": {
+          "window": 14,
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n5",
+        "name": "布林带",
+        "type": "boll",
+        "parameters": {
+          "window": 20,
+          "std_mult": 2,
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n6",
+        "name": "综合过滤",
+        "type": "filter",
+        "parameters": {
+          "mode": "keep",
+          "conditions": [
+            {
+              "column": "ma_20",
+              "operator": "is_not_null",
+              "value": ""
+            },
+            {
+              "column": "macd",
+              "operator": "is_not_null",
+              "value": ""
+            },
+            {
+              "column": "rsi",
+              "operator": "is_not_null",
+              "value": ""
+            }
+          ]
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n3": [
+        "n4"
+      ],
+      "n4": [
+        "n5"
+      ],
+      "n5": [
+        "n6"
+      ]
+    }
+  }
+}

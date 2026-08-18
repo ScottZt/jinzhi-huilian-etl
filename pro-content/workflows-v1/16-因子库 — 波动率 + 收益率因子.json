@@ -1,0 +1,79 @@
+{
+  "name": "因子库 — 波动率 + 收益率因子",
+  "description": "计算 1 日收益率和 20 日年化波动率因子。这类统计因子在量化策略中广泛使用。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "拉取日 K 线",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "tdx",
+          "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+          "codes": "000001",
+          "interval": "D",
+          "time_mode": "lookback",
+          "lookback_days": 100,
+          "parallel": false,
+          "session_only": false
+        }
+      },
+      {
+        "id": "n2",
+        "name": "计算 1 日收益率",
+        "type": "factor_compute",
+        "parameters": {
+          "factor_id": "ret_1d",
+          "compute_type": "return",
+          "params_json": "{\"window\": 1}",
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入收益率因子",
+        "type": "factor_write",
+        "parameters": {
+          "factor_id": "ret_1d",
+          "db_path": "D:/data/factor_data.duckdb",
+          "write_mode": "upsert",
+          "register_meta": true
+        }
+      },
+      {
+        "id": "n4",
+        "name": "计算 20 日波动率",
+        "type": "factor_compute",
+        "parameters": {
+          "factor_id": "volatility_20",
+          "compute_type": "volatility",
+          "params_json": "{\"window\": 20}",
+          "source_column": "close"
+        }
+      },
+      {
+        "id": "n5",
+        "name": "写入波动率因子",
+        "type": "factor_write",
+        "parameters": {
+          "factor_id": "volatility_20",
+          "db_path": "D:/data/factor_data.duckdb",
+          "write_mode": "upsert",
+          "register_meta": true
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2",
+        "n4"
+      ],
+      "n2": [
+        "n3"
+      ],
+      "n4": [
+        "n5"
+      ]
+    }
+  }
+}

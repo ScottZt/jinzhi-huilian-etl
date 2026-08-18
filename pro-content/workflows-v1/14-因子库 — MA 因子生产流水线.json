@@ -1,0 +1,58 @@
+{
+  "name": "因子库 — MA 因子生产流水线",
+  "description": "从数据源拉取日 K 线，计算 MA5/MA10/MA20 均线因子，写入 DuckDB 因子库。这是因子库的基础生产流程。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "拉取日 K 线",
+        "type": "source_fetch",
+        "parameters": {
+          "source_type": "tdx",
+          "source_config": "{\"data_dir\": \"D:/new_tdx64/vipdoc\"}",
+          "codes": "000001,600000,000002",
+          "interval": "D",
+          "time_mode": "lookback",
+          "lookback_days": 60,
+          "parallel": false,
+          "session_only": false
+        }
+      },
+      {
+        "id": "n2",
+        "name": "计算 MA5 因子",
+        "type": "factor_compute",
+        "parameters": {
+          "factor_id": "ma_5",
+          "compute_type": "ma",
+          "params_json": "{\"window\": 5}",
+          "source_column": "close",
+          "code_column": "code",
+          "date_column": "dt"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入因子库",
+        "type": "factor_write",
+        "parameters": {
+          "factor_id": "ma_5",
+          "db_path": "D:/data/factor_data.duckdb",
+          "write_mode": "upsert",
+          "code_column": "code",
+          "date_column": "dt",
+          "value_column": "factor_value",
+          "register_meta": true
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ]
+    }
+  }
+}

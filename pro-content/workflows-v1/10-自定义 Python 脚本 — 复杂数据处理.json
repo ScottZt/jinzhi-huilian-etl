@@ -1,0 +1,30 @@
+{
+  "name": "自定义 Python 脚本 — 复杂数据处理",
+  "description": "测试自定义 Python 脚本节点的沙箱执行能力。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "自定义: K线形态识别",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    # 识别十字星: 实体很小, 上下影线较长\n    body = abs(df['close'] - df['open'])\n    upper_shadow = df['high'] - df[['close', 'open']].max(axis=1)\n    lower_shadow = df[['close', 'open']].min(axis=1) - df['low']\n    avg_body = body.rolling(20).mean()\n    df['is_doji'] = (body < avg_body * 0.1) & (upper_shadow > body * 2) & (lower_shadow > body * 2)\n    # 计算ATR\n    df['tr'] = np.maximum(df['high'] - df['low'],\n                          np.maximum(abs(df['high'] - df['close'].shift(1)),\n                                     abs(df['low'] - df['close'].shift(1))))\n    df['atr'] = df['tr'].rolling(14).mean()\n    return df"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "过滤十字星",
+        "type": "condition",
+        "parameters": {
+          "condition": "df['is_doji'] == True",
+          "branch": "true"
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ]
+    }
+  }
+}

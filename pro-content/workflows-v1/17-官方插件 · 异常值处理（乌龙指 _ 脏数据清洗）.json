@@ -1,0 +1,48 @@
+{
+  "name": "官方插件 · 异常值处理（乌龙指 / 脏数据清洗）",
+  "description": "演示官方精选插件 `outlier_handler`。造一段含异常值的价格数据（第 10 行 5 倍 / 第 30 行 0.1 倍），用 MAD 方法截断到合理范围。",
+  "workflow_json": {
+    "nodes": [
+      {
+        "id": "n1",
+        "name": "生成含异常值数据",
+        "type": "custom_python",
+        "parameters": {
+          "code": "def process(df):\n    import pandas as pd, numpy as np\n    np.random.seed(42)\n    n = 60\n    dates = pd.bdate_range(end='2026-07-22', periods=n)\n    price = 10 * np.cumprod(1 + np.random.normal(0, 0.02, n))\n    price[10] *= 5     # 乌龙指\n    price[30] *= 0.1   # 数据源错误\n    return pd.DataFrame({\n        'code': '000001', 'dt': dates,\n        'open': price * (1 + np.random.normal(0, 0.005, n)),\n        'high': price * (1 + np.abs(np.random.normal(0, 0.01, n))),\n        'low':  price * (1 - np.abs(np.random.normal(0, 0.01, n))),\n        'close': price,\n        'vol': np.random.randint(500, 5000, n).astype(float),\n    })"
+        }
+      },
+      {
+        "id": "n2",
+        "name": "MAD 异常值截断",
+        "type": "outlier_handler",
+        "parameters": {
+          "columns": "open,high,low,close",
+          "method": "mad",
+          "threshold": 3.5,
+          "action": "clip"
+        }
+      },
+      {
+        "id": "n3",
+        "name": "写入DuckDB",
+        "type": "target_write",
+        "parameters": {
+          "target_type": "duckdb",
+          "target_config": "{\"db_path\": \"D:/data/official_demo.db\"}",
+          "target_table": "official_outlier_demo",
+          "batch_size": 5000,
+          "on_duplicate": "replace",
+          "columns": ""
+        }
+      }
+    ],
+    "connections": {
+      "n1": [
+        "n2"
+      ],
+      "n2": [
+        "n3"
+      ]
+    }
+  }
+}
