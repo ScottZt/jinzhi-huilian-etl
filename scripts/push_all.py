@@ -119,7 +119,6 @@ def push_all(args):
         "scripts/pack_jspack.py",
         "scripts/export_pro_workflows.py",
         "scripts/gen_example_docs.py",
-        "scripts/push_all.py",
         "pro-content",
         "dist/pro-pack-v1.jspack",
     ]
