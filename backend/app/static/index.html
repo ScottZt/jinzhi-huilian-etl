@@ -7829,20 +7829,72 @@ const EXAMPLE_DOCS = {
 // ---------- 简单 Markdown 渲染 ----------
 function renderMarkdown(md) {
   if (!md) return '';
-  let html = md
+
+  // 先处理表格（行处理方式，避免正则贪婪匹配）
+  const lines = md.split('\n');
+  const processedLines = [];
+  let inTable = false;
+  let tableBuffer = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith('|') && !inTable) {
+      inTable = true;
+      tableBuffer = [line];
+    } else if (inTable && line.startsWith('|')) {
+      tableBuffer.push(line);
+    } else if (inTable && line.trim() === '') {
+      inTable = false;
+      if (tableBuffer.length >= 3) {
+        const header = tableBuffer[0].split('|').map(h => h.trim()).filter(Boolean);
+        const rows = tableBuffer.slice(2).map(row =>
+          row.split('|').map(c => c.trim()).filter(Boolean)
+        );
+        const ths = header.map(h => `<th>${h}</th>`).join('');
+        const trs = rows.map(row =>
+          `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`
+        ).join('');
+        processedLines.push(`<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`);
+      }
+      tableBuffer = [];
+    } else {
+      if (inTable) {
+        inTable = false;
+        if (tableBuffer.length >= 3) {
+          const header = tableBuffer[0].split('|').map(h => h.trim()).filter(Boolean);
+          const rows = tableBuffer.slice(2).map(row =>
+            row.split('|').map(c => c.trim()).filter(Boolean)
+          );
+          const ths = header.map(h => `<th>${h}</th>`).join('');
+          const trs = rows.map(row =>
+            `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`
+          ).join('');
+          processedLines.push(`<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`);
+        }
+        tableBuffer = [];
+      }
+      processedLines.push(line);
+    }
+  }
+
+  if (inTable && tableBuffer.length >= 3) {
+    const header = tableBuffer[0].split('|').map(h => h.trim()).filter(Boolean);
+    const rows = tableBuffer.slice(2).map(row =>
+      row.split('|').map(c => c.trim()).filter(Boolean)
+    );
+    const ths = header.map(h => `<th>${h}</th>`).join('');
+    const trs = rows.map(row =>
+      `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`
+    ).join('');
+    processedLines.push(`<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`);
+  }
+
+  let html = processedLines.join('\n')
     // 代码块
     .replace(/\`\`\`([\s\S]*?)\`\`\`/g, (_, code) => `<pre><code>${escapeHtml(code.trim())}</code></pre>`)
     // 行内代码
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // 表格
-    .replace(/^\|(.+)\|\s*\n\|[-|\s:]+\|\s*\n((?:\|.+\|\s*\n)*)/gm, (_, header, body) => {
-      const ths = header.split('|').map(h => h.trim()).filter(Boolean).map(h => `<th>${h}</th>`).join('');
-      const rows = body.trim().split('\n').map(row => {
-        const tds = row.split('|').map(c => c.trim()).filter(Boolean).map(c => `<td>${c}</td>`).join('');
-        return `<tr>${tds}</tr>`;
-      }).join('');
-      return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
-    })
     // 标题（h1-h4）
     .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -7860,7 +7912,7 @@ function renderMarkdown(md) {
     .replace(/<\/ul>\s*<ul>/g, '')
     // 分隔线
     .replace(/^---$/gm, '<hr>')
-    // 段落：只在非 HTML 标签的换行处添加 <br>
+    // 换行
     .replace(/\n(?!(?:<h[1-4]|<table|<pre|<ul|<hr))/g, '<br>');
   return html;
 }
