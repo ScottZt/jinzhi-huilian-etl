@@ -412,6 +412,13 @@ def delete_workflow(workflow_id: str) -> bool:
     return _workflow_repo.delete(workflow_id)
 
 
+def delete_workflow_by_name(name: str) -> int:
+    """按工作流名称删除（用于内容包重新导入时清理旧工作流）。"""
+    with _get_db() as conn:
+        cursor = conn.execute("DELETE FROM workflows WHERE name = ?", (name,))
+        return cursor.rowcount
+
+
 # ---- Example Docs CRUD (教程) ----
 
 def save_example_doc(data: Dict[str, Any]) -> Dict[str, Any]:

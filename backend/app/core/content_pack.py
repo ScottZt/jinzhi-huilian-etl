@@ -218,13 +218,30 @@ def import_pack(
     #   - "导入示例"界面的专业版区域显示状态来自 _installed_packs，不是 DB workflows
     from app.persistence import sqlite_repo
 
+    pack_name = manifest.get("name", "")
+
+    # 判断是否为同一包的重新导入（包名匹配且非补丁）
+    is_reimport = False
+    if not is_patch and pack_name:
+        installed = get_installed_packs()
+        is_reimport = any(p.get("name") == pack_name for p in installed)
+
     if is_patch:
         # 补丁模式：只跳过「基础包内的工作流名」，允许其他新增工作流导入
         base_names = _collect_base_workflow_names(base_version)
         skip_names = base_names
-    elif overwrite_existing:
-        # 强制覆盖：不跳过
+    elif overwrite_existing or is_reimport:
+        # 强制覆盖 或 同一包重新导入：不跳过
         skip_names = set()
+        # 如果是重新导入，先删除该包在 DB 中的旧工作流（按包名记录的 workflow_names 匹配）
+        if is_reimport and pack_name:
+            installed = get_installed_packs()
+            for p in installed:
+                if p.get("name") == pack_name:
+                    old_names = p.get("workflow_names", [])
+                    for old_name in old_names:
+                        sqlite_repo.delete_workflow_by_name(old_name)
+                    break
     else:
         # 基础包模式（默认）：跳过「已导入过的内容包内的工作流名」
         skip_names = _collect_all_installed_workflow_names()
@@ -302,6 +319,7 @@ def import_pack(
         "docs_imported": docs_imported,
         "manifest": manifest,
         "is_patch": is_patch,
+        "is_reimport": is_reimport,
         "base_version": base_version,
         "skipped_by_base": skipped_by_base,
     }
