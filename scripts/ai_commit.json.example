@@ -1,6 +1,0 @@
-{
-  "api_key": "在此填写你的 API 密钥",
-  "base_url": "https://api.openai.com/v1",
-  "model": "gpt-4o-mini",
-  "language": "zh"
-}
