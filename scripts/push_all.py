@@ -108,7 +108,7 @@ def push_all(args):
         run("git checkout open-source")
         run("git merge main --no-edit")
 
-    # 清理敏感内容
+    # 清理敏感内容（所有与仓库发布相关的脚本）
     files_to_remove = [
         "backend/plugins/official_divergence.py",
         "backend/plugins/official_drawdown.py",
@@ -119,6 +119,9 @@ def push_all(args):
         "scripts/pack_jspack.py",
         "scripts/export_pro_workflows.py",
         "scripts/gen_example_docs.py",
+        "scripts/push_all.py",
+        "scripts/ai_commit.py",
+        "scripts/ai_commit.json.example",
         "pro-content",
         "dist/pro-pack-v1.jspack",
     ]
