@@ -35,6 +35,52 @@ def get_git_info() -> dict:
     return {"branch": branch, "dirty": bool(status), "status": status}
 
 
+def ai_commit() -> bool:
+    """调用 AI 生成 commit message 并自动提交。返回是否成功。"""
+    print()
+    print("[自动 AI commit]")
+
+    # 先 add 所有更改
+    run("git add -A", check=False)
+
+    # 检查是否有更改
+    result = run("git diff --staged --quiet", check=False)
+    if result.returncode == 0:
+        print("[SKIP] 没有更改需要提交")
+        return False
+
+    # 调用 ai_commit.py
+    ai_script = Path(__file__).parent / "ai_commit.py"
+    if not ai_script.exists():
+        print("[WARN] ai_commit.py 不存在，使用默认 commit message")
+        run('git commit -m "chore: 更新代码"', check=False)
+        return False
+
+    try:
+        # 使用 --message "" 让 ai_commit.py 自动生成（不手动输入）
+        result = subprocess.run(
+            [sys.executable, str(ai_script), "--message", ""],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0:
+            print("[OK] AI 生成 commit message 并自动提交")
+            return True
+        else:
+            print(f"[WARN] AI commit 失败: {result.stderr[:100]}")
+            print("     使用默认 commit message")
+            run('git commit -m "chore: 更新代码"', check=False)
+            return False
+    except subprocess.TimeoutExpired:
+        print("[WARN] AI commit 超时，使用默认 commit message")
+        run('git commit -m "chore: 更新代码"', check=False)
+        return False
+    except Exception as e:
+        print(f"[WARN] AI commit 异常: {e}")
+        print("     使用默认 commit message")
+        run('git commit -m "chore: 更新代码"', check=False)
+        return False
+
+
 def security_check() -> list[str]:
     """在 open-source 分支执行安全检查，返回失败项列表。"""
     failures = []
@@ -72,9 +118,9 @@ def push_all(args):
     print(f"[工作目录] {repo_root}")
     print()
 
-    # ========== 阶段 1：main 分支推送 ==========
+    # ========== 阶段 0：AI 自动 commit ==========
     print("=" * 60)
-    print(" 阶段 1：推送 main → Gitee")
+    print(" 阶段 0：AI 自动 commit（如有未提交更改）")
     print("=" * 60)
 
     info = get_git_info()
@@ -83,12 +129,19 @@ def push_all(args):
         sys.exit(1)
 
     if info["dirty"]:
-        print("[ERROR] main 分支有未提交的更改，请先 commit")
-        print(info["status"])
-        sys.exit(1)
-
-    print("[OK] main 分支干净")
+        print("[检测到未提交的更改]")
+        if not args.dry_run:
+            ai_commit()
+        else:
+            print("[DRY-RUN] 将调用 AI 生成 commit message")
+    else:
+        print("[OK] main 分支干净，跳过 commit")
     print()
+
+    # ========== 阶段 1：main 分支推送 ==========
+    print("=" * 60)
+    print(" 阶段 1：推送 main → Gitee")
+    print("=" * 60)
 
     if args.dry_run:
         print("[DRY-RUN] git push 金汇智连 main")
